@@ -26,7 +26,7 @@ class EmployeeController extends ApiController
             fn () => $this->applyFilters(
                 Employee::query()
                     ->with(['user', 'designation'])
-                    ->withCount(['familyMembers', 'bankAccounts'])
+                    ->withCount(['familyMembers', 'bankAccounts', 'documents'])
                     ->visibleTo($request->user()),
                 $request,
                 ['employee_code', 'personal_email', 'pan_number'],
@@ -55,7 +55,7 @@ class EmployeeController extends ApiController
         return ApiResponse::success(
             new EmployeeResource(
                 $employee->load(['user.roles', 'designation', 'reportingManager'])
-                    ->loadCount(['familyMembers', 'bankAccounts'])
+                    ->loadCount(['familyMembers', 'bankAccounts', 'documents'])
             ),
             'Employee details fetched successfully'
         );

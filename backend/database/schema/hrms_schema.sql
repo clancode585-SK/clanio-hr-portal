@@ -519,7 +519,7 @@ INSERT INTO `role_permissions` (`role_id`, `permission_id`, `created_at`, `updat
 SELECT r.`id`, p.`id`, NOW(), NOW() FROM `roles` r CROSS JOIN `permissions` p WHERE r.`slug` = 'super_admin';
 
 INSERT INTO `users` (`uuid`, `company_id`, `name`, `email`, `password`, `is_super_admin`, `status`, `created_at`, `updated_at`) VALUES
-(UUID(), NULL, 'Platform Super Admin', 'superadmin@clanio.com', '$2y$12$WwmUTZYyC9mCP3Be7fr0p.EvmwdskUeX4l/wTq7tTJcnc2Ezpfr0O', 1, 'active', NOW(), NOW());
+(UUID(), NULL, 'Platform Super Admin', 'superadmin@clanio.com', '$2y$12$Pbd1xeIK/7H52Bu.3kWdXuSoOhBFty.lvHJduQ939m3rsirkq5z.i', 1, 'active', NOW(), NOW());
 
 INSERT INTO `user_roles` (`user_id`, `role_id`, `company_id`, `created_at`, `updated_at`)
 SELECT u.`id`, r.`id`, NULL, NOW(), NOW()

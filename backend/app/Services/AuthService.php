@@ -5,12 +5,17 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Exceptions\ApiException;
+use App\Mail\PasswordResetMail;
 use App\Models\ApiToken;
 use App\Models\Company;
 use App\Models\LoginAttempt;
+use App\Models\PasswordResetToken;
 use App\Models\User;
+use App\Support\Scopes\CompanyScope;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Mail;
 
 final class AuthService
 {
@@ -68,9 +73,64 @@ final class AuthService
         $user->revokeTokens();
     }
 
+    public function forgotPassword(array $data, Request $request): void
+    {
+        $user = $this->findForReset($data['email'], $data['company_slug'] ?? null);
+
+        if ($user === null || ! $user->isActive()) {
+            return;
+        }
+
+        $token = PasswordResetToken::issue($user, $request->ip(), $this->config('reset_minutes', 60));
+
+        Mail::to($user->email)->send(new PasswordResetMail($user, $token));
+    }
+
+    public function resetPassword(array $data): void
+    {
+        $reset = PasswordResetToken::findValid($data['token']);
+
+        if ($reset === null) {
+            throw new ApiException('This reset link is invalid or has expired.', 422, 'RESET_TOKEN_INVALID');
+        }
+
+        $user = User::query()
+            ->withoutGlobalScope(CompanyScope::class)
+            ->whereKey($reset->user_id)
+            ->first();
+
+        if ($user === null || ! $user->isActive()) {
+            throw new ApiException('This account can no longer be reset.', 422, 'RESET_TOKEN_INVALID');
+        }
+
+        DB::transaction(function () use ($user, $reset, $data): void {
+            $user->forceFill([
+                'password' => $data['password'],
+                'failed_login_attempts' => 0,
+                'locked_until' => null,
+            ])->save();
+
+            $user->revokeTokens();
+            $reset->consume();
+        });
+    }
+
+    private function findForReset(string $email, ?string $companySlug): ?User
+    {
+        $query = User::query()->withoutGlobalScope(CompanyScope::class)->where('email', $email);
+
+        if (! empty($companySlug)) {
+            $query->where('company_id', Company::query()->where('slug', $companySlug)->value('id'));
+        }
+
+        $users = $query->get();
+
+        return $users->count() === 1 ? $users->first() : null;
+    }
+
     private function resolveUser(string $email, ?string $companySlug, Request $request): User
     {
-        $query = User::query()->withoutGlobalScopes()->where('email', $email);
+        $query = User::query()->withoutGlobalScope(CompanyScope::class)->where('email', $email);
 
         if (! empty($companySlug)) {
             $companyId = Company::query()->where('slug', $companySlug)->value('id');

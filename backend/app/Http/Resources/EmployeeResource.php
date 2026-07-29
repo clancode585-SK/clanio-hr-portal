@@ -38,6 +38,7 @@ class EmployeeResource extends JsonResource
             'pan_number' => $this->pan_number,
 
             'designation_id' => $this->designation_id,
+            'work_shift_id' => $this->work_shift_id,
             'reporting_manager_id' => $this->reporting_manager_id,
 
             'onboarding' => [
@@ -46,14 +47,17 @@ class EmployeeResource extends JsonResource
                     'personal' => true,
                     'family' => $this->whenCounted('familyMembers', fn (int $count): bool => $count > 0),
                     'bank' => $this->whenCounted('bankAccounts', fn (int $count): bool => $count > 0),
+                    'documents' => $this->whenCounted('documents', fn (int $count): bool => $count > 0),
                 ],
             ],
 
             'user' => new UserResource($this->whenLoaded('user')),
             'designation' => new DesignationResource($this->whenLoaded('designation')),
+            'work_shift' => new WorkShiftResource($this->whenLoaded('workShift')),
             'reporting_manager' => new UserResource($this->whenLoaded('reportingManager')),
             'family_members' => EmployeeFamilyMemberResource::collection($this->whenLoaded('familyMembers')),
             'bank_accounts' => EmployeeBankAccountResource::collection($this->whenLoaded('bankAccounts')),
+            'documents' => EmployeeDocumentResource::collection($this->whenLoaded('documents')),
 
             'created_at' => $this->created_at,
         ];

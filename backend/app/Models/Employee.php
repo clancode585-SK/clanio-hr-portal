@@ -28,6 +28,7 @@ class Employee extends Model
     protected $fillable = [
         'employee_code',
         'designation_id',
+        'work_shift_id',
         'reporting_manager_id',
         'date_of_joining',
         'employment_type',
@@ -86,6 +87,11 @@ class Employee extends Model
         return $this->belongsTo(Designation::class);
     }
 
+    public function workShift(): BelongsTo
+    {
+        return $this->belongsTo(WorkShift::class);
+    }
+
     public function reportingManager(): BelongsTo
     {
         return $this->belongsTo(User::class, 'reporting_manager_id');
@@ -99,6 +105,11 @@ class Employee extends Model
     public function bankAccounts(): HasMany
     {
         return $this->hasMany(EmployeeBankAccount::class);
+    }
+
+    public function documents(): HasMany
+    {
+        return $this->hasMany(EmployeeDocument::class);
     }
 
     public function isOnboardingComplete(): bool

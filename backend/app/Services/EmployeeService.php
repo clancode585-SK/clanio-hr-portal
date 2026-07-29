@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Exceptions\ApiException;
 use App\Models\Employee;
+use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Support\TenantCache;
 use Illuminate\Support\Arr;
@@ -81,6 +82,12 @@ final class EmployeeService
 
         if ($employee->designation_id === null) {
             $missing[] = 'designation';
+        }
+
+        $uploaded = $employee->documents()->pluck('type')->unique()->all();
+
+        foreach (array_diff(EmployeeDocument::REQUIRED_FOR_ONBOARDING, $uploaded) as $type) {
+            $missing[] = EmployeeDocument::TYPES[$type] ?? $type;
         }
 
         if ($missing !== []) {

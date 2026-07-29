@@ -32,6 +32,8 @@ class EmployeeRequest extends FormRequest
                     Rule::unique('employees', 'employee_code')->where('company_id', $companyId)->whereNull('deleted_at')->ignore($employeeId)],
                 'designation_id' => ['nullable', 'integer',
                     Rule::exists('designations', 'id')->where('company_id', $companyId)->whereNull('deleted_at')],
+                'work_shift_id' => ['nullable', 'integer',
+                    Rule::exists('work_shifts', 'id')->where('company_id', $companyId)->whereNull('deleted_at')],
                 'reporting_manager_id' => ['nullable', 'integer',
                     Rule::exists('users', 'id')->where('company_id', $companyId)->whereNull('deleted_at')],
                 'date_of_joining' => [$required, 'date'],

@@ -20,6 +20,12 @@ final class TenantCache
 
     public const EMPLOYEES = 'employees';
 
+    public const ATTENDANCE = 'attendance';
+
+    public const WORK_SHIFTS = 'work_shifts';
+
+    public const HOLIDAYS = 'holidays';
+
     public const ROLES = 'roles';
 
     public const USERS = 'users';

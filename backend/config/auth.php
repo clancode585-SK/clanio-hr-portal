@@ -24,6 +24,7 @@ return [
         'lifetime' => (int) env('AUTH_TOKEN_LIFETIME', 10080),
         'max_login_attempts' => (int) env('AUTH_MAX_LOGIN_ATTEMPTS', 5),
         'lock_minutes' => (int) env('AUTH_LOCK_MINUTES', 15),
+        'reset_minutes' => (int) env('AUTH_RESET_MINUTES', 60),
     ],
 
     /*

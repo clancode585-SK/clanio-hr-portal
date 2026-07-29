@@ -3,25 +3,43 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Company\AttendanceController;
 use App\Http\Controllers\Company\BranchController;
 use App\Http\Controllers\Company\CompanyController;
 use App\Http\Controllers\Company\DepartmentController;
 use App\Http\Controllers\Company\DesignationController;
 use App\Http\Controllers\Company\EmployeeBankAccountController;
 use App\Http\Controllers\Company\EmployeeController;
+use App\Http\Controllers\Company\EmployeeDocumentController;
 use App\Http\Controllers\Company\EmployeeFamilyController;
+use App\Http\Controllers\Company\HolidayController;
 use App\Http\Controllers\Company\RoleController;
 use App\Http\Controllers\Company\TeamController;
 use App\Http\Controllers\Company\UserController;
+use App\Http\Controllers\Company\WorkShiftController;
 use App\Http\Controllers\Permission\PermissionController;
+use App\Http\Controllers\Profile\ProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('hrms')->group(function (): void {
     Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
+    Route::post('auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:sensitive');
+    Route::post('auth/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:sensitive');
 
     Route::middleware(['auth:api', 'tenant', 'company.active', 'throttle:api'])->group(function (): void {
         Route::post('auth/logout', [AuthController::class, 'logout']);
         Route::post('auth/change-password', [AuthController::class, 'changePassword'])->middleware('throttle:sensitive');
+
+        Route::get('profile', [ProfileController::class, 'show']);
+        Route::put('profile', [ProfileController::class, 'update']);
+        Route::post('profile/avatar', [ProfileController::class, 'uploadAvatar']);
+        Route::delete('profile/avatar', [ProfileController::class, 'deleteAvatar']);
+        Route::get('profile/documents', [ProfileController::class, 'documents']);
+        Route::post('profile/documents', [ProfileController::class, 'uploadDocument']);
+        Route::delete('profile/documents/{document}', [ProfileController::class, 'deleteDocument']);
+
+        Route::get('documents/{document}/download', [EmployeeDocumentController::class, 'download'])
+            ->name('documents.download');
 
         Route::middleware('super.admin')->group(function (): void {
             Route::get('companies', [CompanyController::class, 'index']);
@@ -72,12 +90,38 @@ Route::prefix('hrms')->group(function (): void {
             Route::put('family/{familyMember}', [EmployeeFamilyController::class, 'update'])->middleware('permission:employee_family.manage');
             Route::delete('family/{familyMember}', [EmployeeFamilyController::class, 'destroy'])->middleware('permission:employee_family.manage');
 
+            Route::get('documents', [EmployeeDocumentController::class, 'index'])->middleware('permission:employee_document.view');
+            Route::post('documents', [EmployeeDocumentController::class, 'store'])->middleware('permission:employee_document.manage');
+            Route::get('documents/{document}', [EmployeeDocumentController::class, 'show'])->middleware('permission:employee_document.view');
+            Route::put('documents/{document}/verify', [EmployeeDocumentController::class, 'verify'])->middleware('permission:employee_document.verify');
+            Route::delete('documents/{document}', [EmployeeDocumentController::class, 'destroy'])->middleware('permission:employee_document.manage');
+
             Route::get('bank-accounts', [EmployeeBankAccountController::class, 'index'])->middleware('permission:employee_bank.view');
             Route::post('bank-accounts', [EmployeeBankAccountController::class, 'store'])->middleware('permission:employee_bank.manage');
             Route::get('bank-accounts/{bankAccount}', [EmployeeBankAccountController::class, 'show'])->middleware('permission:employee_bank.view');
             Route::put('bank-accounts/{bankAccount}', [EmployeeBankAccountController::class, 'update'])->middleware('permission:employee_bank.manage');
             Route::delete('bank-accounts/{bankAccount}', [EmployeeBankAccountController::class, 'destroy'])->middleware('permission:employee_bank.manage');
         });
+
+        Route::get('work-shifts', [WorkShiftController::class, 'index'])->middleware('permission:work_shift.view');
+        Route::post('work-shifts', [WorkShiftController::class, 'store'])->middleware('permission:work_shift.create');
+        Route::get('work-shifts/{workShift}', [WorkShiftController::class, 'show'])->middleware('permission:work_shift.view');
+        Route::put('work-shifts/{workShift}', [WorkShiftController::class, 'update'])->middleware('permission:work_shift.edit');
+        Route::delete('work-shifts/{workShift}', [WorkShiftController::class, 'destroy'])->middleware('permission:work_shift.delete');
+
+        Route::get('holidays', [HolidayController::class, 'index'])->middleware('permission:holiday.view');
+        Route::post('holidays', [HolidayController::class, 'store'])->middleware('permission:holiday.create');
+        Route::post('holidays/bulk', [HolidayController::class, 'storeMany'])->middleware('permission:holiday.create');
+        Route::get('holidays/{holiday}', [HolidayController::class, 'show'])->middleware('permission:holiday.view');
+        Route::put('holidays/{holiday}', [HolidayController::class, 'update'])->middleware('permission:holiday.edit');
+        Route::delete('holidays/{holiday}', [HolidayController::class, 'destroy'])->middleware('permission:holiday.delete');
+
+        Route::post('attendance/check-in', [AttendanceController::class, 'checkIn']);
+        Route::post('attendance/check-out', [AttendanceController::class, 'checkOut']);
+        Route::get('attendance/today', [AttendanceController::class, 'today']);
+        Route::get('attendance/calendar', [AttendanceController::class, 'calendar']);
+        Route::get('attendance', [AttendanceController::class, 'index']);
+        Route::get('attendance/{attendance}', [AttendanceController::class, 'show']);
 
         Route::get('roles', [RoleController::class, 'index'])->middleware('permission:role.view');
         Route::post('roles', [RoleController::class, 'store'])->middleware('permission:role.create');

@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 
 class User extends Authenticatable
 {
@@ -83,6 +84,11 @@ class User extends Authenticatable
     public function employee(): HasOne
     {
         return $this->hasOne(Employee::class);
+    }
+
+    public function avatarUrl(): ?string
+    {
+        return $this->avatar_path === null ? null : Storage::disk('public')->url($this->avatar_path);
     }
 
     public function scopeVisibleTo(Builder $query, ?User $actor): Builder
