@@ -40,6 +40,7 @@ class AttendanceResource extends JsonResource
             'source' => $this->source,
             'is_late' => $this->is_late,
             'late_minutes' => $this->late_minutes,
+            'leave_portion' => (float) $this->leave_portion,
 
             'work_shift_id' => $this->work_shift_id,
             'work_shift' => new WorkShiftResource($this->whenLoaded('workShift')),

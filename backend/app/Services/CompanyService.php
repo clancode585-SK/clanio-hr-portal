@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Models\Company;
+use App\Models\LeaveType;
 use App\Models\Permission;
 use App\Models\Role;
 use App\Models\User;
@@ -41,10 +42,24 @@ final class CompanyService
         'employee_family.manage',
         'employee_bank.view',
         'employee_bank.manage',
+        'employee_document.view',
+        'employee_document.manage',
+        'employee_document.verify',
         'work_shift.view',
         'work_shift.create',
         'work_shift.edit',
         'work_shift.delete',
+        'leave_type.view',
+        'leave_type.create',
+        'leave_type.edit',
+        'leave_type.delete',
+        'leave_balance.view',
+        'leave_balance.manage',
+        'leave.approve',
+        'task.edit',
+        'task.delete',
+        'daily_report.view_team',
+        'notification.send',
         'holiday.view',
         'holiday.create',
         'holiday.edit',
@@ -72,8 +87,9 @@ final class CompanyService
 
             $role = $this->createAdminRole($company, $actor);
             $admin = $this->createAdminUser($company, $role, $data['admin'], $actor);
+            $this->createLeaveTypes($company, $actor);
 
-            TenantCache::flush(TenantCache::COMPANIES);
+            TenantCache::flush(TenantCache::COMPANIES, TenantCache::LEAVE_TYPES);
 
             return $company->setRelation('adminUser', $admin);
         });
@@ -125,6 +141,16 @@ final class CompanyService
         );
 
         return $role;
+    }
+
+    private function createLeaveTypes(Company $company, User $actor): void
+    {
+        foreach (LeaveType::DEFAULTS as $defaults) {
+            $type = new LeaveType($defaults);
+            $type->company_id = $company->id;
+            $type->created_by = $actor->id;
+            $type->save();
+        }
     }
 
     private function createAdminUser(Company $company, Role $role, array $data, User $actor): User

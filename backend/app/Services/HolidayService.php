@@ -8,6 +8,7 @@ use App\Exceptions\ApiException;
 use App\Models\Holiday;
 use App\Models\User;
 use App\Support\AttendanceCache;
+use App\Support\Realtime;
 use App\Support\TenantCache;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\DB;
@@ -22,6 +23,7 @@ final class HolidayService
         $holiday->save();
 
         $this->flush();
+        $this->broadcast($holiday, 'created');
 
         return $holiday;
     }
@@ -55,6 +57,7 @@ final class HolidayService
         $holiday->save();
 
         $this->flush();
+        $this->broadcast($holiday, 'updated');
 
         return $holiday->refresh();
     }
@@ -64,6 +67,18 @@ final class HolidayService
         $holiday->delete();
 
         $this->flush();
+        $this->broadcast($holiday, 'deleted');
+    }
+
+    private function broadcast(Holiday $holiday, string $action): void
+    {
+        Realtime::toCompany((int) $holiday->company_id, 'holiday.changed', [
+            'action' => $action,
+            'holiday_id' => (int) $holiday->id,
+            'name' => $holiday->name,
+            'holiday_date' => $holiday->holiday_date->toDateString(),
+            'branch_id' => $holiday->branch_id === null ? null : (int) $holiday->branch_id,
+        ]);
     }
 
     private function tenant(?int $companyId): int

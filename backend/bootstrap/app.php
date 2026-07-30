@@ -28,6 +28,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
         apiPrefix: 'api',
     )
+    ->withBroadcasting(
+        __DIR__ . '/../routes/channels.php',
+        attributes: ['prefix' => 'api/hrms', 'middleware' => ['api', 'auth:api']],
+    )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(prepend: [ForceJsonResponse::class]);
 

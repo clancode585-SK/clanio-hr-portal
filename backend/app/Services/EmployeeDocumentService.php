@@ -8,6 +8,8 @@ use App\Exceptions\ApiException;
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\User;
+use App\Support\NotificationType;
+use App\Support\Realtime;
 use App\Support\TenantCache;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Arr;
@@ -20,6 +22,8 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 final class EmployeeDocumentService
 {
     private const DISK = 'local';
+
+    public function __construct(private readonly NotificationService $notifications) {}
 
     public function upload(Employee $employee, array $data, UploadedFile $file, User $actor): EmployeeDocument
     {
@@ -60,7 +64,11 @@ final class EmployeeDocumentService
 
         TenantCache::flush(TenantCache::EMPLOYEES);
 
-        return $document->refresh()->load('verifier');
+        $document = $document->refresh()->load('verifier');
+
+        $this->notifyVerification($document, $actor);
+
+        return $document;
     }
 
     public function delete(EmployeeDocument $document, User $actor): void
@@ -107,6 +115,40 @@ final class EmployeeDocumentService
 
         return $actor->hasPermission('employee_document.view')
             && Employee::query()->visibleTo($actor)->whereKey($employee->id)->exists();
+    }
+
+    private function notifyVerification(EmployeeDocument $document, User $actor): void
+    {
+        $employee = $document->employee;
+
+        if ($employee === null || $employee->user_id === null) {
+            return;
+        }
+
+        $verified = $document->isVerified();
+
+        $this->notifications->send((int) $employee->user_id, [
+            'type' => $verified ? NotificationType::DOCUMENT_VERIFIED : NotificationType::DOCUMENT_REJECTED,
+            'title' => $document->title . ' ' . ($verified ? 'verify ho gaya' : 'reject ho gaya'),
+            'body' => $document->remarks ?? ($verified
+                ? 'HR ne aapka document approve kar diya hai.'
+                : 'HR ne document reject kiya hai, dubara upload karo.'),
+            'action_url' => '/profile/documents',
+            'entity_type' => 'employee_document',
+            'entity_id' => $document->id,
+            'payload' => [
+                'document_id' => (int) $document->id,
+                'document_uuid' => $document->uuid,
+                'type' => $document->type,
+                'title' => $document->title,
+                'status' => $document->status,
+            ],
+        ], $actor);
+
+        Realtime::toUser((int) $employee->user_id, 'document.changed', [
+            'document_id' => (int) $document->id,
+            'status' => $document->status,
+        ]);
     }
 
     private function directory(Employee $employee): string

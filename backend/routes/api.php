@@ -6,14 +6,23 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Company\AttendanceController;
 use App\Http\Controllers\Company\BranchController;
 use App\Http\Controllers\Company\CompanyController;
+use App\Http\Controllers\Company\DailyReportController;
 use App\Http\Controllers\Company\DepartmentController;
 use App\Http\Controllers\Company\DesignationController;
+use App\Http\Controllers\Company\DeviceTokenController;
 use App\Http\Controllers\Company\EmployeeBankAccountController;
 use App\Http\Controllers\Company\EmployeeController;
 use App\Http\Controllers\Company\EmployeeDocumentController;
 use App\Http\Controllers\Company\EmployeeFamilyController;
 use App\Http\Controllers\Company\HolidayController;
+use App\Http\Controllers\Company\LeaveBalanceController;
+use App\Http\Controllers\Company\LeaveController;
+use App\Http\Controllers\Company\LeaveTypeController;
+use App\Http\Controllers\Company\NotificationController;
+use App\Http\Controllers\Company\RealtimeController;
 use App\Http\Controllers\Company\RoleController;
+use App\Http\Controllers\Company\TaskCommentController;
+use App\Http\Controllers\Company\TaskController;
 use App\Http\Controllers\Company\TeamController;
 use App\Http\Controllers\Company\UserController;
 use App\Http\Controllers\Company\WorkShiftController;
@@ -116,12 +125,74 @@ Route::prefix('hrms')->group(function (): void {
         Route::put('holidays/{holiday}', [HolidayController::class, 'update'])->middleware('permission:holiday.edit');
         Route::delete('holidays/{holiday}', [HolidayController::class, 'destroy'])->middleware('permission:holiday.delete');
 
+        Route::get('leave-types', [LeaveTypeController::class, 'index'])->middleware('permission:leave_type.view');
+        Route::post('leave-types', [LeaveTypeController::class, 'store'])->middleware('permission:leave_type.create');
+        Route::get('leave-types/{leaveType}', [LeaveTypeController::class, 'show'])->middleware('permission:leave_type.view');
+        Route::put('leave-types/{leaveType}', [LeaveTypeController::class, 'update'])->middleware('permission:leave_type.edit');
+        Route::delete('leave-types/{leaveType}', [LeaveTypeController::class, 'destroy'])->middleware('permission:leave_type.delete');
+
+        Route::post('leave-balances/allocate', [LeaveBalanceController::class, 'allocate'])->middleware('permission:leave_balance.manage');
+        Route::post('leave-balances/accrue', [LeaveBalanceController::class, 'accrue'])->middleware('permission:leave_balance.manage');
+        Route::post('leave-balances/carry-forward', [LeaveBalanceController::class, 'carryForward'])->middleware('permission:leave_balance.manage');
+        Route::get('leave-balances', [LeaveBalanceController::class, 'index'])->middleware('permission:leave_balance.view');
+        Route::put('leave-balances/{leaveBalance}/adjust', [LeaveBalanceController::class, 'adjust'])->middleware('permission:leave_balance.manage');
+        Route::put('leave-balances/{leaveBalance}/encash', [LeaveBalanceController::class, 'encash'])->middleware('permission:leave_balance.manage');
+
+        Route::get('leaves/my-balance', [LeaveController::class, 'myBalance']);
+        Route::get('leaves/calendar', [LeaveController::class, 'calendar']);
+        Route::get('leaves/pending-approvals', [LeaveController::class, 'pendingApprovals']);
+        Route::get('leaves', [LeaveController::class, 'index']);
+        Route::post('leaves', [LeaveController::class, 'store']);
+        Route::get('leaves/{leave}', [LeaveController::class, 'show']);
+        Route::put('leaves/{leave}/approve', [LeaveController::class, 'approve']);
+        Route::put('leaves/{leave}/reject', [LeaveController::class, 'reject']);
+        Route::delete('leaves/{leave}', [LeaveController::class, 'destroy']);
+
         Route::post('attendance/check-in', [AttendanceController::class, 'checkIn']);
         Route::post('attendance/check-out', [AttendanceController::class, 'checkOut']);
         Route::get('attendance/today', [AttendanceController::class, 'today']);
         Route::get('attendance/calendar', [AttendanceController::class, 'calendar']);
         Route::get('attendance', [AttendanceController::class, 'index']);
         Route::get('attendance/{attendance}', [AttendanceController::class, 'show']);
+
+        Route::get('tasks/summary', [TaskController::class, 'summary']);
+        Route::get('tasks', [TaskController::class, 'index']);
+        Route::post('tasks', [TaskController::class, 'store']);
+        Route::get('tasks/{task}', [TaskController::class, 'show']);
+        Route::put('tasks/{task}', [TaskController::class, 'update']);
+        Route::put('tasks/{task}/status', [TaskController::class, 'changeStatus']);
+        Route::delete('tasks/{task}', [TaskController::class, 'destroy']);
+
+        Route::prefix('tasks/{task}')->scopeBindings()->group(function (): void {
+            Route::get('comments', [TaskCommentController::class, 'index']);
+            Route::post('comments', [TaskCommentController::class, 'store']);
+            Route::delete('comments/{comment}', [TaskCommentController::class, 'destroy']);
+        });
+
+        Route::get('daily-reports/today', [DailyReportController::class, 'today']);
+        Route::get('daily-reports/team-status', [DailyReportController::class, 'teamStatus']);
+        Route::post('daily-reports/sod', [DailyReportController::class, 'storeSod']);
+        Route::post('daily-reports/eod', [DailyReportController::class, 'storeEod']);
+        Route::get('daily-reports', [DailyReportController::class, 'index']);
+        Route::get('daily-reports/{dailyReport}', [DailyReportController::class, 'show']);
+
+        Route::get('realtime/config', [RealtimeController::class, 'config']);
+
+        Route::get('notifications/unread-count', [NotificationController::class, 'summary']);
+        Route::get('notifications/preferences', [NotificationController::class, 'preferences']);
+        Route::put('notifications/preferences', [NotificationController::class, 'savePreferences']);
+        Route::put('notifications/read-all', [NotificationController::class, 'markAllRead']);
+        Route::post('notifications/announce', [NotificationController::class, 'announce'])
+            ->middleware('permission:notification.send');
+        Route::get('notifications', [NotificationController::class, 'index']);
+        Route::delete('notifications', [NotificationController::class, 'clear']);
+        Route::get('notifications/{notification}', [NotificationController::class, 'show']);
+        Route::put('notifications/{notification}/read', [NotificationController::class, 'markRead']);
+        Route::delete('notifications/{notification}', [NotificationController::class, 'destroy']);
+
+        Route::get('devices', [DeviceTokenController::class, 'index']);
+        Route::post('devices', [DeviceTokenController::class, 'store']);
+        Route::delete('devices/{deviceToken}', [DeviceTokenController::class, 'destroy']);
 
         Route::get('roles', [RoleController::class, 'index'])->middleware('permission:role.view');
         Route::post('roles', [RoleController::class, 'store'])->middleware('permission:role.create');

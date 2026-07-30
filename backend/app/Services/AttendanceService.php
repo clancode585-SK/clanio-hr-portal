@@ -11,6 +11,7 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Models\WorkShift;
 use App\Support\AttendanceCache;
+use App\Support\Realtime;
 use App\Support\WorkCalendar;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -26,7 +27,7 @@ final class AttendanceService
 
         $this->assertWorkingDay($day);
 
-        return DB::transaction(function () use ($employee, $actor, $data, $request, $now, $day): Attendance {
+        $attendance = DB::transaction(function () use ($employee, $actor, $data, $request, $now, $day): Attendance {
             $this->assertNotCheckedIn($employee);
 
             $shift = WorkCalendar::shiftFor($employee);
@@ -53,6 +54,10 @@ final class AttendanceService
 
             return $attendance->refresh()->load('openDetail');
         });
+
+        $this->broadcast($employee, $attendance, 'checked_in');
+
+        return $attendance;
     }
 
     public function checkOut(User $actor, array $data, Request $request): Attendance
@@ -60,7 +65,7 @@ final class AttendanceService
         $employee = $this->employeeFor($actor);
         $now = Carbon::now();
 
-        return DB::transaction(function () use ($employee, $actor, $data, $request, $now): Attendance {
+        $attendance = DB::transaction(function () use ($employee, $actor, $data, $request, $now): Attendance {
             $detail = AttendanceDetail::query()
                 ->where('employee_id', $employee->id)
                 ->whereNull('check_out_at')
@@ -87,6 +92,37 @@ final class AttendanceService
             $this->forget($employee, $attendance);
 
             return $attendance->refresh()->load('details');
+        });
+
+        $this->broadcast($employee, $attendance, 'checked_out');
+
+        return $attendance;
+    }
+
+    public function setLeavePortion(Employee $employee, string $date, float $portion, User $actor): void
+    {
+        DB::transaction(function () use ($employee, $date, $portion, $actor): void {
+            $shift = WorkCalendar::shiftFor($employee);
+
+            $attendance = Attendance::query()
+                ->where('employee_id', $employee->id)
+                ->whereDate('attendance_date', $date)
+                ->lockForUpdate()
+                ->first();
+
+            if ($attendance === null) {
+                if ($portion <= 0) {
+                    return;
+                }
+
+                $attendance = $this->attendanceForDate($employee, Carbon::parse($date), $shift);
+                $attendance->forceFill(['source' => 'leave'])->save();
+            }
+
+            $attendance->forceFill(['leave_portion' => $portion, 'updated_by' => $actor->id])->save();
+
+            $this->recalculate($attendance, $shift);
+            $this->forget($employee, $attendance);
         });
     }
 
@@ -132,6 +168,7 @@ final class AttendanceService
                 'day_type' => $day['day_type'],
                 'is_working_day' => $day['is_working_day'],
                 'holiday' => $day['holiday'],
+                'leave_portion' => (float) ($day['leave_portion'] ?? 0),
                 'status' => $status,
                 'worked_minutes' => (int) ($record?->worked_minutes ?? 0),
                 'worked_human' => Attendance::humanDuration((int) ($record?->worked_minutes ?? 0)),
@@ -158,6 +195,25 @@ final class AttendanceService
             ]),
             'days' => $days,
         ];
+    }
+
+    private function broadcast(Employee $employee, Attendance $attendance, string $action): void
+    {
+        Realtime::toUsers(
+            [(int) $employee->user_id, (int) $employee->reporting_manager_id],
+            'attendance.changed',
+            [
+                'action' => $action,
+                'attendance_id' => (int) $attendance->id,
+                'employee_id' => (int) $employee->id,
+                'attendance_date' => $attendance->attendance_date->toDateString(),
+                'status' => $attendance->status,
+                'worked_minutes' => (int) $attendance->worked_minutes,
+                'first_check_in_at' => $attendance->first_check_in_at,
+                'last_check_out_at' => $attendance->last_check_out_at,
+                'is_late' => (bool) $attendance->is_late,
+            ]
+        );
     }
 
     private function dayStatus(array $day, ?Attendance $record, Carbon $date, Carbon $today): ?string
@@ -218,6 +274,7 @@ final class AttendanceService
             'is_working_day' => $day['is_working_day'],
             'holiday' => $day['holiday'],
             'shift' => $day['shift'],
+            'leave_portion' => (float) ($day['leave_portion'] ?? 0),
 
             'attendance_id' => isset($row['id']) ? (int) $row['id'] : null,
             'uuid' => $row['uuid'] ?? null,
@@ -247,15 +304,25 @@ final class AttendanceService
             return null;
         }
 
-        return $day['day_type'] === WorkCalendar::HOLIDAY
-            ? 'Holiday: ' . $day['holiday']['name']
-            : 'Weekly off';
+        return match ($day['day_type']) {
+            WorkCalendar::HOLIDAY => 'Holiday: ' . $day['holiday']['name'],
+            WorkCalendar::LEAVE => 'Approved leave',
+            default => 'Weekly off',
+        };
     }
 
     private function assertWorkingDay(array $day): void
     {
         if ($day['is_working_day']) {
             return;
+        }
+
+        if ($day['day_type'] === WorkCalendar::LEAVE) {
+            throw new ApiException(
+                'Aaj aapki approved leave hai, attendance nahi lagegi.',
+                409,
+                'ATTENDANCE_ON_LEAVE'
+            );
         }
 
         if ($day['day_type'] === WorkCalendar::HOLIDAY) {
@@ -359,10 +426,29 @@ final class AttendanceService
             'break_minutes' => max(0, $span - $worked),
             'is_late' => $late > 0,
             'late_minutes' => $late,
-            'status' => $shift === null
-                ? ($isOpen || $worked > 0 ? Attendance::PRESENT : Attendance::ABSENT)
-                : $shift->statusFor($worked, $isOpen),
+            'status' => $this->statusFor($shift, $worked, $isOpen, (float) $attendance->leave_portion),
         ])->save();
+    }
+
+    private function statusFor(?WorkShift $shift, int $worked, bool $isOpen, float $leave): string
+    {
+        if ($leave >= 1) {
+            return Attendance::ON_LEAVE;
+        }
+
+        $base = $shift === null
+            ? ($isOpen || $worked > 0 ? Attendance::PRESENT : Attendance::ABSENT)
+            : $shift->statusFor($worked, $isOpen);
+
+        if ($leave <= 0) {
+            return $base;
+        }
+
+        return match ($base) {
+            Attendance::ABSENT => Attendance::HALF_DAY,
+            Attendance::HALF_DAY => Attendance::PRESENT,
+            default => $base,
+        };
     }
 
     private function forget(Employee $employee, Attendance $attendance): void

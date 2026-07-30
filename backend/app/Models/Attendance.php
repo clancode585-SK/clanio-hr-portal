@@ -28,6 +28,8 @@ class Attendance extends Model
 
     public const ABSENT = 'absent';
 
+    public const ON_LEAVE = 'on_leave';
+
     protected $fillable = [
         'attendance_date',
         'status',
@@ -53,6 +55,7 @@ class Attendance extends Model
             'punch_count' => 'integer',
             'is_late' => 'boolean',
             'late_minutes' => 'integer',
+            'leave_portion' => 'float',
         ];
     }
 

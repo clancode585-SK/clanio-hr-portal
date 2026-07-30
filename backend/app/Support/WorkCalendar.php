@@ -6,9 +6,11 @@ namespace App\Support;
 
 use App\Models\Employee;
 use App\Models\Holiday;
+use App\Models\LeaveRequest;
 use App\Models\WorkShift;
 use App\Support\Scopes\CompanyScope;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 final class WorkCalendar
 {
@@ -18,7 +20,26 @@ final class WorkCalendar
 
     public const HOLIDAY = 'holiday';
 
+    public const LEAVE = 'leave';
+
+    private static array $leave = [];
+
     public static function day(Employee $employee, Carbon $date): array
+    {
+        $state = self::schedule($employee, $date);
+        $portion = self::leavePortion($employee->id, $date->toDateString());
+
+        $state['leave_portion'] = $portion;
+
+        if ($state['is_working_day'] && $portion >= 1) {
+            $state['day_type'] = self::LEAVE;
+            $state['is_working_day'] = false;
+        }
+
+        return $state;
+    }
+
+    public static function schedule(Employee $employee, Carbon $date): array
     {
         $shift = self::shiftFor($employee);
         $holiday = self::holidaysFor($employee)[$date->toDateString()] ?? null;
@@ -32,6 +53,32 @@ final class WorkCalendar
         }
 
         return self::state(self::WORKING, $shift, $holiday);
+    }
+
+    public static function leavePortion(int $employeeId, string $date): float
+    {
+        return (float) (self::approvedLeave($employeeId)[$date] ?? 0);
+    }
+
+    public static function forgetLeave(?int $employeeId = null): void
+    {
+        if ($employeeId === null) {
+            self::$leave = [];
+
+            return;
+        }
+
+        unset(self::$leave[$employeeId]);
+    }
+
+    private static function approvedLeave(int $employeeId): array
+    {
+        return self::$leave[$employeeId] ??= DB::table('leave_request_days')
+            ->where('employee_id', $employeeId)
+            ->where('status', LeaveRequest::APPROVED)
+            ->pluck('day_portion', 'leave_date')
+            ->map(fn ($portion): float => (float) $portion)
+            ->all();
     }
 
     public static function shiftFor(Employee $employee): ?WorkShift
