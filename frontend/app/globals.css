@@ -1,26 +1,93 @@
 @import "tailwindcss";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+[data-theme="light"] {
+  color-scheme: light;
+
+  --canvas: #e9edf9;
+  --canvas-soft: #f4f6fd;
+  --surface: #ffffff;
+  --surface-soft: #f7f9fd;
+  --line: #e2e7f3;
+  --line-strong: #d2d9ea;
+  --heading: #0f1629;
+  --body: #414b66;
+  --muted: #7a839c;
+  --brand: #5b3df5;
+  --brand-strong: #4a2ce2;
+  --brand-soft: #ece9ff;
+  --accent: #9333ea;
+  --success: #16a34a;
+  --success-soft: #e9f7ef;
+  --danger: #dc2626;
+  --danger-soft: #fdecec;
+  --ring: rgba(91, 61, 245, 0.3);
+  --glow-one: rgba(124, 92, 255, 0.28);
+  --glow-two: rgba(56, 189, 248, 0.22);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --canvas: #1a2133;
+  --canvas-soft: #202940;
+  --surface: #242e44;
+  --surface-soft: #2c3750;
+  --line: #3a4563;
+  --line-strong: #47536f;
+  --heading: #f4f7fd;
+  --body: #cbd3e6;
+  --muted: #949eb6;
+  --brand: #8a79fb;
+  --brand-strong: #7663f9;
+  --brand-soft: #343461;
+  --accent: #b581f8;
+  --success: #4ade80;
+  --success-soft: #1f4036;
+  --danger: #f87171;
+  --danger-soft: #43242d;
+  --ring: rgba(138, 121, 251, 0.45);
+  --glow-one: rgba(124, 92, 255, 0.3);
+  --glow-two: rgba(56, 189, 248, 0.18);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-canvas: var(--canvas);
+  --color-canvas-soft: var(--canvas-soft);
+  --color-surface: var(--surface);
+  --color-surface-soft: var(--surface-soft);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-heading: var(--heading);
+  --color-body: var(--body);
+  --color-muted: var(--muted);
+  --color-brand: var(--brand);
+  --color-brand-strong: var(--brand-strong);
+  --color-brand-soft: var(--brand-soft);
+  --color-accent: var(--accent);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background-color: var(--canvas);
+  color: var(--body);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+*:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px var(--ring);
+}
+
+::selection {
+  background-color: var(--brand);
+  color: #ffffff;
 }
