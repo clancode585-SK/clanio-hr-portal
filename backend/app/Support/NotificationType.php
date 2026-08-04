@@ -50,6 +50,20 @@ final class NotificationType
 
     public const TASK_OVERDUE = 'task.overdue';
 
+    public const EXPENSE_APPLIED = 'expense.applied';
+
+    public const EXPENSE_APPROVED = 'expense.approved';
+
+    public const EXPENSE_VERIFY_PENDING = 'expense.verify_pending';
+
+    public const EXPENSE_VERIFIED = 'expense.verified';
+
+    public const EXPENSE_PAYMENT_PENDING = 'expense.payment_pending';
+
+    public const EXPENSE_PAID = 'expense.paid';
+
+    public const EXPENSE_REJECTED = 'expense.rejected';
+
     public const REPORT_SUBMITTED = 'report.submitted';
 
     public const SOD_PENDING = 'report.sod_pending';
@@ -66,7 +80,7 @@ final class NotificationType
 
     public const PRIORITIES = [self::LOW, self::NORMAL, self::HIGH];
 
-    public const GROUPS = ['leave', 'attendance', 'document', 'task', 'report', 'holiday', 'announcement', 'account'];
+    public const GROUPS = ['leave', 'attendance', 'document', 'task', 'report', 'expense', 'holiday', 'announcement', 'account'];
 
     public static function group(string $type): string
     {
@@ -80,7 +94,8 @@ final class NotificationType
         return match ($type) {
             self::LEAVE_APPLIED, self::LEAVE_APPROVED, self::LEAVE_REJECTED, self::DOCUMENT_REJECTED,
             self::TASK_ASSIGNED, self::TASK_OVERDUE, self::REGULARIZATION_REQUESTED,
-            self::REGULARIZATION_APPROVED, self::REGULARIZATION_REJECTED => self::HIGH,
+            self::REGULARIZATION_APPROVED, self::REGULARIZATION_REJECTED,
+            self::EXPENSE_APPLIED, self::EXPENSE_PAID, self::EXPENSE_REJECTED => self::HIGH,
             self::ATTENDANCE_CHECKED_IN, self::ATTENDANCE_CHECKED_OUT, self::REPORT_SUBMITTED => self::LOW,
             default => self::NORMAL,
         };

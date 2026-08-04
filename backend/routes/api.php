@@ -15,6 +15,8 @@ use App\Http\Controllers\Company\EmployeeBankAccountController;
 use App\Http\Controllers\Company\EmployeeController;
 use App\Http\Controllers\Company\EmployeeDocumentController;
 use App\Http\Controllers\Company\EmployeeFamilyController;
+use App\Http\Controllers\Company\ExpenseBillController;
+use App\Http\Controllers\Company\ExpenseClaimController;
 use App\Http\Controllers\Company\HolidayController;
 use App\Http\Controllers\Company\LeaveBalanceController;
 use App\Http\Controllers\Company\LeaveController;
@@ -204,6 +206,41 @@ Route::prefix('hrms')->group(function (): void {
         Route::post('daily-reports/eod', [DailyReportController::class, 'storeEod']);
         Route::get('daily-reports', [DailyReportController::class, 'index']);
         Route::get('daily-reports/{dailyReport}', [DailyReportController::class, 'show']);
+
+        Route::get('expense-claims/categories', [ExpenseClaimController::class, 'categories']);
+        Route::get('expense-claims/pending-approvals', [ExpenseClaimController::class, 'pendingApprovals']);
+        Route::get('expense-claims/pending-verification', [ExpenseClaimController::class, 'pendingVerification'])
+            ->middleware('permission:expense.verify');
+        Route::get('expense-claims/pending-payout', [ExpenseClaimController::class, 'pendingPayout'])
+            ->middleware('permission:expense.pay');
+        Route::get('expense-claims/summary', [ExpenseClaimController::class, 'summary']);
+        Route::post('expense-claims/pay-many', [ExpenseClaimController::class, 'payMany'])
+            ->middleware('permission:expense.pay')
+            ->name('expense-claims.pay-many');
+        Route::get('expense-claims', [ExpenseClaimController::class, 'index']);
+        Route::post('expense-claims', [ExpenseClaimController::class, 'store']);
+        Route::get('expense-claims/{claim}', [ExpenseClaimController::class, 'show']);
+        Route::put('expense-claims/{claim}', [ExpenseClaimController::class, 'update']);
+        Route::put('expense-claims/{claim}/approve', [ExpenseClaimController::class, 'approve'])
+            ->name('expense-claims.approve');
+        Route::put('expense-claims/{claim}/verify', [ExpenseClaimController::class, 'verify'])
+            ->middleware('permission:expense.verify')
+            ->name('expense-claims.verify');
+        Route::put('expense-claims/{claim}/pay', [ExpenseClaimController::class, 'pay'])
+            ->middleware('permission:expense.pay')
+            ->name('expense-claims.pay');
+        Route::put('expense-claims/{claim}/reject', [ExpenseClaimController::class, 'reject'])
+            ->name('expense-claims.reject');
+        Route::delete('expense-claims/{claim}', [ExpenseClaimController::class, 'destroy']);
+
+        Route::get('expense-bills/{bill}/download', [ExpenseBillController::class, 'download'])
+            ->name('expense-bills.download');
+
+        Route::prefix('expense-claims/{claim}')->scopeBindings()->group(function (): void {
+            Route::get('bills', [ExpenseBillController::class, 'index']);
+            Route::post('bills', [ExpenseBillController::class, 'store']);
+            Route::delete('bills/{bill}', [ExpenseBillController::class, 'destroy']);
+        });
 
         Route::get('realtime/config', [RealtimeController::class, 'config']);
 

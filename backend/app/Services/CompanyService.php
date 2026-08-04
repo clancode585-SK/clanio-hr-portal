@@ -60,6 +60,8 @@ final class CompanyService
         'task.edit',
         'task.delete',
         'daily_report.view_team',
+        'expense.verify',
+        'expense.pay',
         'notification.send',
         'holiday.view',
         'holiday.create',

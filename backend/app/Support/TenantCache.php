@@ -32,6 +32,8 @@ final class TenantCache
 
     public const LEAVES = 'leaves';
 
+    public const EXPENSES = 'expenses';
+
     public const TASKS = 'tasks';
 
     public const DAILY_REPORTS = 'daily_reports';

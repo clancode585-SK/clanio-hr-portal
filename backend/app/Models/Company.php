@@ -41,6 +41,7 @@ class Company extends Model
         'sod_cutoff',
         'eod_cutoff',
         'regularization_days',
+        'expense_claim_days',
         'status',
     ];
 

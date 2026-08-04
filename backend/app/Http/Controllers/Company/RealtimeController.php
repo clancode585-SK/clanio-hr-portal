@@ -43,6 +43,7 @@ class RealtimeController extends ApiController
                 'task.changed',
                 'task.commented',
                 'daily_report.changed',
+                'expense.changed',
                 'holiday.changed',
             ],
             'groups' => NotificationType::GROUPS,

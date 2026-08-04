@@ -77,6 +77,7 @@ class CompanySettingController extends ApiController
                 'sod_cutoff' => substr((string) $company->sod_cutoff, 0, 5),
                 'eod_cutoff' => substr((string) $company->eod_cutoff, 0, 5),
                 'regularization_days' => (int) $company->regularization_days,
+                'expense_claim_days' => (int) $company->expense_claim_days,
                 'fiscal_year_start' => (int) $company->fiscal_year_start,
                 'timezone' => $company->timezone,
                 'currency' => $company->currency,
@@ -85,6 +86,7 @@ class CompanySettingController extends ApiController
                 'sod_cutoff' => 'Is time ke baad SOD bhara to late gina jayega',
                 'eod_cutoff' => 'Is time ke baad EOD bhara to late gina jayega',
                 'regularization_days' => 'Employee itne din peeche tak attendance correction maang sakta hai',
+                'expense_claim_days' => 'Itne din purana kharcha hi reimbursement mein claim ho sakta hai',
             ],
         ];
     }
