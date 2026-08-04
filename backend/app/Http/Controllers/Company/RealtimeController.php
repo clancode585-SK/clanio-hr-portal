@@ -38,6 +38,7 @@ class RealtimeController extends ApiController
                 'announcement.new',
                 'leave.changed',
                 'attendance.changed',
+                'regularization.changed',
                 'document.changed',
                 'task.changed',
                 'task.commented',

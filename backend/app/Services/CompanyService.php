@@ -56,6 +56,7 @@ final class CompanyService
         'leave_balance.view',
         'leave_balance.manage',
         'leave.approve',
+        'attendance.regularize',
         'task.edit',
         'task.delete',
         'daily_report.view_team',

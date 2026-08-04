@@ -5,19 +5,27 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Exceptions\ApiException;
+use App\Models\AuditLog;
 use App\Models\Employee;
 use App\Models\Task;
+use App\Models\TaskAttachment;
 use App\Models\TaskComment;
 use App\Models\User;
 use App\Support\NotificationType;
 use App\Support\Realtime;
 use App\Support\Scopes\CompanyScope;
 use App\Support\TenantCache;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 final class TaskService
 {
+    private const DISK = 'local';
+
     private const ALLOWED_MOVES = [
         Task::TODO => [Task::IN_PROGRESS, Task::BLOCKED, Task::DONE, Task::CANCELLED],
         Task::IN_PROGRESS => [Task::TODO, Task::BLOCKED, Task::DONE, Task::CANCELLED],
@@ -31,10 +39,12 @@ final class TaskService
     public function create(array $data, User $actor): Task
     {
         $assignee = $this->assignee($data, $actor);
+        $parent = $this->parentFor($data, $actor);
 
-        $task = DB::transaction(function () use ($data, $actor, $assignee): Task {
+        $task = DB::transaction(function () use ($data, $actor, $assignee, $parent): Task {
             $task = new Task($data);
             $task->company_id = $assignee->company_id;
+            $task->parent_id = $parent?->id;
             $task->assignee_id = $assignee->id;
             $task->assigned_by = $actor->id;
             $task->created_by = $actor->id;
@@ -106,6 +116,18 @@ final class TaskService
             throw new ApiException('Blocked karne ke liye reason likhna zaroori hai.', 422, 'TASK_REASON_REQUIRED');
         }
 
+        if ($target === Task::DONE) {
+            $open = $task->subtasks()->open()->count();
+
+            if ($open > 0) {
+                throw new ApiException(
+                    $open . ' subtask abhi khuli hai — pehle unhe pura karo.',
+                    409,
+                    'TASK_SUBTASKS_OPEN'
+                );
+            }
+        }
+
         $task = DB::transaction(function () use ($task, $data, $actor, $target): Task {
             $now = Carbon::now();
 
@@ -173,6 +195,88 @@ final class TaskService
         $comment->delete();
     }
 
+    public function attach(Task $task, UploadedFile $file, User $actor): TaskAttachment
+    {
+        $this->assertCanEdit($task, $actor);
+
+        return DB::transaction(function () use ($task, $file, $actor): TaskAttachment {
+            $path = $file->storeAs(
+                'tasks/' . $task->company_id . '/' . $task->id,
+                Str::uuid()->toString() . '.' . strtolower($file->getClientOriginalExtension() ?: 'bin'),
+                self::DISK
+            );
+
+            $attachment = new TaskAttachment([
+                'file_path' => $path,
+                'original_name' => $file->getClientOriginalName(),
+                'mime_type' => $file->getClientMimeType(),
+                'size_bytes' => $file->getSize() ?: 0,
+            ]);
+
+            $attachment->company_id = $task->company_id;
+            $attachment->task_id = $task->id;
+            $attachment->uploaded_by = $actor->id;
+            $attachment->created_by = $actor->id;
+            $attachment->save();
+
+            $this->flush();
+
+            return $attachment->refresh()->load('uploader');
+        });
+    }
+
+    public function deleteAttachment(TaskAttachment $attachment, User $actor): void
+    {
+        if (! $attachment->isUploader($actor) && ! $actor->isSuperAdmin() && ! $actor->hasPermission(Task::EDIT_PERMISSION)) {
+            throw new ApiException('Sirf apni upload ki hui file hata sakte ho.', 403, 'FORBIDDEN');
+        }
+
+        DB::transaction(function () use ($attachment): void {
+            if (Storage::disk(self::DISK)->exists($attachment->file_path)) {
+                Storage::disk(self::DISK)->delete($attachment->file_path);
+            }
+
+            $attachment->delete();
+            $this->flush();
+        });
+    }
+
+    public function downloadAttachment(TaskAttachment $attachment): StreamedResponse
+    {
+        if (! Storage::disk(self::DISK)->exists($attachment->file_path)) {
+            throw new ApiException('Ye file ab available nahi hai.', 404, 'FILE_MISSING');
+        }
+
+        return Storage::disk(self::DISK)->download($attachment->file_path, $attachment->original_name);
+    }
+
+    public function activity(Task $task): array
+    {
+        return AuditLog::query()
+            ->where('auditable_type', 'Task')
+            ->where('auditable_id', $task->id)
+            ->with([])
+            ->orderByDesc('id')
+            ->limit(60)
+            ->get(['id', 'user_id', 'event', 'old_values', 'new_values', 'created_at'])
+            ->map(function (AuditLog $log) use ($task): array {
+                $actor = $log->user_id === null ? null : User::query()
+                    ->withoutGlobalScope(CompanyScope::class)
+                    ->whereKey($log->user_id)
+                    ->value('name');
+
+                return [
+                    'id' => (int) $log->id,
+                    'event' => $log->event,
+                    'actor_id' => $log->user_id === null ? null : (int) $log->user_id,
+                    'actor_name' => $actor,
+                    'changes' => $this->describe($log, $task),
+                    'created_at' => $log->created_at,
+                ];
+            })
+            ->all();
+    }
+
     public function summaryFor(User $actor): array
     {
         $rows = Task::query()
@@ -219,6 +323,69 @@ final class TaskService
         $task->forceFill([
             'spent_hours' => max(0, round((float) $task->spent_hours + $delta, 1)),
         ])->saveQuietly();
+    }
+
+    private function describe(AuditLog $log, Task $task): array
+    {
+        $labels = [
+            'status' => 'Status',
+            'priority' => 'Priority',
+            'assignee_id' => 'Assignee',
+            'due_date' => 'Due date',
+            'title' => 'Title',
+            'blocked_reason' => 'Blocked reason',
+            'estimated_hours' => 'Estimate',
+            'spent_hours' => 'Spent hours',
+        ];
+
+        if ($log->event === 'created') {
+            return [['field' => 'Task', 'from' => null, 'to' => $task->title]];
+        }
+
+        $changes = [];
+
+        foreach (($log->new_values ?? []) as $field => $value) {
+            if (! isset($labels[$field])) {
+                continue;
+            }
+
+            $changes[] = [
+                'field' => $labels[$field],
+                'from' => $log->old_values[$field] ?? null,
+                'to' => $value,
+            ];
+        }
+
+        return $changes;
+    }
+
+    private function parentFor(array $data, User $actor): ?Task
+    {
+        $parentId = isset($data['parent_id']) ? (int) $data['parent_id'] : null;
+
+        if ($parentId === null) {
+            return null;
+        }
+
+        $parent = Task::query()->visibleTo($actor)->whereKey($parentId)->first();
+
+        if ($parent === null) {
+            throw new ApiException('Parent task nahi mila.', 422, 'TASK_PARENT_INVALID');
+        }
+
+        if ($parent->isSubtask()) {
+            throw new ApiException(
+                'Subtask ke andar subtask nahi banti — sirf ek level chalega.',
+                422,
+                'TASK_NESTING_LIMIT'
+            );
+        }
+
+        if ($parent->isClosed()) {
+            throw new ApiException('Band task mein subtask nahi jud sakti.', 409, 'TASK_PARENT_CLOSED');
+        }
+
+        return $parent;
     }
 
     private function assignee(array $data, User $actor): User

@@ -44,9 +44,18 @@ class TaskController extends ApiController
 
     public function show(Task $task): JsonResponse
     {
+        $task->load(['assignee', 'assigner', 'parent', 'comments.author', 'attachments.uploader'])
+            ->load(['subtasks' => fn ($query) => $query->with('assignee')->orderBy('id')])
+            ->loadCount(['comments', 'attachments', 'subtasks']);
+
+        return ApiResponse::success(new TaskResource($task), 'Task fetched successfully');
+    }
+
+    public function activity(Task $task): JsonResponse
+    {
         return ApiResponse::success(
-            new TaskResource($task->load(['assignee', 'assigner', 'comments.author'])->loadCount('comments')),
-            'Task fetched successfully'
+            $this->tasks->activity($task),
+            'Task activity fetched successfully'
         );
     }
 
@@ -78,7 +87,9 @@ class TaskController extends ApiController
         return $this->applyFilters(
             Task::query()
                 ->with(['assignee', 'assigner'])
-                ->withCount('comments')
+                ->withCount(['comments', 'attachments', 'subtasks'])
+                ->when(! $request->boolean('include_subtasks'), fn (Builder $query) => $query->roots())
+                ->when($request->filled('parent_id'), fn (Builder $query) => $query->where('parent_id', $request->integer('parent_id')))
                 ->visibleTo($request->user()),
             $request,
             ['title', 'description'],

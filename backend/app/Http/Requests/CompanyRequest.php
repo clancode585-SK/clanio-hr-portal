@@ -43,6 +43,9 @@ class CompanyRequest extends FormRequest
             'timezone' => ['nullable', 'string', 'max:64'],
             'currency' => ['nullable', 'string', 'size:3'],
             'fiscal_year_start' => ['nullable', 'integer', 'between:1,12'],
+            'sod_cutoff' => ['nullable', 'date_format:H:i'],
+            'eod_cutoff' => ['nullable', 'date_format:H:i'],
+            'regularization_days' => ['nullable', 'integer', 'between:0,90'],
             'status' => ['nullable', Rule::in(['active', 'suspended', 'archived'])],
 
             'admin' => [$creating ? 'required' : 'prohibited', 'array'],

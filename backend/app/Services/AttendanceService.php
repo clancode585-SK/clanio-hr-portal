@@ -19,6 +19,14 @@ use Illuminate\Support\Facades\DB;
 
 final class AttendanceService
 {
+    public const REGULARIZED = 'regularized';
+
+    public const GAP_MISSING_PUNCH = 'missing_punch';
+
+    public const GAP_MISSING_CHECKOUT = 'missing_checkout';
+
+    public const GAP_SHORT_HOURS = 'short_hours';
+
     public function checkIn(User $actor, array $data, Request $request): Attendance
     {
         $employee = $this->employeeFor($actor);
@@ -97,6 +105,132 @@ final class AttendanceService
         $this->broadcast($employee, $attendance, 'checked_out');
 
         return $attendance;
+    }
+
+    public function recalculateFor(Attendance $attendance, Employee $employee): void
+    {
+        $this->recalculate($attendance, WorkCalendar::shiftFor($employee));
+        $this->forget($employee, $attendance);
+    }
+
+    public function dayState(Employee $employee, Carbon $date): array
+    {
+        $day = WorkCalendar::day($employee, $date);
+        $shift = WorkCalendar::shiftFor($employee);
+
+        $attendance = Attendance::query()
+            ->where('employee_id', $employee->id)
+            ->whereDate('attendance_date', $date->toDateString())
+            ->first();
+
+        $totals = $attendance === null ? null : DB::selectOne(
+            'SELECT COUNT(*) AS punches,
+                    SUM(d.check_out_at IS NULL) AS open_punches,
+                    MIN(d.check_in_at) AS first_in,
+                    MAX(d.check_out_at) AS last_out
+             FROM attendance_details d
+             WHERE d.attendance_id = ?',
+            [$attendance->id]
+        );
+
+        $punches = (int) ($totals->punches ?? 0);
+        $hasOpen = (int) ($totals->open_punches ?? 0) > 0;
+        $worked = (int) ($attendance->worked_minutes ?? 0);
+
+        return [
+            'date' => $date->toDateString(),
+            'weekday' => $date->format('l'),
+            'day_type' => $day['day_type'],
+            'is_working_day' => $day['is_working_day'],
+            'leave_portion' => $day['leave_portion'],
+            'holiday' => $day['holiday'],
+            'attendance_id' => $attendance?->id,
+            'status' => $attendance?->status,
+            'punch_count' => $punches,
+            'worked_minutes' => $worked,
+            'has_open_punch' => $hasOpen,
+            'first_check_in_at' => $totals->first_in ?? null,
+            'last_check_out_at' => $totals->last_out ?? null,
+            'gap' => $this->gapType($day, $punches, $hasOpen, $worked, $shift),
+        ];
+    }
+
+    public function applyRegularization(Employee $employee, Carbon $date, ?Carbon $in, ?Carbon $out, User $actor): Attendance
+    {
+        return DB::transaction(function () use ($employee, $date, $in, $out, $actor): Attendance {
+            $shift = WorkCalendar::shiftFor($employee);
+            $attendance = $this->attendanceForDate($employee, $date, $shift);
+
+            $open = AttendanceDetail::query()
+                ->where('attendance_id', $attendance->id)
+                ->whereNull('check_out_at')
+                ->lockForUpdate()
+                ->first();
+
+            if ($open !== null && $in === null && $out !== null) {
+                $open->forceFill([
+                    'check_out_at' => $out,
+                    'worked_minutes' => max(0, (int) $open->check_in_at->diffInMinutes($out)),
+                    'source' => self::REGULARIZED,
+                    'updated_by' => $actor->id,
+                ])->save();
+            } else {
+                if ($open !== null) {
+                    $open->forceFill([
+                        'check_out_at' => $out ?? $open->check_in_at,
+                        'worked_minutes' => 0,
+                        'source' => self::REGULARIZED,
+                        'updated_by' => $actor->id,
+                    ])->save();
+                }
+
+                $detail = new AttendanceDetail([
+                    'check_in_at' => $in,
+                    'check_out_at' => $out,
+                    'worked_minutes' => $out === null ? 0 : max(0, (int) $in->diffInMinutes($out)),
+                    'source' => self::REGULARIZED,
+                ]);
+
+                $detail->company_id = $employee->company_id;
+                $detail->attendance_id = $attendance->id;
+                $detail->employee_id = $employee->id;
+                $detail->created_by = $actor->id;
+                $detail->save();
+            }
+
+            $attendance->forceFill([
+                'source' => self::REGULARIZED,
+                'updated_by' => $actor->id,
+            ])->save();
+
+            $this->recalculate($attendance, $shift);
+            $this->forget($employee, $attendance);
+
+            return $attendance->refresh();
+        });
+    }
+
+    private function gapType(array $day, int $punches, bool $hasOpen, int $worked, ?WorkShift $shift): ?string
+    {
+        if (! $day['is_working_day'] || $day['leave_portion'] >= 1) {
+            return null;
+        }
+
+        if ($punches === 0) {
+            return self::GAP_MISSING_PUNCH;
+        }
+
+        if ($hasOpen) {
+            return self::GAP_MISSING_CHECKOUT;
+        }
+
+        $full = $shift?->full_day_minutes;
+
+        if ($full !== null && $worked < (int) $full) {
+            return self::GAP_SHORT_HOURS;
+        }
+
+        return null;
     }
 
     public function setLeavePortion(Employee $employee, string $date, float $portion, User $actor): void
@@ -424,6 +558,8 @@ final class AttendanceService
             'punch_count' => (int) $totals->punches,
             'worked_minutes' => $worked,
             'break_minutes' => max(0, $span - $worked),
+            'first_check_in_at' => $totals->first_in,
+            'last_check_out_at' => $totals->last_out,
             'is_late' => $late > 0,
             'late_minutes' => $late,
             'status' => $this->statusFor($shift, $worked, $isOpen, (float) $attendance->leave_portion),

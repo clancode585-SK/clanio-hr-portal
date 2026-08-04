@@ -38,6 +38,9 @@ class Company extends Model
         'timezone',
         'currency',
         'fiscal_year_start',
+        'sod_cutoff',
+        'eod_cutoff',
+        'regularization_days',
         'status',
     ];
 

@@ -22,6 +22,16 @@ final class NotificationType
 
     public const ATTENDANCE_LATE = 'attendance.late';
 
+    public const ATTENDANCE_AUTO_CHECKOUT = 'attendance.auto_checkout';
+
+    public const DOCUMENT_EXPIRING = 'document.expiring';
+
+    public const REGULARIZATION_REQUESTED = 'attendance.regularization_requested';
+
+    public const REGULARIZATION_APPROVED = 'attendance.regularization_approved';
+
+    public const REGULARIZATION_REJECTED = 'attendance.regularization_rejected';
+
     public const DOCUMENT_UPLOADED = 'document.uploaded';
 
     public const DOCUMENT_VERIFIED = 'document.verified';
@@ -36,7 +46,15 @@ final class NotificationType
 
     public const TASK_COMMENTED = 'task.commented';
 
+    public const TASK_DUE_SOON = 'task.due_soon';
+
+    public const TASK_OVERDUE = 'task.overdue';
+
     public const REPORT_SUBMITTED = 'report.submitted';
+
+    public const SOD_PENDING = 'report.sod_pending';
+
+    public const EOD_PENDING = 'report.eod_pending';
 
     public const ANNOUNCEMENT = 'announcement.general';
 
@@ -61,7 +79,8 @@ final class NotificationType
     {
         return match ($type) {
             self::LEAVE_APPLIED, self::LEAVE_APPROVED, self::LEAVE_REJECTED, self::DOCUMENT_REJECTED,
-            self::TASK_ASSIGNED => self::HIGH,
+            self::TASK_ASSIGNED, self::TASK_OVERDUE, self::REGULARIZATION_REQUESTED,
+            self::REGULARIZATION_APPROVED, self::REGULARIZATION_REJECTED => self::HIGH,
             self::ATTENDANCE_CHECKED_IN, self::ATTENDANCE_CHECKED_OUT, self::REPORT_SUBMITTED => self::LOW,
             default => self::NORMAL,
         };

@@ -6,6 +6,7 @@ namespace App\Http\Resources;
 
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Support\DataScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
@@ -29,6 +30,9 @@ class ProfileResource extends JsonResource
             'last_login_at' => $this->last_login_at,
 
             'roles' => RoleResource::collection($this->whenLoaded('roles')),
+
+            'permissions' => $this->resource->permissionSlugs(),
+            'data_scope' => DataScope::of($this->resource),
 
             'organisation' => [
                 'company_id' => $this->company_id,

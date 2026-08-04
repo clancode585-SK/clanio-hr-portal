@@ -6,6 +6,7 @@ use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\Company\AttendanceController;
 use App\Http\Controllers\Company\BranchController;
 use App\Http\Controllers\Company\CompanyController;
+use App\Http\Controllers\Company\CompanySettingController;
 use App\Http\Controllers\Company\DailyReportController;
 use App\Http\Controllers\Company\DepartmentController;
 use App\Http\Controllers\Company\DesignationController;
@@ -20,11 +21,14 @@ use App\Http\Controllers\Company\LeaveController;
 use App\Http\Controllers\Company\LeaveTypeController;
 use App\Http\Controllers\Company\NotificationController;
 use App\Http\Controllers\Company\RealtimeController;
+use App\Http\Controllers\Company\RegularizationController;
 use App\Http\Controllers\Company\RoleController;
+use App\Http\Controllers\Company\TaskAttachmentController;
 use App\Http\Controllers\Company\TaskCommentController;
 use App\Http\Controllers\Company\TaskController;
 use App\Http\Controllers\Company\TeamController;
 use App\Http\Controllers\Company\UserController;
+use App\Http\Controllers\Company\WorkRecordController;
 use App\Http\Controllers\Company\WorkShiftController;
 use App\Http\Controllers\Permission\PermissionController;
 use App\Http\Controllers\Profile\ProfileController;
@@ -57,6 +61,9 @@ Route::prefix('hrms')->group(function (): void {
             Route::put('companies/{company}', [CompanyController::class, 'update']);
             Route::delete('companies/{company}', [CompanyController::class, 'destroy']);
         });
+
+        Route::get('company-settings', [CompanySettingController::class, 'show'])->middleware('permission:company.view');
+        Route::put('company-settings', [CompanySettingController::class, 'update'])->middleware('permission:company.edit');
 
         Route::get('permissions', [PermissionController::class, 'index'])->middleware('permission:permission.view');
 
@@ -155,6 +162,16 @@ Route::prefix('hrms')->group(function (): void {
         Route::get('attendance', [AttendanceController::class, 'index']);
         Route::get('attendance/{attendance}', [AttendanceController::class, 'show']);
 
+        Route::get('regularizations/eligible-days', [RegularizationController::class, 'eligibleDays']);
+        Route::get('regularizations/pending-approvals', [RegularizationController::class, 'pendingApprovals']);
+        Route::get('regularizations/summary', [RegularizationController::class, 'summary']);
+        Route::get('regularizations', [RegularizationController::class, 'index']);
+        Route::post('regularizations', [RegularizationController::class, 'store']);
+        Route::get('regularizations/{regularization}', [RegularizationController::class, 'show']);
+        Route::put('regularizations/{regularization}/approve', [RegularizationController::class, 'approve'])->name('regularizations.approve');
+        Route::put('regularizations/{regularization}/reject', [RegularizationController::class, 'reject'])->name('regularizations.reject');
+        Route::delete('regularizations/{regularization}', [RegularizationController::class, 'destroy']);
+
         Route::get('tasks/summary', [TaskController::class, 'summary']);
         Route::get('tasks', [TaskController::class, 'index']);
         Route::post('tasks', [TaskController::class, 'store']);
@@ -163,11 +180,23 @@ Route::prefix('hrms')->group(function (): void {
         Route::put('tasks/{task}/status', [TaskController::class, 'changeStatus']);
         Route::delete('tasks/{task}', [TaskController::class, 'destroy']);
 
+        Route::get('tasks/{task}/activity', [TaskController::class, 'activity']);
+
+        Route::get('task-attachments/{attachment}/download', [TaskAttachmentController::class, 'download'])
+            ->name('task-attachments.download');
+
         Route::prefix('tasks/{task}')->scopeBindings()->group(function (): void {
             Route::get('comments', [TaskCommentController::class, 'index']);
             Route::post('comments', [TaskCommentController::class, 'store']);
             Route::delete('comments/{comment}', [TaskCommentController::class, 'destroy']);
+
+            Route::get('attachments', [TaskAttachmentController::class, 'index']);
+            Route::post('attachments', [TaskAttachmentController::class, 'store']);
+            Route::delete('attachments/{attachment}', [TaskAttachmentController::class, 'destroy']);
         });
+
+        Route::get('work-record', [WorkRecordController::class, 'show']);
+        Route::get('work-record/team', [WorkRecordController::class, 'team']);
 
         Route::get('daily-reports/today', [DailyReportController::class, 'today']);
         Route::get('daily-reports/team-status', [DailyReportController::class, 'teamStatus']);

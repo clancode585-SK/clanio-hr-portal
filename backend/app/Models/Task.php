@@ -126,6 +126,31 @@ class Task extends Model
         return $this->hasMany(TaskComment::class);
     }
 
+    public function attachments(): HasMany
+    {
+        return $this->hasMany(TaskAttachment::class);
+    }
+
+    public function parent(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'parent_id');
+    }
+
+    public function subtasks(): HasMany
+    {
+        return $this->hasMany(self::class, 'parent_id');
+    }
+
+    public function isSubtask(): bool
+    {
+        return $this->parent_id !== null;
+    }
+
+    public function scopeRoots(Builder $query): Builder
+    {
+        return $query->whereNull('parent_id');
+    }
+
     public function isClosed(): bool
     {
         return in_array($this->status, self::CLOSED_STATUSES, true);

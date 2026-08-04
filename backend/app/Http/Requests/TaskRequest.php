@@ -23,6 +23,7 @@ class TaskRequest extends FormRequest
             'title' => [$required, 'string', 'max:200'],
             'description' => ['nullable', 'string', 'max:5000'],
             'assignee_id' => ['nullable', 'integer', 'exists:users,id'],
+            'parent_id' => ['nullable', 'integer', 'exists:tasks,id'],
             'priority' => ['nullable', Rule::in(Task::PRIORITIES)],
             'due_date' => ['nullable', 'date'],
             'estimated_hours' => ['nullable', 'numeric', 'between:0.5,999'],
