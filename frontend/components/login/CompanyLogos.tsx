@@ -1,7 +1,7 @@
 import React from "react";
 import { Building2, Sparkles, Box, Layers, Cpu } from "lucide-react";
 
-export const CompanyLogos: React.FC = () => {
+export const CompanyLogos: React.FC<{ isDark?: boolean }> = ({ isDark = false }) => {
   const companies = [
     {
       name: "ACME",
@@ -31,8 +31,12 @@ export const CompanyLogos: React.FC = () => {
   ];
 
   return (
-    <div className="w-full max-w-lg bg-white/70 backdrop-blur-md rounded-2xl p-3 sm:p-4 border border-white/90 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)]">
-      <p className="text-[11px] font-semibold text-slate-500 text-center mb-2.5">
+    <div className={`w-full max-w-lg backdrop-blur-md rounded-2xl p-3 sm:p-4 border transition-all duration-300 ${
+      isDark
+        ? "bg-slate-900/60 border-slate-800/80 shadow-lg"
+        : "bg-white/70 border-white/90 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.03)]"
+    }`}>
+      <p className={`text-[11px] font-semibold text-center mb-2.5 ${isDark ? "text-slate-400" : "text-slate-500"}`}>
         Trusted by 500+ companies worldwide
       </p>
 
@@ -40,12 +44,14 @@ export const CompanyLogos: React.FC = () => {
         {companies.map((company, index) => (
           <div
             key={index}
-            className="flex items-center gap-1.5 text-slate-500 hover:text-slate-900 transition-colors cursor-pointer"
+            className={`flex items-center gap-1.5 transition-colors cursor-pointer ${
+              isDark ? "text-slate-400 hover:text-slate-200" : "text-slate-500 hover:text-slate-900"
+            }`}
           >
-            <div className="text-slate-400">{company.icon}</div>
+            <div className={isDark ? "text-slate-500" : "text-slate-400"}>{company.icon}</div>
             <div className="leading-none text-[10px]">
-              <span className="font-bold text-slate-700 block">{company.name}</span>
-              <span className="text-[8px] text-slate-400 block font-medium">{company.sub}</span>
+              <span className={`font-bold block ${isDark ? "text-slate-200" : "text-slate-700"}`}>{company.name}</span>
+              <span className={`text-[8px] block font-medium ${isDark ? "text-slate-400" : "text-slate-400"}`}>{company.sub}</span>
             </div>
           </div>
         ))}
