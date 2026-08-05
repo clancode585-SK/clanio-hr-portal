@@ -60,7 +60,7 @@ final class DepartmentService
             );
         }
 
-        $department->delete();
+        $department->deactivate();
 
         TenantCache::flush(TenantCache::DEPARTMENTS);
     }

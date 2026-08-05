@@ -226,7 +226,7 @@ final class RegularizationService
             ->join('employees as e', 'e.id', '=', 'r.employee_id')
             ->join('users as u', 'u.id', '=', 'e.user_id')
             ->whereIn('r.employee_id', $employeeIds)
-            ->whereNull('r.deleted_at')
+            ->where('r.is_active', 1)
             ->whereBetween('r.attendance_date', [$start->toDateString(), $end->toDateString()])
             ->groupBy('r.employee_id', 'e.employee_code', 'u.name')
             ->orderByDesc(DB::raw('COUNT(*)'))

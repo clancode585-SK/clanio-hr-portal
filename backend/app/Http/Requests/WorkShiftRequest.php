@@ -26,7 +26,7 @@ class WorkShiftRequest extends FormRequest
         return [
             'name' => [$required, 'string', 'max:150'],
             'code' => [$required, 'string', 'alpha_dash', 'max:30',
-                Rule::unique('work_shifts', 'code')->where('company_id', $companyId)->whereNull('deleted_at')->ignore($shiftId)],
+                Rule::unique('work_shifts', 'code')->where('company_id', $companyId)->where('is_active', 1)->ignore($shiftId)],
             'start_time' => [$required, 'date_format:H:i'],
             'end_time' => [$required, 'date_format:H:i'],
             'grace_minutes' => ['nullable', 'integer', 'between:0,240'],

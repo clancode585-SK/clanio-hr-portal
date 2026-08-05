@@ -53,7 +53,7 @@ final class LeaveTypeService
         }
 
         $type->balances()->delete();
-        $type->delete();
+        $type->deactivate();
 
         $this->flush();
     }

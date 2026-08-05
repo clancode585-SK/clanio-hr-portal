@@ -6,20 +6,20 @@ namespace App\Models;
 
 use App\Support\Concerns\Auditable;
 use App\Support\Concerns\BelongsToCompany;
+use App\Support\Concerns\HasActiveState;
 use App\Support\Concerns\HasUuid;
 use App\Support\DataScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Employee extends Model
 {
     use Auditable;
     use BelongsToCompany;
+    use HasActiveState;
     use HasUuid;
-    use SoftDeletes;
 
     public const ONBOARDING_IN_PROGRESS = 'in_progress';
 

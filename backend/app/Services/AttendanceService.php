@@ -387,7 +387,7 @@ final class AttendanceService
              FROM attendances a
              LEFT JOIN attendance_details d
                     ON d.attendance_id = a.id AND d.check_out_at IS NULL
-             WHERE a.employee_id = ? AND a.attendance_date = ? AND a.deleted_at IS NULL
+             WHERE a.employee_id = ? AND a.attendance_date = ? AND a.is_active = 1
              LIMIT 1',
             [$employeeId, $date]
         );

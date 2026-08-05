@@ -165,7 +165,7 @@ final class TaskService
         }
 
         DB::transaction(function () use ($task): void {
-            $task->delete();
+            $task->deactivate();
             $this->flush();
         });
 
@@ -192,7 +192,7 @@ final class TaskService
             throw new ApiException('Sirf apna comment delete kar sakte ho.', 403, 'FORBIDDEN');
         }
 
-        $comment->delete();
+        $comment->deactivate();
     }
 
     public function attach(Task $task, UploadedFile $file, User $actor): TaskAttachment
@@ -236,7 +236,7 @@ final class TaskService
                 Storage::disk(self::DISK)->delete($attachment->file_path);
             }
 
-            $attachment->delete();
+            $attachment->deactivate();
             $this->flush();
         });
     }

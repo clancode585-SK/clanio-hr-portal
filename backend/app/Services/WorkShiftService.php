@@ -60,7 +60,7 @@ final class WorkShiftService
             );
         }
 
-        $shift->delete();
+        $shift->deactivate();
 
         $this->flush();
     }

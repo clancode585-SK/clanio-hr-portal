@@ -122,7 +122,7 @@ class SendWorkReminders extends Command
         $employees = Employee::query()
             ->withoutGlobalScope(CompanyScope::class)
             ->where('company_id', $company->id)
-            ->whereNull('deleted_at')
+            ->where('is_active', 1)
             ->with('user:id,name,branch_id,status')
             ->get(['id', 'company_id', 'user_id', 'work_shift_id']);
 

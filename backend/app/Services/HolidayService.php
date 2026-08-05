@@ -64,7 +64,7 @@ final class HolidayService
 
     public function delete(Holiday $holiday): void
     {
-        $holiday->delete();
+        $holiday->deactivate();
 
         $this->flush();
         $this->broadcast($holiday, 'deleted');

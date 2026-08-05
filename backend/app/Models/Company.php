@@ -5,16 +5,16 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Support\Concerns\Auditable;
+use App\Support\Concerns\HasActiveState;
 use App\Support\Concerns\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Company extends Model
 {
     use Auditable;
+    use HasActiveState;
     use HasUuid;
-    use SoftDeletes;
 
     protected $fillable = [
         'name',

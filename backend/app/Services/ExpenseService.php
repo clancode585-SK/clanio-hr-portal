@@ -367,7 +367,7 @@ final class ExpenseService
                 Storage::disk(self::DISK)->delete($bill->file_path);
             }
 
-            $bill->delete();
+            $bill->deactivate();
             $this->flush();
         });
     }
@@ -392,7 +392,7 @@ final class ExpenseService
 
         $rows = DB::table('expense_claims')
             ->where('employee_id', $employee->id)
-            ->whereNull('deleted_at')
+            ->where('is_active', 1)
             ->whereBetween('expense_date', [$start->toDateString(), $end->toDateString()])
             ->groupBy('category')
             ->get([
@@ -414,7 +414,7 @@ final class ExpenseService
 
         $counts = DB::table('expense_claims')
             ->where('employee_id', $employee->id)
-            ->whereNull('deleted_at')
+            ->where('is_active', 1)
             ->whereBetween('expense_date', [$start->toDateString(), $end->toDateString()])
             ->selectRaw("
                 COUNT(*) as total,
@@ -455,7 +455,7 @@ final class ExpenseService
             ->join('users as u', 'u.id', '=', 'e.user_id')
             ->where('c.company_id', $actor->company_id)
             ->where('c.status', ExpenseClaim::VERIFIED)
-            ->whereNull('c.deleted_at')
+            ->where('c.is_active', 1)
             ->orderBy('c.verified_at')
             ->get([
                 'c.uuid', 'c.id', 'c.category', 'c.purpose', 'c.expense_date',

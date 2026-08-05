@@ -54,7 +54,7 @@ final class TeamService
             throw new ApiException('This team has users. Move them before deleting it.', 409, 'TEAM_IN_USE');
         }
 
-        $team->delete();
+        $team->deactivate();
 
         TenantCache::flush(TenantCache::TEAMS);
     }

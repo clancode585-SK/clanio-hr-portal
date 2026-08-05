@@ -65,7 +65,7 @@ final class RoleService
 
         DB::transaction(function () use ($role): void {
             $role->permissions()->detach();
-            $role->delete();
+            $role->deactivate();
 
             TenantCache::flush(TenantCache::ROLES, TenantCache::PERMISSIONS);
         });

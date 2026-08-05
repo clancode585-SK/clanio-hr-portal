@@ -6,6 +6,7 @@ namespace App\Models;
 
 use App\Support\Concerns\Auditable;
 use App\Support\Concerns\BelongsToCompany;
+use App\Support\Concerns\HasActiveState;
 use App\Support\Concerns\HasUuid;
 use App\Support\DataScope;
 use App\Support\TenantCache;
@@ -14,7 +15,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
@@ -23,8 +23,8 @@ class User extends Authenticatable
 {
     use Auditable;
     use BelongsToCompany;
+    use HasActiveState;
     use HasUuid;
-    use SoftDeletes;
 
     protected $fillable = [
         'name',
@@ -146,7 +146,7 @@ class User extends Authenticatable
                 ->join('user_roles', 'user_roles.role_id', '=', 'roles.id')
                 ->where('user_roles.user_id', $this->id)
                 ->where('roles.is_active', 1)
-                ->whereNull('roles.deleted_at')
+                ->where('roles.is_active', 1)
                 ->distinct()
                 ->pluck('permissions.slug')
                 ->all();

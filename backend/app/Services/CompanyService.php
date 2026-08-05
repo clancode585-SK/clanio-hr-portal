@@ -114,11 +114,11 @@ final class CompanyService
         DB::transaction(function () use ($company): void {
             User::query()->withoutGlobalScopes()->where('company_id', $company->id)->each(function (User $user): void {
                 $user->revokeTokens();
-                $user->delete();
+                $user->deactivate();
             });
 
             $company->forceFill(['status' => 'archived'])->save();
-            $company->delete();
+            $company->deactivate();
 
             TenantCache::flush(TenantCache::COMPANIES);
         });

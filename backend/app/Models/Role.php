@@ -6,17 +6,17 @@ namespace App\Models;
 
 use App\Support\Concerns\Auditable;
 use App\Support\Concerns\BelongsToCompany;
+use App\Support\Concerns\HasActiveState;
 use App\Support\Concerns\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Role extends Model
 {
     use Auditable;
     use BelongsToCompany;
+    use HasActiveState;
     use HasUuid;
-    use SoftDeletes;
 
     public const COMPANY_ADMIN = 'company_admin';
 

@@ -27,7 +27,7 @@ class LeaveTypeRequest extends FormRequest
         return [
             'name' => [$required, 'string', 'max:100'],
             'code' => [$required, 'string', 'alpha_dash', 'max:20',
-                Rule::unique('leave_types', 'code')->where('company_id', $companyId)->whereNull('deleted_at')->ignore($typeId)],
+                Rule::unique('leave_types', 'code')->where('company_id', $companyId)->where('is_active', 1)->ignore($typeId)],
             'description' => ['nullable', 'string', 'max:500'],
             'is_paid' => ['nullable', 'boolean'],
             'annual_quota' => ['nullable', 'numeric', 'between:0,365'],

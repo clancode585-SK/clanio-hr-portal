@@ -37,7 +37,7 @@ final class DataScope
                 ->join('user_roles', 'user_roles.role_id', '=', 'roles.id')
                 ->where('user_roles.user_id', $actor->id)
                 ->where('roles.is_active', 1)
-                ->whereNull('roles.deleted_at')
+                ->where('roles.is_active', 1)
                 ->distinct()
                 ->pluck('roles.data_scope')
                 ->all()

@@ -250,7 +250,7 @@ final class LeaveBalanceService
             ->where('employee_id', $employee->id)
             ->where('leave_type_id', $type->id)
             ->where('status', LeaveRequest::PENDING)
-            ->whereNull('deleted_at')
+            ->where('is_active', 1)
             ->whereYear('from_date', $year)
             ->sum('day_count');
     }

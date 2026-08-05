@@ -261,7 +261,7 @@ final class LeaveRequestService
             ->whereIn('d.employee_id', $employeeIds)
             ->whereIn('d.status', [LeaveRequest::PENDING, LeaveRequest::APPROVED])
             ->whereBetween('d.leave_date', [$start->toDateString(), $end->toDateString()])
-            ->whereNull('r.deleted_at')
+            ->where('r.is_active', 1)
             ->orderBy('d.leave_date')
             ->orderBy('u.name')
             ->get([

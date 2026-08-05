@@ -77,7 +77,7 @@ final class UserService
         DB::transaction(function () use ($user): void {
             $user->revokeTokens();
             $user->roles()->detach();
-            $user->delete();
+            $user->deactivate();
 
             if ($user->company_id !== null) {
                 Company::query()->whereKey($user->company_id)->where('employee_count', '>', 0)->decrement('employee_count');
@@ -119,7 +119,7 @@ final class UserService
             ->whereIn('id', $roleIds)
             ->when($companyId === null, fn ($query) => $query->whereNull('company_id'))
             ->when($companyId !== null, fn ($query) => $query->where('company_id', $companyId))
-            ->whereNull('deleted_at')
+            ->where('is_active', 1)
             ->get();
 
         if ($roles->count() !== count(array_unique($roleIds))) {

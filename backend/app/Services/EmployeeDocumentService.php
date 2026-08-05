@@ -86,7 +86,7 @@ final class EmployeeDocumentService
                 Storage::disk(self::DISK)->delete($document->file_path);
             }
 
-            $document->delete();
+            $document->deactivate();
 
             TenantCache::flush(TenantCache::EMPLOYEES);
         });

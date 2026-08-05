@@ -5,16 +5,16 @@ declare(strict_types=1);
 namespace App\Models;
 
 use App\Support\Concerns\BelongsToCompany;
+use App\Support\Concerns\HasActiveState;
 use App\Support\Concerns\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class ExpenseBill extends Model
 {
     use BelongsToCompany;
+    use HasActiveState;
     use HasUuid;
-    use SoftDeletes;
 
     protected $fillable = [
         'file_path',

@@ -26,7 +26,7 @@ class RoleRequest extends FormRequest
         return [
             'name' => [$required, 'string', 'max:100'],
             'slug' => [$required, 'string', 'alpha_dash', 'min:3', 'max:100',
-                Rule::unique('roles', 'slug')->where('company_key', $companyKey)->whereNull('deleted_at')->ignore($roleId)],
+                Rule::unique('roles', 'slug')->where('company_key', $companyKey)->where('is_active', 1)->ignore($roleId)],
             'description' => ['nullable', 'string', 'max:500'],
             'hierarchy_level' => [$required, 'integer', 'between:2,99'],
             'data_scope' => [$required, Rule::in(['all_company', 'branch', 'department', 'team', 'self'])],

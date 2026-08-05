@@ -29,7 +29,7 @@ final class ApiTokenGuard
         $user = User::query()
             ->withoutGlobalScopes()
             ->where('id', $token->user_id)
-            ->whereNull('deleted_at')
+            ->where('is_active', 1)
             ->first();
 
         if ($user === null || ! $user->isActive() || $user->isLocked()) {

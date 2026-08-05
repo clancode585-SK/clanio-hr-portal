@@ -64,9 +64,9 @@ final class EmployeeService
     public function delete(Employee $employee): void
     {
         DB::transaction(function () use ($employee): void {
-            $employee->familyMembers()->delete();
-            $employee->bankAccounts()->delete();
-            $employee->delete();
+            $employee->familyMembers()->update(['is_active' => 0]);
+            $employee->bankAccounts()->update(['is_active' => 0]);
+            $employee->deactivate();
 
             TenantCache::flush(TenantCache::EMPLOYEES);
         });

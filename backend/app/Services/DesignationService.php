@@ -52,7 +52,7 @@ final class DesignationService
             );
         }
 
-        $designation->delete();
+        $designation->deactivate();
 
         TenantCache::flush(TenantCache::DESIGNATIONS);
     }

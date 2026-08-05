@@ -96,7 +96,7 @@ final class WorkRecordService
 
         $row = DB::table('tasks')
             ->where('assignee_id', $userId)
-            ->whereNull('deleted_at')
+            ->where('is_active', 1)
             ->whereBetween(DB::raw('DATE(created_at)'), [$start->toDateString(), $end->toDateString()])
             ->selectRaw("
                 COUNT(*) as assigned,
@@ -110,7 +110,7 @@ final class WorkRecordService
 
         $closedInMonth = DB::table('tasks')
             ->where('assignee_id', $userId)
-            ->whereNull('deleted_at')
+            ->where('is_active', 1)
             ->where('status', Task::DONE)
             ->whereBetween(DB::raw('DATE(completed_at)'), [$start->toDateString(), $end->toDateString()])
             ->selectRaw('
@@ -122,7 +122,7 @@ final class WorkRecordService
 
         $overdue = DB::table('tasks')
             ->where('assignee_id', $userId)
-            ->whereNull('deleted_at')
+            ->where('is_active', 1)
             ->whereNotIn('status', Task::CLOSED_STATUSES)
             ->whereNotNull('due_date')
             ->whereDate('due_date', '<', Carbon::today())
@@ -162,7 +162,7 @@ final class WorkRecordService
 
         $attendanceMinutes = (int) DB::table('attendances')
             ->where('employee_id', $employee->id)
-            ->whereNull('deleted_at')
+            ->where('is_active', 1)
             ->whereBetween('attendance_date', [$start->toDateString(), $end->toDateString()])
             ->sum('worked_minutes');
 
@@ -206,7 +206,7 @@ final class WorkRecordService
     {
         $row = DB::table('attendances')
             ->where('employee_id', $employee->id)
-            ->whereNull('deleted_at')
+            ->where('is_active', 1)
             ->whereBetween('attendance_date', [$start->toDateString(), $end->toDateString()])
             ->selectRaw("
                 SUM(status = 'present') as present,
@@ -222,13 +222,13 @@ final class WorkRecordService
             ->join('leave_requests as r', 'r.id', '=', 'd.leave_request_id')
             ->where('d.employee_id', $employee->id)
             ->where('d.status', LeaveRequest::APPROVED)
-            ->whereNull('r.deleted_at')
+            ->where('r.is_active', 1)
             ->whereBetween('d.leave_date', [$start->toDateString(), $end->toDateString()])
             ->sum('d.day_portion');
 
         $regularizations = DB::table('attendance_regularizations')
             ->where('employee_id', $employee->id)
-            ->whereNull('deleted_at')
+            ->where('is_active', 1)
             ->whereBetween('attendance_date', [$start->toDateString(), $end->toDateString()])
             ->selectRaw("
                 COUNT(*) as total,
@@ -255,7 +255,7 @@ final class WorkRecordService
     {
         $tasks = DB::table('tasks')
             ->where('assignee_id', $employee->user_id)
-            ->whereNull('deleted_at')
+            ->where('is_active', 1)
             ->whereNotNull('blocked_reason')
             ->whereBetween(DB::raw('DATE(updated_at)'), [$start->toDateString(), $end->toDateString()])
             ->orderByDesc('updated_at')

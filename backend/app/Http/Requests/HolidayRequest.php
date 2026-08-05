@@ -31,10 +31,10 @@ class HolidayRequest extends FormRequest
                 Rule::unique('holidays', 'holiday_date')
                     ->where('company_id', $companyId)
                     ->where('branch_id', $branchId)
-                    ->whereNull('deleted_at')
+                    ->where('is_active', 1)
                     ->ignore($holidayId)],
             'branch_id' => ['nullable', 'integer',
-                Rule::exists('branches', 'id')->where('company_id', $companyId)->whereNull('deleted_at')],
+                Rule::exists('branches', 'id')->where('company_id', $companyId)->where('is_active', 1)],
             'type' => ['nullable', Rule::in([Holiday::PUBLIC, Holiday::OPTIONAL, Holiday::RESTRICTED])],
             'is_paid' => ['nullable', 'boolean'],
             'description' => ['nullable', 'string', 'max:500'],
