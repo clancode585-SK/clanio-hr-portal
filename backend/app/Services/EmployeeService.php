@@ -16,7 +16,10 @@ final class EmployeeService
 {
     private const CODE_PREFIX = 'EMP';
 
-    public function __construct(private readonly UserService $users) {}
+    public function __construct(
+        private readonly UserService $users,
+        private readonly PolicyService $policies
+    ) {}
 
     public function create(array $data, User $actor, ?int $companyId): Employee
     {
@@ -41,6 +44,8 @@ final class EmployeeService
 
             $this->assertManagerIsNotSelf($employee, $user->id);
             $employee->save();
+
+            $this->policies->assignPending($employee, $actor);
 
             TenantCache::flush(TenantCache::EMPLOYEES);
 

@@ -12,6 +12,7 @@ use App\Models\LoginAttempt;
 use App\Models\PasswordResetToken;
 use App\Models\User;
 use App\Support\Scopes\CompanyScope;
+use App\Services\PolicyService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -48,9 +49,15 @@ final class AuthService
         $user->registerLogin($request->ip());
         $this->log($email, $user, null, $request, true);
 
+        $gate = app(PolicyService::class)->gateStatus($user);
+
         return [
             'token' => ApiToken::issue($user, $request->ip(), $this->config('lifetime', 10080)),
             'role' => $user->primaryRole(),
+            'policy_gate' => [
+                'blocked' => $gate['blocked'],
+                'pending' => $gate['pending'],
+            ],
         ];
     }
 

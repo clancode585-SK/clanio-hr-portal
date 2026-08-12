@@ -146,7 +146,6 @@ class User extends Authenticatable
                 ->join('user_roles', 'user_roles.role_id', '=', 'roles.id')
                 ->where('user_roles.user_id', $this->id)
                 ->where('roles.is_active', 1)
-                ->where('roles.is_active', 1)
                 ->distinct()
                 ->pluck('permissions.slug')
                 ->all();

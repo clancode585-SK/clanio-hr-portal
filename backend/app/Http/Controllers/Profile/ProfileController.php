@@ -15,6 +15,7 @@ use App\Models\Employee;
 use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Services\EmployeeDocumentService;
+use App\Services\ProfileCompletionService;
 use App\Services\ProfileService;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -24,8 +25,20 @@ class ProfileController extends ApiController
 {
     public function __construct(
         private readonly ProfileService $profile,
-        private readonly EmployeeDocumentService $documents
+        private readonly EmployeeDocumentService $documents,
+        private readonly ProfileCompletionService $completion
     ) {}
+
+    public function completion(Request $request): JsonResponse
+    {
+        return ApiResponse::success(
+            $this->completion->forUser(
+                $request->user(),
+                $request->filled('employee_id') ? (int) $request->input('employee_id') : null
+            ),
+            'Profile completion fetched successfully'
+        );
+    }
 
     public function show(Request $request): JsonResponse
     {

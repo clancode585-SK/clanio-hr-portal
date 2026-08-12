@@ -34,6 +34,14 @@ final class TenantCache
 
     public const EXPENSES = 'expenses';
 
+    public const EXITS = 'exits';
+
+    public const PERFORMANCE = 'performance';
+
+    public const ASSETS = 'assets';
+
+    public const POLICIES = 'policies';
+
     public const TASKS = 'tasks';
 
     public const DAILY_REPORTS = 'daily_reports';

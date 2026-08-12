@@ -23,7 +23,6 @@ final class Recipients
                 ->where('u.status', 'active')
                 ->where('u.is_active', 1)
                 ->where('r.is_active', 1)
-                ->where('r.is_active', 1)
                 ->where('p.slug', $slug)
                 ->distinct()
                 ->pluck('u.id')

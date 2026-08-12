@@ -25,6 +25,18 @@ class Employee extends Model
 
     public const ONBOARDING_COMPLETED = 'completed';
 
+    public const EMPLOYMENT_ACTIVE = 'active';
+
+    public const EMPLOYMENT_SERVING_NOTICE = 'serving_notice';
+
+    public const EMPLOYMENT_EXITED = 'exited';
+
+    public const EMPLOYMENT_STATUSES = [
+        self::EMPLOYMENT_ACTIVE,
+        self::EMPLOYMENT_SERVING_NOTICE,
+        self::EMPLOYMENT_EXITED,
+    ];
+
     protected $fillable = [
         'employee_code',
         'designation_id',
@@ -51,6 +63,7 @@ class Employee extends Model
     protected $attributes = [
         'employment_type' => 'full_time',
         'onboarding_status' => self::ONBOARDING_IN_PROGRESS,
+        'employment_status' => self::EMPLOYMENT_ACTIVE,
     ];
 
     protected function casts(): array
@@ -60,6 +73,8 @@ class Employee extends Model
             'probation_end_date' => 'date:Y-m-d',
             'confirmation_date' => 'date:Y-m-d',
             'date_of_birth' => 'date:Y-m-d',
+            'exit_date' => 'date:Y-m-d',
+            'policy_gate_cleared_at' => 'datetime',
         ];
     }
 
@@ -112,8 +127,33 @@ class Employee extends Model
         return $this->hasMany(EmployeeDocument::class);
     }
 
+    public function exits(): HasMany
+    {
+        return $this->hasMany(EmployeeExit::class);
+    }
+
+    public function policyAcknowledgements(): HasMany
+    {
+        return $this->hasMany(PolicyAcknowledgement::class);
+    }
+
+    public function hasClearedPolicyGate(): bool
+    {
+        return $this->policy_gate_cleared_at !== null;
+    }
+
     public function isOnboardingComplete(): bool
     {
         return $this->onboarding_status === self::ONBOARDING_COMPLETED;
+    }
+
+    public function isExited(): bool
+    {
+        return $this->employment_status === self::EMPLOYMENT_EXITED;
+    }
+
+    public function isServingNotice(): bool
+    {
+        return $this->employment_status === self::EMPLOYMENT_SERVING_NOTICE;
     }
 }

@@ -41,6 +41,9 @@ class EmployeeResource extends JsonResource
             'work_shift_id' => $this->work_shift_id,
             'reporting_manager_id' => $this->reporting_manager_id,
 
+            'employment_status' => $this->employment_status,
+            'exit_date' => $this->exit_date?->format('Y-m-d'),
+
             'onboarding' => [
                 'status' => $this->onboarding_status,
                 'steps' => [

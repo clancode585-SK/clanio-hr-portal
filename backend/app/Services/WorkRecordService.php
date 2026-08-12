@@ -23,6 +23,17 @@ final class WorkRecordService
         $employee = $this->employeeFor($actor, $employeeId);
         [$start, $end] = $this->range($month);
 
+        return $this->buildRecord($employee, $start, $end);
+    }
+
+    public function buildRecord(Employee $employee, Carbon $start, Carbon $end): array
+    {
+        $tasks = $this->taskStats($employee, $start, $end);
+        $hours = $this->hourStats($employee, $start, $end);
+        $reports = $this->reportStats($employee, $start, $end);
+        $attendance = $this->attendanceStats($employee, $start, $end);
+        $breakdown = $this->scoreBreakdown((int) $employee->company_id, $tasks, $reports, $attendance);
+
         return [
             'employee' => [
                 'employee_id' => (int) $employee->id,
@@ -32,11 +43,18 @@ final class WorkRecordService
                 'reporting_manager' => $employee->reportingManager?->name,
             ],
             'month' => $start->format('Y-m'),
+            'score' => $breakdown['score'],
+            'score_breakdown' => [
+                'delivery' => $breakdown['delivery'],
+                'discipline' => $breakdown['discipline'],
+                'penalty' => $breakdown['penalty'],
+                'weights' => $breakdown['weights'],
+            ],
             'working_days' => $this->workingDays($employee, $start, $end),
-            'tasks' => $this->taskStats($employee, $start, $end),
-            'hours' => $this->hourStats($employee, $start, $end),
-            'reports' => $this->reportStats($employee, $start, $end),
-            'attendance' => $this->attendanceStats($employee, $start, $end),
+            'tasks' => $tasks,
+            'hours' => $hours,
+            'reports' => $reports,
+            'attendance' => $attendance,
             'blockers' => $this->blockers($employee, $start, $end),
         ];
     }
@@ -71,7 +89,7 @@ final class WorkRecordService
                 'present_days' => $attendance['present'],
                 'absent_days' => $attendance['absent'],
                 'late_days' => $attendance['late'],
-                'score' => $this->score($tasks, $reports, $attendance),
+                'score' => $this->scoreBreakdown((int) $employee->company_id, $tasks, $reports, $attendance)['score'],
             ];
         }
 
@@ -120,12 +138,17 @@ final class WorkRecordService
             ')
             ->first();
 
+        $asOf = $this->asOf($end);
+
         $overdue = DB::table('tasks')
             ->where('assignee_id', $userId)
             ->where('is_active', 1)
-            ->whereNotIn('status', Task::CLOSED_STATUSES)
+            ->where('status', '!=', Task::CANCELLED)
             ->whereNotNull('due_date')
-            ->whereDate('due_date', '<', Carbon::today())
+            ->whereDate('due_date', '<', $asOf->toDateString())
+            ->where(fn ($query) => $query
+                ->whereNull('completed_at')
+                ->orWhereDate('completed_at', '>', $asOf->toDateString()))
             ->count();
 
         $withDue = (int) $closedInMonth->on_time + (int) $closedInMonth->late;
@@ -320,13 +343,60 @@ final class WorkRecordService
         return $count;
     }
 
-    private function score(array $tasks, array $reports, array $attendance): int
+    /**
+     * Delivery = task on-time %, discipline = SOD/EOD compliance %.
+     * Weights aur penalty company settings se aate hain.
+     */
+    public function scoreBreakdown(int $companyId, array $tasks, array $reports, array $attendance): array
     {
+        $weights = $this->weights($companyId);
+
         $onTime = $tasks['on_time_percent'] ?? 100;
         $compliance = $reports['compliance_percent'] ?? 100;
-        $penalty = ($tasks['overdue'] * 3) + ($attendance['absent'] * 4) + ($reports['missed'] * 2);
 
-        return max(0, min(100, (int) round(($onTime * 0.5) + ($compliance * 0.5) - $penalty)));
+        $delivery = $onTime * $weights['delivery'] / 100;
+        $discipline = $compliance * $weights['discipline'] / 100;
+
+        $penalty = ($tasks['overdue'] * $weights['overdue_penalty'])
+            + ($attendance['absent'] * $weights['absent_penalty'])
+            + ($reports['missed'] * $weights['missed_report_penalty']);
+
+        return [
+            'delivery' => (int) round($delivery),
+            'discipline' => (int) round($discipline),
+            'penalty' => (int) min(100, $penalty),
+            'score' => max(0, min(100, (int) round($delivery + $discipline - $penalty))),
+            'weights' => $weights,
+        ];
+    }
+
+    public function weights(int $companyId): array
+    {
+        $row = DB::table('companies')->where('id', $companyId)->first([
+            'perf_delivery_weight',
+            'perf_discipline_weight',
+            'perf_overdue_penalty',
+            'perf_absent_penalty',
+            'perf_missed_report_penalty',
+        ]);
+
+        return [
+            'delivery' => (int) ($row->perf_delivery_weight ?? 50),
+            'discipline' => (int) ($row->perf_discipline_weight ?? 50),
+            'overdue_penalty' => (int) ($row->perf_overdue_penalty ?? 3),
+            'absent_penalty' => (int) ($row->perf_absent_penalty ?? 4),
+            'missed_report_penalty' => (int) ($row->perf_missed_report_penalty ?? 2),
+        ];
+    }
+
+    /**
+     * Aaj se aage ka data hota hi nahi — purane mahine ka score isi liye stable rehta hai.
+     */
+    private function asOf(Carbon $end): Carbon
+    {
+        $today = Carbon::today();
+
+        return $end->greaterThan($today) ? $today : $end->copy();
     }
 
     private function employeeFor(User $actor, ?int $employeeId): Employee

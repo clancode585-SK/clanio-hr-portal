@@ -34,7 +34,10 @@ final class TaskService
         Task::CANCELLED => [Task::TODO],
     ];
 
-    public function __construct(private readonly NotificationService $notifications) {}
+    public function __construct(
+        private readonly NotificationService $notifications,
+        private readonly GoalService $goals
+    ) {}
 
     public function create(array $data, User $actor): Task
     {
@@ -144,6 +147,7 @@ final class TaskService
             return $task->refresh()->load('assignee', 'assigner');
         });
 
+        $this->goals->recalculateForTask($task);
         $this->notifyStatus($task, $actor, $current);
         $this->broadcast($task, 'status_changed');
 

@@ -3,9 +3,13 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Auth\AuthController;
+use App\Http\Controllers\Company\AppraisalController;
+use App\Http\Controllers\Company\AssetController;
+use App\Http\Controllers\Company\AssetRequestController;
 use App\Http\Controllers\Company\AttendanceController;
 use App\Http\Controllers\Company\BranchController;
 use App\Http\Controllers\Company\CompanyController;
+use App\Http\Controllers\Company\ClearanceController;
 use App\Http\Controllers\Company\CompanySettingController;
 use App\Http\Controllers\Company\DailyReportController;
 use App\Http\Controllers\Company\DepartmentController;
@@ -14,7 +18,9 @@ use App\Http\Controllers\Company\DeviceTokenController;
 use App\Http\Controllers\Company\EmployeeBankAccountController;
 use App\Http\Controllers\Company\EmployeeController;
 use App\Http\Controllers\Company\EmployeeDocumentController;
+use App\Http\Controllers\Company\EmployeeExitController;
 use App\Http\Controllers\Company\EmployeeFamilyController;
+use App\Http\Controllers\Company\ExitDocumentController;
 use App\Http\Controllers\Company\ExpenseBillController;
 use App\Http\Controllers\Company\ExpenseClaimController;
 use App\Http\Controllers\Company\HolidayController;
@@ -22,6 +28,9 @@ use App\Http\Controllers\Company\LeaveBalanceController;
 use App\Http\Controllers\Company\LeaveController;
 use App\Http\Controllers\Company\LeaveTypeController;
 use App\Http\Controllers\Company\NotificationController;
+use App\Http\Controllers\Company\PerformanceController;
+use App\Http\Controllers\Company\PerformanceGoalController;
+use App\Http\Controllers\Company\PolicyController;
 use App\Http\Controllers\Company\RealtimeController;
 use App\Http\Controllers\Company\RegularizationController;
 use App\Http\Controllers\Company\RoleController;
@@ -41,11 +50,12 @@ Route::prefix('hrms')->group(function (): void {
     Route::post('auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:sensitive');
     Route::post('auth/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:sensitive');
 
-    Route::middleware(['auth:api', 'tenant', 'company.active', 'throttle:api'])->group(function (): void {
+    Route::middleware(['auth:api', 'tenant', 'company.active', 'policy.gate', 'throttle:api'])->group(function (): void {
         Route::post('auth/logout', [AuthController::class, 'logout']);
         Route::post('auth/change-password', [AuthController::class, 'changePassword'])->middleware('throttle:sensitive');
 
         Route::get('profile', [ProfileController::class, 'show']);
+        Route::get('profile/completion', [ProfileController::class, 'completion']);
         Route::put('profile', [ProfileController::class, 'update']);
         Route::post('profile/avatar', [ProfileController::class, 'uploadAvatar']);
         Route::delete('profile/avatar', [ProfileController::class, 'deleteAvatar']);
@@ -241,6 +251,172 @@ Route::prefix('hrms')->group(function (): void {
             Route::post('bills', [ExpenseBillController::class, 'store']);
             Route::delete('bills/{bill}', [ExpenseBillController::class, 'destroy']);
         });
+
+        Route::get('exits/types', [EmployeeExitController::class, 'types']);
+        Route::get('exits/pending-approvals', [EmployeeExitController::class, 'pendingApprovals']);
+        Route::get('exits/pending-hr-approval', [EmployeeExitController::class, 'pendingHrApproval'])
+            ->middleware('permission:exit.approve');
+        Route::get('exits/serving-notice', [EmployeeExitController::class, 'servingNotice']);
+        Route::get('exits/summary', [EmployeeExitController::class, 'summary'])
+            ->middleware('permission:exit.approve');
+        Route::get('exits', [EmployeeExitController::class, 'index']);
+        Route::post('exits', [EmployeeExitController::class, 'store']);
+        Route::get('exits/{exit}', [EmployeeExitController::class, 'show']);
+        Route::put('exits/{exit}/manager-approve', [EmployeeExitController::class, 'managerApprove'])
+            ->name('exits.manager-approve');
+        Route::put('exits/{exit}/hr-approve', [EmployeeExitController::class, 'hrApprove'])
+            ->middleware('permission:exit.approve')
+            ->name('exits.hr-approve');
+        Route::put('exits/{exit}/last-working-date', [EmployeeExitController::class, 'changeLastWorkingDate'])
+            ->middleware('permission:exit.approve')
+            ->name('exits.last-working-date');
+        Route::put('exits/{exit}/complete', [EmployeeExitController::class, 'complete'])
+            ->middleware('permission:exit.approve')
+            ->name('exits.complete');
+        Route::put('exits/{exit}/reject', [EmployeeExitController::class, 'reject'])
+            ->name('exits.reject');
+        Route::delete('exits/{exit}', [EmployeeExitController::class, 'destroy']);
+
+        Route::get('exit-documents/{document}/download', [ExitDocumentController::class, 'download'])
+            ->name('exit-documents.download');
+
+        Route::get('policies/categories', [PolicyController::class, 'categories']);
+        Route::get('my-policies', [PolicyController::class, 'myPolicies']);
+        Route::get('policies', [PolicyController::class, 'index']);
+        Route::post('policies', [PolicyController::class, 'store'])
+            ->middleware('permission:policy.manage');
+        Route::get('policies/{policy}', [PolicyController::class, 'show'])->name('policies.show');
+        Route::post('policies/{policy}', [PolicyController::class, 'update'])
+            ->middleware('permission:policy.manage');
+        Route::get('policies/{policy}/download', [PolicyController::class, 'download'])
+            ->name('policies.download');
+        Route::put('policies/{policy}/acknowledge', [PolicyController::class, 'acknowledge'])
+            ->name('policies.acknowledge');
+        Route::post('policies/{policy}/publish', [PolicyController::class, 'publish'])
+            ->middleware('permission:policy.manage')
+            ->name('policies.publish');
+        Route::put('policies/{policy}/archive', [PolicyController::class, 'archive'])
+            ->middleware('permission:policy.manage')
+            ->name('policies.archive');
+        Route::get('policies/{policy}/compliance', [PolicyController::class, 'compliance'])
+            ->middleware('permission:policy.manage');
+        Route::delete('policies/{policy}', [PolicyController::class, 'destroy'])
+            ->middleware('permission:policy.manage');
+
+        Route::get('assets/categories', [AssetController::class, 'categories']);
+        Route::get('assets/summary', [AssetController::class, 'summary'])
+            ->middleware('permission:asset.manage');
+        Route::get('my-assets', [AssetController::class, 'myAssets']);
+        Route::get('assets', [AssetController::class, 'index']);
+        Route::post('assets', [AssetController::class, 'store'])
+            ->middleware('permission:asset.manage');
+        Route::get('assets/{asset}', [AssetController::class, 'show']);
+        Route::put('assets/{asset}', [AssetController::class, 'update'])
+            ->middleware('permission:asset.manage');
+        Route::get('assets/{asset}/history', [AssetController::class, 'history']);
+        Route::post('assets/{asset}/allocate', [AssetController::class, 'allocate'])
+            ->middleware('permission:asset.manage')
+            ->name('assets.allocate');
+        Route::put('assets/{asset}/return', [AssetController::class, 'returnAsset'])
+            ->middleware('permission:asset.manage')
+            ->name('assets.return');
+        Route::put('assets/{asset}/retire', [AssetController::class, 'retire'])
+            ->middleware('permission:asset.manage')
+            ->name('assets.retire');
+        Route::delete('assets/{asset}', [AssetController::class, 'destroy'])
+            ->middleware('permission:asset.manage');
+
+        Route::get('asset-requests/types', [AssetRequestController::class, 'types']);
+        Route::get('asset-requests/pending', [AssetRequestController::class, 'pending']);
+        Route::get('asset-requests', [AssetRequestController::class, 'index']);
+        Route::post('asset-requests', [AssetRequestController::class, 'store']);
+        Route::get('asset-requests/{assetRequest}', [AssetRequestController::class, 'show']);
+        Route::put('asset-requests/{assetRequest}', [AssetRequestController::class, 'update']);
+        Route::put('asset-requests/{assetRequest}/approve', [AssetRequestController::class, 'approve'])
+            ->middleware('permission:asset.support')
+            ->name('asset-requests.approve');
+        Route::put('asset-requests/{assetRequest}/reject', [AssetRequestController::class, 'reject'])
+            ->middleware('permission:asset.support')
+            ->name('asset-requests.reject');
+        Route::put('asset-requests/{assetRequest}/start', [AssetRequestController::class, 'start'])
+            ->middleware('permission:asset.support')
+            ->name('asset-requests.start');
+        Route::put('asset-requests/{assetRequest}/resolve', [AssetRequestController::class, 'resolve'])
+            ->middleware('permission:asset.support')
+            ->name('asset-requests.resolve');
+        Route::delete('asset-requests/{assetRequest}', [AssetRequestController::class, 'destroy']);
+
+        Route::get('clearance-items/departments', [ClearanceController::class, 'departments']);
+        Route::get('clearance-items', [ClearanceController::class, 'index']);
+        Route::post('clearance-items', [ClearanceController::class, 'store'])
+            ->middleware('permission:clearance.manage');
+        Route::get('clearance-items/{item}', [ClearanceController::class, 'show']);
+        Route::put('clearance-items/{item}', [ClearanceController::class, 'update'])
+            ->middleware('permission:clearance.manage');
+        Route::delete('clearance-items/{item}', [ClearanceController::class, 'destroy'])
+            ->middleware('permission:clearance.manage');
+
+        Route::get('clearance/pending', [ClearanceController::class, 'pending']);
+
+        Route::prefix('exits/{exit}')->scopeBindings()->group(function (): void {
+            Route::get('clearance', [ClearanceController::class, 'forExit']);
+            Route::put('clearance/{clearance}', [ClearanceController::class, 'sign']);
+
+            Route::get('documents', [ExitDocumentController::class, 'index']);
+            Route::post('documents', [ExitDocumentController::class, 'store'])
+                ->middleware('permission:exit.document');
+            Route::delete('documents/{document}', [ExitDocumentController::class, 'destroy'])
+                ->middleware('permission:exit.document');
+        });
+
+        Route::get('performance/score', [PerformanceController::class, 'score']);
+        Route::get('performance/trend', [PerformanceController::class, 'trend']);
+        Route::get('performance/leaderboard', [PerformanceController::class, 'leaderboard']);
+        Route::get('performance/weights', [PerformanceController::class, 'weights']);
+        Route::put('performance/weights', [PerformanceController::class, 'updateWeights'])
+            ->middleware('permission:performance.manage');
+        Route::post('performance/freeze', [PerformanceController::class, 'freeze'])
+            ->middleware('permission:performance.manage');
+
+        Route::get('goals/types', [PerformanceGoalController::class, 'types']);
+        Route::get('goals/pending-approvals', [PerformanceGoalController::class, 'pendingApprovals']);
+        Route::get('goals', [PerformanceGoalController::class, 'index']);
+        Route::post('goals', [PerformanceGoalController::class, 'store']);
+        Route::get('goals/{goal}', [PerformanceGoalController::class, 'show']);
+        Route::put('goals/{goal}', [PerformanceGoalController::class, 'update']);
+        Route::put('goals/{goal}/approve', [PerformanceGoalController::class, 'approve'])
+            ->name('goals.approve');
+        Route::put('goals/{goal}/progress', [PerformanceGoalController::class, 'progress'])
+            ->name('goals.progress');
+        Route::put('goals/{goal}/close', [PerformanceGoalController::class, 'close'])
+            ->name('goals.close');
+        Route::delete('goals/{goal}', [PerformanceGoalController::class, 'destroy']);
+
+        Route::get('appraisal-cycles', [AppraisalController::class, 'cycles']);
+        Route::post('appraisal-cycles', [AppraisalController::class, 'storeCycle'])
+            ->middleware('permission:performance.manage');
+        Route::get('appraisal-cycles/{cycle}', [AppraisalController::class, 'showCycle']);
+        Route::put('appraisal-cycles/{cycle}', [AppraisalController::class, 'updateCycle'])
+            ->middleware('permission:performance.manage');
+        Route::post('appraisal-cycles/{cycle}/launch', [AppraisalController::class, 'launchCycle'])
+            ->middleware('permission:performance.manage')
+            ->name('cycles.launch');
+        Route::put('appraisal-cycles/{cycle}/advance', [AppraisalController::class, 'advanceCycle'])
+            ->middleware('permission:performance.manage')
+            ->name('cycles.advance');
+        Route::get('appraisal-cycles/{cycle}/summary', [AppraisalController::class, 'cycleSummary'])
+            ->middleware('permission:performance.manage');
+
+        Route::get('appraisals/pending-reviews', [AppraisalController::class, 'pendingReviews']);
+        Route::get('appraisals', [AppraisalController::class, 'index']);
+        Route::get('appraisals/{appraisal}', [AppraisalController::class, 'show']);
+        Route::put('appraisals/{appraisal}/self-review', [AppraisalController::class, 'selfReview'])
+            ->name('appraisals.self-review');
+        Route::put('appraisals/{appraisal}/manager-review', [AppraisalController::class, 'managerReview'])
+            ->name('appraisals.manager-review');
+        Route::put('appraisals/{appraisal}/finalise', [AppraisalController::class, 'finalise'])
+            ->middleware('permission:performance.finalise')
+            ->name('appraisals.finalise');
 
         Route::get('realtime/config', [RealtimeController::class, 'config']);
 

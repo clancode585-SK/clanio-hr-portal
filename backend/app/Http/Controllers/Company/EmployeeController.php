@@ -11,6 +11,7 @@ use App\Models\Employee;
 use App\Services\EmployeeService;
 use App\Support\ApiResponse;
 use App\Support\TenantCache;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -25,6 +26,10 @@ class EmployeeController extends ApiController
             'actor:' . $request->user()->id . ':' . $this->cacheKey($request),
             fn () => $this->applyFilters(
                 Employee::query()
+                    ->unless(
+                        $request->filled('employment_status'),
+                        fn (Builder $query): Builder => $query->where('employment_status', '!=', Employee::EMPLOYMENT_EXITED)
+                    )
                     ->with(['user', 'designation'])
                     ->withCount(['familyMembers', 'bankAccounts', 'documents'])
                     ->visibleTo($request->user()),
@@ -32,6 +37,7 @@ class EmployeeController extends ApiController
                 ['employee_code', 'personal_email', 'pan_number'],
                 [
                     'onboarding_status' => 'onboarding_status',
+                    'employment_status' => 'employment_status',
                     'employment_type' => 'employment_type',
                     'designation_id' => 'designation_id',
                     'reporting_manager_id' => 'reporting_manager_id',

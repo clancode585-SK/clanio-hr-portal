@@ -13,9 +13,9 @@ Last updated: 05 August 2026
 |---|---|
 | Backend | `backend/` — Laravel 12, raw SQL schema (koi migration nahi) |
 | Frontend | `frontend/` — Next.js 16, Tailwind v4, TypeScript |
-| API routes | **175 endpoints** under `/api/hrms` |
-| Tests | **911 checks passing** across 10 suites |
-| Modules built | 12 (Auth se Expense Reimbursement tak) |
+| API routes | **254 endpoints** under `/api/hrms` |
+| Tests | **1244 checks passing** across 13 suites |
+| Modules built | 15 (Auth se IT Assets tak) |
 | Frontend built | Login page + auth integration + dashboard placeholder |
 
 ---
@@ -96,12 +96,77 @@ Work Record (employee ka performance record + team comparison + score).
 Employee apply → Manager approve → HR verify → Payment.
 9 category + "Other" (purpose mandatory), bill upload, bulk pay, payout queue.
 
-### 8. Realtime & Notifications
+### 8. Exit & Clearance
+Employee resignation dalta hai → manager approve → HR final approval.
+HR approve karte hi last working date **notice period se apne aap ban jati hai**
+(`companies.notice_period_days`, default 30) — HR chahe to manually badal sakti hai.
+LWD nikalte hi scheduled job `users.status = inactive` kar deta hai, token revoke,
+`employees.employment_status = exited`. Reject aur withdraw dono chalte hain.
+HR experience letter / relieving letter / LOR upload karti hai.
+
+**Clearance checklist:** HR final approval par 4 department (IT / Finance / HR / Manager) ka
+checklist apne aap ban jata hai (`clearance_items` master se copy). Har item `pending` →
+`cleared` / `blocked` / `not_applicable`. Recoverable item par amount likh sakte ho
+(laptop damage waghera) — total nikal aata hai, **par kaatega payroll wala FnF, wo last me hai**.
+Manager sirf apne `manager` wale item sign kar sakta hai, `clearance.sign` wala sab.
+
+Gate teen jagah lagta hai:
+- **Exit complete** — koi mandatory item pending ho to `409 CLEARANCE_PENDING`.
+  `clearance.manage` wala `force: true` + `force_reason` se bypass kar sakta hai (record ho jata hai).
+- **Relieving letter** — clearance pending me issue hi nahi hota. Experience letter aur LOR chalte hain.
+- **Scheduled job** — LWD nikal jaye to login phir bhi band hoga, chahe clearance pending ho
+  (jaisa real companies me hota hai — paperwork alag, access alag).
+
+### 9. Performance
+Score **Work Record se banta hai** — SOD/EOD compliance + task on-time %, minus penalty
+(overdue, absent, missed report). Weights company set karti hai (`companies.perf_*`,
+default 50/50). Har mahine ka score `performance_scores` me **freeze** hota hai,
+uske baad wo number nahi badalta. Trend, leaderboard, rank.
+
+**Goals — teen shape, ek hi table** (`performance_goals`, `parent_id` se hierarchy):
+| `goal_type` | Kya | Progress kahan se |
+|---|---|---|
+| `kra` | Standalone target | target vs achieved, ya linked tasks |
+| `objective` | OKR ka O | apne key results ka weighted average |
+| `key_result` | OKR ka KR | target vs achieved, ya linked tasks |
+
+Task link kar do to progress **apne aap** update hota hai — task done hote hi
+`TaskService::changeStatus` se `GoalService::recalculateForTask` chalta hai.
+Top-level weight ka total 100 se zyada nahi ho sakta.
+
+**Appraisal cycle:** HR cycle banati hai → launch par sabke appraisal ban jate hain aur
+us period ka **auto score + goal achievement apne aap bhar jata hai** → employee self review
+→ manager review → HR final rating. Cycle sirf aage badhti hai, peeche nahi.
+Rating scale configurable (default 1-5).
+
+### 10. IT Assets
+Asset master (`AST0001` auto code, 10 category, serial number unique) → allocate to employee
+→ return (condition + recovery amount) → retire / lost. Poori allocation history rehti hai.
+
+**Asset Request** — employee khud raise karta hai:
+| Type | Kab |
+|---|---|
+| `repair` | Asset me issue hai |
+| `new` | Naya asset chahiye (category chunni padti hai) |
+| `replacement` | Theek nahi ho raha, badal do |
+| `return` | Zarurat nahi, wapas le lo |
+
+Flow: `pending` → IT approve → `in_progress` → `resolved`. Repair start hote hi asset
+`in_repair` ho jata hai, resolve par wapas `allocated`/`available`.
+Ek asset par ek hi open request, aur sirf apne allocated asset par request daal sakte ho.
+
+**Clearance se link:** exit ke waqt jitne asset allocated hain, unka "wapas karo" item
+apne aap clearance me aa jata hai (`exit_clearances.asset_allocation_id`). Asset return
+karte hi wo item **auto cleared** ho jata hai aur recovery amount clearance me chala jata hai.
+
+### 11. Realtime & Notifications
 In-app inbox, preferences, announcements, Laravel Reverb websocket, FCM push.
 
-### 9. Scheduled Jobs (8)
+### 12. Scheduled Jobs (10)
 | Kab | Command | Kaam |
 |---|---|---|
+| Roz 00:30 | `exits:process` | LWD nikal chuke employees ka login band |
+| 1 tarikh 01:00 | `performance:snapshot` | Pichle mahine ka score save + freeze |
 | Roz 09:00 | `work:reminders --type=tasks` | Kal due + overdue task |
 | 11:00 Mon–Fri | `work:reminders --type=sod` | SOD nahi bhara |
 | 20:00 Mon–Fri | `work:reminders --type=eod` | EOD nahi bhara |
@@ -143,6 +208,13 @@ Poore backend me `SoftDeletes` / `deleted_at` nikal diya hai. Ab har delete-able
 Abhi baaki: inactive row wapas active karne ka koi API nahi hai (`withInactive()` sirf code
 me hai), aur employee delete karne par uska `users` row `active` hi rehta hai — wo login
 kar sakta hai.
+
+**`is_active` aur `employment_status` alag cheezein hain — mix mat karna:**
+
+| | Matlab | Kaun set karta hai |
+|---|---|---|
+| `is_active = 0` | "Galti se bana tha, hata do" — kisi ko nahi dikhta, admin ko bhi nahi | Delete API |
+| `employment_status = 'exited'` | "Sahi me kaam kiya, ab company me nahi hai" — default list se hat jata hai par HR/Admin `?employment_status=exited` se pura record dekh sakte hain | Exit module |
 
 ### Raw SQL schema — koi migration nahi
 Saare table `backend/database/schema/*.sql` me hain. Chalane ka tareeka:
@@ -192,7 +264,10 @@ Scratchpad me PHP scripts hain (curl se real HTTP calls karte hain, mock nahi):
 | test_workrecord | 91 |
 | test_fixes | 53 |
 | test_expense | 115 |
-| **Total** | **911** |
+| test_exit | 113 |
+| test_performance | 114 |
+| test_asset | 106 |
+| **Total** | **1244** |
 
 `test_employee.php` aur `test_visibility.php` bootstrap/fixture scripts hain — regression me
 nahi chalane chahiye (wo company aur org data create karte hain).
@@ -306,13 +381,22 @@ employee create block + upgrade prompt.
 - Refresh token + logout all devices
 - Geo-fence validation (lat/long save hota hai, check nahi hota)
 - HR bulk attendance marking
-- Employee exit / deactivate flow
+- Experience letter system se generate (abhi HR khud upload karti hai)
+- Clearance ka recoverable amount abhi sirf store hota hai — kaatega FnF, wo payroll ke saath last me
 
-**Naye module (priority order)**
-1. **LOP Management** — payroll ka pre-requisite, design tay ho chuka hai
-2. **Payroll** — salary structure, run, payslip, disbursement (queue worker chahiye hoga)
-3. **Reports & Analytics** — company-wide dashboard, export, charts
-4. Recruitment · Performance · Exit & FnF · IT Assets · Insurance · Compliance · Billing · AI
+**Naye module (priority order — Payroll / Dashboard / Recruitment sabse last me rakhe hain)**
+1. **Billing & Plans** — package flags, `PLAN_MODULE_LOCKED`, login limit
+2. **Compliance / Policy** — policy doc + acknowledgement (1 din)
+3. **Helpdesk / Ticket** — employee query, SLA
+4. **Org Chart** — data hai, sirf API
+5. **Travel & Advance** — sirf tab jab company travel-heavy ho
+6. **Sabse last:** Reports/Dashboard · Recruitment/Job · LOP → Payroll → Statutory → FnF
+
+**Ye do module nahi banenge (tay ho gaya)**
+- **Insurance** — claim humare yahan se nahi hoga. Sirf record rakhna hai ki family me kaun
+  cover hai — uske liye pura module nahi chahiye, `employee_family_members` me
+  `is_insured` flag aur employee par policy number / insurer, bas itna kaafi hai.
+- **Training / LMS** — companies iske liye alag product leti hain, HRMS ka LMS use hi nahi hota.
 
 **Frontend**
 - App shell (sidebar + topbar + protected layout)
