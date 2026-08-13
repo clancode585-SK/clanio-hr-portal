@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Company;
 
 use App\Http\Controllers\ApiController;
 use App\Http\Requests\GoalProgressRequest;
+use App\Http\Requests\OkrVerifyRequest;
 use App\Http\Requests\PerformanceGoalRequest;
 use App\Http\Resources\PerformanceGoalResource;
 use App\Models\PerformanceGoal;
@@ -110,6 +111,43 @@ class PerformanceGoalController extends ApiController
             new PerformanceGoalResource($this->goals->updateProgress($goal, $request->validated(), $request->user())),
             'Progress update ho gaya'
         );
+    }
+
+    public function submit(OkrVerifyRequest $request, PerformanceGoal $goal): JsonResponse
+    {
+        return ApiResponse::success(
+            new PerformanceGoalResource($this->goals->submit($goal, $request->validated(), $request->user())),
+            'OKR submit ho gaya — ab manager verify karega'
+        );
+    }
+
+    public function verify(OkrVerifyRequest $request, PerformanceGoal $goal): JsonResponse
+    {
+        return ApiResponse::success(
+            new PerformanceGoalResource($this->goals->verify($goal, $request->validated(), $request->user())),
+            'Verify ho gaya — ab HR final karegi'
+        );
+    }
+
+    public function finalise(OkrVerifyRequest $request, PerformanceGoal $goal): JsonResponse
+    {
+        return ApiResponse::success(
+            new PerformanceGoalResource($this->goals->finalise($goal, $request->validated(), $request->user())),
+            'OKR final ho gaya — achievement lock'
+        );
+    }
+
+    public function pendingVerification(Request $request): JsonResponse
+    {
+        $goals = PerformanceGoal::query()
+            ->with(['employee.user', 'keyResults'])
+            ->whereIn('verification_status', [PerformanceGoal::SUBMITTED, PerformanceGoal::MANAGER_VERIFIED])
+            ->visibleTo($request->user())
+            ->whereHas('employee', fn (Builder $query) => $query->where('user_id', '!=', $request->user()->id))
+            ->orderBy('due_date')
+            ->paginate($this->perPage($request));
+
+        return ApiResponse::paginated($goals, PerformanceGoalResource::class, 'Pending OKR verification fetched successfully');
     }
 
     public function close(GoalProgressRequest $request, PerformanceGoal $goal): JsonResponse

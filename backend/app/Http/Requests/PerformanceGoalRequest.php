@@ -30,6 +30,8 @@ class PerformanceGoalRequest extends FormRequest
             'parent_id' => ['nullable', 'integer',
                 Rule::exists('performance_goals', 'id')->where('company_id', $companyId)->where('is_active', 1)],
             'goal_type' => ['nullable', Rule::in(PerformanceGoal::GOAL_TYPES)],
+            'period_type' => ['nullable', Rule::in(PerformanceGoal::PERIOD_TYPES)],
+            'period_label' => ['nullable', 'string', 'max:30'],
 
             'title' => [$required, 'string', 'max:200'],
             'description' => ['nullable', 'string', 'max:1000'],

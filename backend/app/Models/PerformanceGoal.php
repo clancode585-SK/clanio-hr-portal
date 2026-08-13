@@ -53,6 +53,45 @@ class PerformanceGoal extends Model
 
     public const GOAL_TYPES = [self::TYPE_KRA, self::TYPE_OBJECTIVE, self::TYPE_KEY_RESULT];
 
+    public const PERIOD_WEEK = 'week';
+
+    public const PERIOD_FORTNIGHT = 'fortnight';
+
+    public const PERIOD_MONTH = 'month';
+
+    public const PERIOD_QUARTER = 'quarter';
+
+    public const PERIOD_ANNUAL = 'annual';
+
+    public const PERIOD_TYPES = [
+        self::PERIOD_WEEK,
+        self::PERIOD_FORTNIGHT,
+        self::PERIOD_MONTH,
+        self::PERIOD_QUARTER,
+        self::PERIOD_ANNUAL,
+    ];
+
+    /** Employee ne abhi achievement bheji hi nahi */
+    public const NOT_SUBMITTED = 'not_submitted';
+
+    /** Employee ne bhej di — manager ke paas hai */
+    public const SUBMITTED = 'submitted';
+
+    /** Manager verify kar chuka — HR ke paas hai */
+    public const MANAGER_VERIFIED = 'manager_verified';
+
+    /** HR ne final kar diya — ab number lock hai */
+    public const FINALISED = 'finalised';
+
+    public const VERIFICATION_STATUSES = [
+        self::NOT_SUBMITTED,
+        self::SUBMITTED,
+        self::MANAGER_VERIFIED,
+        self::FINALISED,
+    ];
+
+    public const VERIFY_PERMISSION = 'okr.verify';
+
     /** Progress employee khud update karega */
     public const SOURCE_MANUAL = 'manual';
 
@@ -65,6 +104,8 @@ class PerformanceGoal extends Model
         'appraisal_cycle_id',
         'parent_id',
         'goal_type',
+        'period_type',
+        'period_label',
         'title',
         'description',
         'metric',
@@ -93,7 +134,40 @@ class PerformanceGoal extends Model
             'progress_percent' => 'integer',
             'approved_at' => 'datetime',
             'closed_at' => 'datetime',
+            'submitted_value' => 'float',
+            'manager_value' => 'float',
+            'final_value' => 'float',
+            'achievement_percent' => 'integer',
+            'submitted_at' => 'datetime',
+            'manager_verified_at' => 'datetime',
+            'hr_verified_at' => 'datetime',
         ];
+    }
+
+    public function isFinalised(): bool
+    {
+        return $this->verification_status === self::FINALISED;
+    }
+
+    public function isSubmitted(): bool
+    {
+        return $this->verification_status === self::SUBMITTED;
+    }
+
+    public function isManagerVerified(): bool
+    {
+        return $this->verification_status === self::MANAGER_VERIFIED;
+    }
+
+    public function verificationLabel(): string
+    {
+        return match ($this->verification_status) {
+            self::NOT_SUBMITTED => 'Employee ne abhi bheja nahi',
+            self::SUBMITTED => 'Manager verify karega',
+            self::MANAGER_VERIFIED => 'HR final karegi',
+            self::FINALISED => 'Final ho gaya',
+            default => (string) $this->verification_status,
+        };
     }
 
     public function scopeVisibleTo(Builder $query, ?User $actor): Builder

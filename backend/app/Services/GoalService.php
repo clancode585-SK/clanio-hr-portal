@@ -11,6 +11,7 @@ use App\Models\PerformanceGoal;
 use App\Models\Task;
 use App\Models\User;
 use App\Support\NotificationType;
+use App\Support\Recipients;
 use App\Support\TenantCache;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -34,6 +35,8 @@ final class GoalService
                 'appraisal_cycle_id' => $parent?->appraisal_cycle_id ?? ($data['appraisal_cycle_id'] ?? null),
                 'parent_id' => $parent?->id,
                 'goal_type' => $type,
+                'period_type' => $data['period_type'] ?? $parent?->period_type ?? PerformanceGoal::PERIOD_QUARTER,
+                'period_label' => $data['period_label'] ?? $parent?->period_label,
                 'title' => $data['title'],
                 'description' => $data['description'] ?? null,
                 'metric' => $data['metric'] ?? null,
@@ -158,6 +161,215 @@ final class GoalService
         $this->flush();
 
         return $goal->refresh()->load('employee.user', 'keyResults');
+    }
+
+    /* --------------------------------------------------- OKR verification */
+
+    public function submit(PerformanceGoal $goal, array $data, User $actor): PerformanceGoal
+    {
+        $this->assertOwner($goal, $actor);
+
+        if (! $goal->isActive()) {
+            throw new ApiException(
+                'Sirf active goal submit hota hai — abhi ' . $goal->status . '.',
+                409,
+                'GOAL_WRONG_STAGE'
+            );
+        }
+
+        if ($goal->isFinalised()) {
+            throw new ApiException('Ye already final ho chuka hai.', 409, 'OKR_ALREADY_FINALISED');
+        }
+
+        $value = (float) $data['achieved_value'];
+
+        $goal->forceFill([
+            'verification_status' => PerformanceGoal::SUBMITTED,
+            'submitted_value' => $value,
+            'submitted_at' => Carbon::now(),
+            'achieved_value' => $value,
+            'updated_by' => $actor->id,
+        ])->save();
+
+        $this->refreshProgress($goal);
+        $this->flush();
+
+        $goal = $goal->refresh()->load('employee.user');
+        $this->notifyVerifier($goal, $actor);
+
+        return $goal;
+    }
+
+    public function verify(PerformanceGoal $goal, array $data, User $actor): PerformanceGoal
+    {
+        $this->assertCanVerify($goal, $actor);
+
+        if (! $goal->isSubmitted()) {
+            throw new ApiException(
+                'Pehle employee submit karega — abhi ' . $goal->verificationLabel() . '.',
+                409,
+                'OKR_WRONG_STAGE'
+            );
+        }
+
+        $value = isset($data['achieved_value'])
+            ? (float) $data['achieved_value']
+            : (float) $goal->submitted_value;
+
+        $goal->forceFill([
+            'verification_status' => PerformanceGoal::MANAGER_VERIFIED,
+            'manager_value' => $value,
+            'manager_verified_by' => $actor->id,
+            'manager_verified_at' => Carbon::now(),
+            'manager_remarks' => $data['remarks'] ?? null,
+            'achieved_value' => $value,
+            'updated_by' => $actor->id,
+        ])->save();
+
+        $this->refreshProgress($goal);
+        $this->flush();
+
+        $goal = $goal->refresh()->load('employee.user');
+
+        $this->notifyEmployee($goal, $actor, NotificationType::OKR_VERIFIED,
+            'Manager ne aapka OKR verify kar diya',
+            $goal->title . ' — ab HR final karegi.');
+        $this->notifyHr($goal, $actor);
+
+        return $goal;
+    }
+
+    /**
+     * HR final karti hai — yahan achievement % lock ho jata hai, phir koi nahi badal sakta.
+     */
+    public function finalise(PerformanceGoal $goal, array $data, User $actor): PerformanceGoal
+    {
+        $this->assertPermission($actor, PerformanceGoal::VERIFY_PERMISSION, 'OKR final karne');
+
+        if (! $goal->isManagerVerified()) {
+            throw new ApiException(
+                'Pehle manager verify karega — abhi ' . $goal->verificationLabel() . '.',
+                409,
+                'OKR_WRONG_STAGE'
+            );
+        }
+
+        $value = isset($data['achieved_value'])
+            ? (float) $data['achieved_value']
+            : (float) $goal->manager_value;
+
+        $goal->forceFill([
+            'verification_status' => PerformanceGoal::FINALISED,
+            'final_value' => $value,
+            'achieved_value' => $value,
+            'achievement_percent' => $this->achievementPercent($goal, $value),
+            'hr_verified_by' => $actor->id,
+            'hr_verified_at' => Carbon::now(),
+            'hr_remarks' => $data['remarks'] ?? null,
+            'updated_by' => $actor->id,
+        ])->save();
+
+        $this->refreshProgress($goal);
+        $this->flush();
+
+        $goal = $goal->refresh()->load('employee.user');
+
+        app(RecognitionService::class)->autoForGoal($goal, $actor);
+
+        $this->notifyEmployee($goal, $actor, NotificationType::OKR_FINALISED,
+            'Aapka OKR final ho gaya',
+            $goal->title . ' — achievement ' . $goal->achievement_percent . '%');
+
+        return $goal;
+    }
+
+    private function achievementPercent(PerformanceGoal $goal, float $value): int
+    {
+        if ($goal->target_value === null || (float) $goal->target_value <= 0) {
+            return max(0, min(999, (int) $goal->progress_percent));
+        }
+
+        return max(0, min(999, (int) round($value / (float) $goal->target_value * 100)));
+    }
+
+    private function assertOwner(PerformanceGoal $goal, User $actor): void
+    {
+        if ((int) $goal->employee->user_id === (int) $actor->id || $actor->isSuperAdmin()) {
+            return;
+        }
+
+        throw new ApiException('Ye OKR aapka nahi hai.', 403, 'FORBIDDEN');
+    }
+
+    private function assertCanVerify(PerformanceGoal $goal, User $actor): void
+    {
+        if ((int) $goal->employee->user_id === (int) $actor->id && ! $actor->isSuperAdmin()) {
+            throw new ApiException('Apna OKR khud verify nahi kar sakte.', 403, 'OKR_SELF_VERIFY');
+        }
+
+        if ($actor->isSuperAdmin()
+            || $actor->hasPermission(PerformanceGoal::VERIFY_PERMISSION)
+            || $actor->hasPermission(AppraisalCycle::MANAGE_PERMISSION)) {
+            return;
+        }
+
+        if ((int) $goal->employee->reporting_manager_id === (int) $actor->id) {
+            return;
+        }
+
+        throw new ApiException('Aap is OKR ko verify nahi kar sakte.', 403, 'FORBIDDEN');
+    }
+
+    private function assertPermission(User $actor, string $permission, string $what): void
+    {
+        if ($actor->isSuperAdmin() || $actor->hasPermission($permission)) {
+            return;
+        }
+
+        throw new ApiException('Aapke paas ' . $what . ' ka haq nahi hai.', 403, 'FORBIDDEN');
+    }
+
+    private function notifyVerifier(PerformanceGoal $goal, User $actor): void
+    {
+        $managerId = (int) ($goal->employee->reporting_manager_id ?? 0);
+
+        if ($managerId === 0 || $managerId === (int) $actor->id) {
+            return;
+        }
+
+        $this->notifications->send($managerId, [
+            'type' => NotificationType::OKR_SUBMITTED,
+            'title' => ($goal->employee->user?->name ?? $goal->employee->employee_code) . ' ne OKR submit kiya',
+            'body' => $goal->title . ' — ' . $goal->submitted_value . ' / ' . $goal->target_value,
+            'action_url' => '/goals/' . $goal->uuid,
+            'entity_type' => 'performance_goal',
+            'entity_id' => $goal->id,
+            'payload' => ['goal_id' => $goal->id, 'submitted' => $goal->submitted_value],
+            'dedupe_key' => 'okr:' . $goal->id . ':submitted',
+        ]);
+    }
+
+    private function notifyHr(PerformanceGoal $goal, User $actor): void
+    {
+        $recipients = Recipients::except(
+            Recipients::withPermission((int) $goal->company_id, PerformanceGoal::VERIFY_PERMISSION),
+            [(int) $goal->employee->user_id, (int) $actor->id]
+        );
+
+        if ($recipients === []) {
+            return;
+        }
+
+        $this->notifications->sendMany($recipients, [
+            'type' => NotificationType::OKR_VERIFIED,
+            'title' => ($goal->employee->user?->name ?? $goal->employee->employee_code) . ' ka OKR final karna hai',
+            'body' => 'Manager verify kar chuka hai — ' . $goal->manager_value . ' / ' . $goal->target_value,
+            'action_url' => '/goals/' . $goal->uuid,
+            'entity_type' => 'performance_goal',
+            'entity_id' => $goal->id,
+            'payload' => ['goal_id' => $goal->id],
+            'dedupe_key' => 'okr:' . $goal->id . ':hr',
+        ], $actor);
     }
 
     public function close(PerformanceGoal $goal, array $data, User $actor): PerformanceGoal

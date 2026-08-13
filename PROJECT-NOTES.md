@@ -13,9 +13,9 @@ Last updated: 05 August 2026
 |---|---|
 | Backend | `backend/` — Laravel 12, raw SQL schema (koi migration nahi) |
 | Frontend | `frontend/` — Next.js 16, Tailwind v4, TypeScript |
-| API routes | **273 endpoints** under `/api/hrms` |
-| Tests | **1394 checks passing** across 15 suites |
-| Modules built | 17 (Auth se Permission Management tak) |
+| API routes | **296 endpoints** under `/api/hrms` |
+| Tests | **1493 checks passing** across 16 suites |
+| Modules built | 18 (Auth se OKR & Incentive tak) |
 | Frontend built | Login page + auth integration + dashboard placeholder |
 
 ---
@@ -139,6 +139,33 @@ us period ka **auto score + goal achievement apne aap bhar jata hai** → employ
 → manager review → HR final rating. Cycle sirf aage badhti hai, peeche nahi.
 Rating scale configurable (default 1-5).
 
+**OKR verification chain** — har goal par period hota hai (`week` / `fortnight` / `month` /
+`quarter` / `annual` + `period_label` jaise `2026-08`):
+```
+Employee submit kare (90 kiya)
+   → Manager verify kare (number badal bhi sakta hai — 88)
+   → HR finalise kare  → achievement_percent LOCK, koi nahi badal sakta
+   → 100% par apne aap ek badge (recognition) mil jata hai
+```
+
+**Incentive** — `incentive_rules` + `incentive_slabs`. Rule role-wise ho sakta hai, warna
+company ka default (`role_id NULL`) chalta hai.
+```
+Us period ke saare FINALISED OKR ka weighted achievement
+   → slab dekho  →  incentive % = base_percent × payout_factor / 100
+```
+Default slab: `<70% = 0` · `70-89% = aadha` · `90-100% = pura` · `100%+ = 120%`
+Slab overlap nahi kar sakte (`SLAB_OVERLAP`).
+
+Example — target 100, kiya 88, base 10% → slab 70-89 (factor 50) → **incentive 5%**
+
+`incentive_records` me employee + period ka ek record banta hai, HR approve karti hai.
+**Rupaye yahan nahi bante — sirf percentage.** Salary me jodna payroll ka kaam hai, wo last me hai.
+Approve hone ke baad dobara calculate nahi hota.
+
+**Recognition** — kudos / badge / spot award, points ke saath. Manual bhi de sakte ho
+(`recognition.give`), aur goal 100% hote hi apne aap ek badge ban jata hai (ek goal par ek hi baar).
+
 ### 10. IT Assets
 Asset master (`AST0001` auto code, 10 category, serial number unique) → allocate to employee
 → return (condition + recovery amount) → retire / lost. Poori allocation history rehti hai.
@@ -190,21 +217,35 @@ Super Admin  →  company ke liye module on/off (company_modules)
                  performance.* permission nahi milegi, admin ko bhi nahi
                       ▼
 Role         →  default permission (HR role me 12, Team Lead me 6)
-                 role me add kiya = us role ke sabko turant mil gaya
+Department   →  department ka apna default (Tech department ke sabko)
+                 dono live hain — add kiya to sabko turant mil gaya
                       ▼
 Per user     →  admin kisi ek employee par grant / revoke kar sakta hai
-                 role wahi rehta hai, sirf us bande ka farq padta hai
+                 FINAL DECISION YAHI HAI — role/department se upar
 ```
 
-**Formula:** `effective = role wali (live) + grant − revoke`, phir disabled module hata do.
+**Formula:** `effective = (role ∪ department) + grant − revoke − band module`
 Sab `User::permissionSlugs()` me hai, per-user cached.
 
 | Admin kya chahta hai | Kahan jayega |
 |---|---|
 | Teeno HR ko payroll | HR **role** me add |
+| Tech department ke sabko | **department** me add |
 | Sirf Priya ko payroll | Priya ki **profile** par grant |
 | Sneha se expense hatana | Sneha ki **profile** par revoke |
 | Kisi aur ko permission dene ka haq | `user.permission` de do |
+
+**Employee level par sirf farq store hota hai** — jo role/department se already mil raha hai
+uski row nahi banti. Isliye kal role me kuch add ho to us employee ko bhi apne aap mil jayega.
+
+| Checkbox | Role/dept se mil raha? | DB me |
+|---|---|---|
+| ✅ | haan | kuch nahi |
+| ✅ | nahi | `effect = grant` |
+| ☐ | haan | `effect = revoke` |
+| ☐ | nahi | kuch nahi |
+
+Frontend poori checked list bhejta hai, backend khud nikalta hai ki grant kya banega aur revoke kya.
 
 **Guards:** jo permission khud ke paas nahi wo kisi ko de nahi sakte (`PERMISSION_ESCALATION`) ·
 super admin ki permission koi nahi chhoo sakta · apni company ke andar hi ·
@@ -212,6 +253,9 @@ super admin ki permission koi nahi chhoo sakta · apni company ke andar hi ·
 
 `GET /permissions/tree` module-wise checkbox list deta hai — har permission par `can_assign`
 flag hai (jo aap de sakte ho), aur har module par `is_enabled`.
+
+**Endpoints (8):** `GET /permissions/tree` · `GET/PUT/DELETE /users/{user}/permissions` ·
+`GET/PUT /departments/{department}/permissions` · `GET/PUT /companies/{company}/modules`
 
 Super admin module band kare to **pura cache flush** hota hai (`Cache::flush()`), kyunki
 TenantCache apne hi tenant ka scope rakhti hai aur wo doosri company ka data badal raha hota hai.
@@ -326,8 +370,9 @@ Scratchpad me PHP scripts hain (curl se real HTTP calls karte hain, mock nahi):
 | test_performance | 114 |
 | test_asset | 106 |
 | test_policy | 96 |
-| test_permission | 54 |
-| **Total** | **1394** |
+| test_permission | 68 |
+| test_okr | 85 |
+| **Total** | **1493** |
 
 `test_employee.php` aur `test_visibility.php` bootstrap/fixture scripts hain — regression me
 nahi chalane chahiye (wo company aur org data create karte hain).
@@ -446,9 +491,7 @@ employee create block + upgrade prompt.
 
 **Naye module (priority order — Payroll / Dashboard / Recruitment sabse last me rakhe hain)**
 1. **Billing & Plans** — package flags, `PLAN_MODULE_LOCKED`, login limit
-2. **OKR extension** — period cascade (quarter → month → week) + OKR ka weight score me +
-   appreciation/recognition. Schema (`performance_goals.period_type`, `recognitions`) ban chuka hai, code nahi
-3. **Helpdesk / Ticket** — employee query, SLA
+2. **Helpdesk / Ticket** — employee query, SLA
 4. **Org Chart** — data hai, sirf API
 5. **Travel & Advance** — sirf tab jab company travel-heavy ho
 6. **Sabse last:** Reports/Dashboard · Recruitment/Job · LOP → Payroll → Statutory → FnF

@@ -24,6 +24,7 @@ use App\Http\Controllers\Company\ExitDocumentController;
 use App\Http\Controllers\Company\ExpenseBillController;
 use App\Http\Controllers\Company\ExpenseClaimController;
 use App\Http\Controllers\Company\HolidayController;
+use App\Http\Controllers\Company\IncentiveController;
 use App\Http\Controllers\Company\LeaveBalanceController;
 use App\Http\Controllers\Company\LeaveController;
 use App\Http\Controllers\Company\LeaveTypeController;
@@ -32,6 +33,7 @@ use App\Http\Controllers\Company\PerformanceController;
 use App\Http\Controllers\Company\PerformanceGoalController;
 use App\Http\Controllers\Company\PolicyController;
 use App\Http\Controllers\Company\RealtimeController;
+use App\Http\Controllers\Company\RecognitionController;
 use App\Http\Controllers\Company\RegularizationController;
 use App\Http\Controllers\Company\RoleController;
 use App\Http\Controllers\Company\TaskAttachmentController;
@@ -398,6 +400,7 @@ Route::prefix('hrms')->group(function (): void {
 
         Route::get('goals/types', [PerformanceGoalController::class, 'types']);
         Route::get('goals/pending-approvals', [PerformanceGoalController::class, 'pendingApprovals']);
+        Route::get('goals/pending-verification', [PerformanceGoalController::class, 'pendingVerification']);
         Route::get('goals', [PerformanceGoalController::class, 'index']);
         Route::post('goals', [PerformanceGoalController::class, 'store']);
         Route::get('goals/{goal}', [PerformanceGoalController::class, 'show']);
@@ -408,7 +411,43 @@ Route::prefix('hrms')->group(function (): void {
             ->name('goals.progress');
         Route::put('goals/{goal}/close', [PerformanceGoalController::class, 'close'])
             ->name('goals.close');
+        Route::put('goals/{goal}/submit', [PerformanceGoalController::class, 'submit'])
+            ->name('goals.submit');
+        Route::put('goals/{goal}/verify', [PerformanceGoalController::class, 'verify'])
+            ->name('goals.verify');
+        Route::put('goals/{goal}/finalise', [PerformanceGoalController::class, 'finalise'])
+            ->middleware('permission:okr.verify')
+            ->name('goals.finalise');
         Route::delete('goals/{goal}', [PerformanceGoalController::class, 'destroy']);
+
+        Route::get('incentive-rules', [IncentiveController::class, 'rules']);
+        Route::post('incentive-rules', [IncentiveController::class, 'storeRule'])
+            ->middleware('permission:incentive.manage');
+        Route::get('incentive-rules/{rule}', [IncentiveController::class, 'showRule']);
+        Route::put('incentive-rules/{rule}', [IncentiveController::class, 'updateRule'])
+            ->middleware('permission:incentive.manage');
+        Route::delete('incentive-rules/{rule}', [IncentiveController::class, 'destroyRule'])
+            ->middleware('permission:incentive.manage');
+
+        Route::get('incentives/summary', [IncentiveController::class, 'summary']);
+        Route::post('incentives/calculate', [IncentiveController::class, 'calculate'])
+            ->middleware('permission:incentive.approve');
+        Route::get('incentives', [IncentiveController::class, 'index']);
+        Route::get('incentives/{incentive}', [IncentiveController::class, 'show']);
+        Route::put('incentives/{incentive}/approve', [IncentiveController::class, 'approve'])
+            ->middleware('permission:incentive.approve')
+            ->name('incentives.approve');
+        Route::put('incentives/{incentive}/reject', [IncentiveController::class, 'reject'])
+            ->middleware('permission:incentive.approve')
+            ->name('incentives.reject');
+
+        Route::get('recognitions/types', [RecognitionController::class, 'types']);
+        Route::get('recognitions/summary', [RecognitionController::class, 'summary']);
+        Route::get('recognitions', [RecognitionController::class, 'index']);
+        Route::post('recognitions', [RecognitionController::class, 'store'])
+            ->middleware('permission:recognition.give');
+        Route::get('recognitions/{recognition}', [RecognitionController::class, 'show']);
+        Route::delete('recognitions/{recognition}', [RecognitionController::class, 'destroy']);
 
         Route::get('appraisal-cycles', [AppraisalController::class, 'cycles']);
         Route::post('appraisal-cycles', [AppraisalController::class, 'storeCycle'])

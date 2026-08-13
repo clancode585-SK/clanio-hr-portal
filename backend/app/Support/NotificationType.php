@@ -100,6 +100,16 @@ final class NotificationType
 
     public const APPRAISAL_FINALISED = 'performance.appraisal_finalised';
 
+    public const OKR_SUBMITTED = 'performance.okr_submitted';
+
+    public const OKR_VERIFIED = 'performance.okr_verified';
+
+    public const OKR_FINALISED = 'performance.okr_finalised';
+
+    public const INCENTIVE_APPROVED = 'performance.incentive_approved';
+
+    public const RECOGNITION_RECEIVED = 'performance.recognition_received';
+
     public const ASSET_ALLOCATED = 'asset.allocated';
 
     public const ASSET_REQUEST_RAISED = 'asset.request_raised';
