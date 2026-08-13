@@ -13,9 +13,9 @@ Last updated: 05 August 2026
 |---|---|
 | Backend | `backend/` — Laravel 12, raw SQL schema (koi migration nahi) |
 | Frontend | `frontend/` — Next.js 16, Tailwind v4, TypeScript |
-| API routes | **254 endpoints** under `/api/hrms` |
-| Tests | **1244 checks passing** across 13 suites |
-| Modules built | 15 (Auth se IT Assets tak) |
+| API routes | **273 endpoints** under `/api/hrms` |
+| Tests | **1394 checks passing** across 15 suites |
+| Modules built | 17 (Auth se Permission Management tak) |
 | Frontend built | Login page + auth integration + dashboard placeholder |
 
 ---
@@ -159,10 +159,67 @@ Ek asset par ek hi open request, aur sirf apne allocated asset par request daal 
 apne aap clearance me aa jata hai (`exit_clearances.asset_allocation_id`). Asset return
 karte hi wo item **auto cleared** ho jata hai aur recovery amount clearance me chala jata hai.
 
-### 11. Realtime & Notifications
+### 11. Compliance & Policy
+HR policy banati hai (text likhe **ya** PDF upload kare) → publish → har active employee ke liye
+`policy_acknowledgements` me pending row ban jati hai + notification jata hai. Employee accept
+kare to **timestamp + IP** save hota hai — audit me yahi proof kaam aata hai.
+
+**First-login gate** (`companies.policy_gate_enabled`, admin Company Settings se on/off karta hai):
+- **Naya employee** — jab tak saari policies accept na kare, har API `403 POLICY_ACCEPTANCE_PENDING`.
+  Sirf profile · my-policies · acknowledge · download · notifications khulte hain.
+  Sab accept karte hi `employees.policy_gate_cleared_at` set ho jata hai — phir kabhi block nahi hoga.
+- **Purana employee** — nayi policy aane par sirf notification, **kaam nahi rukta**.
+- `policy.manage` walon par gate nahi lagta, warna naya HR khud phas jata aur publish hi na kar pata.
+- Login response me `policy_gate: {blocked, pending}` aata hai taaki frontend seedha policy screen kholе.
+
+**Version:** same title ka naya version publish karte hi purana apne aap archive ho jata hai aur
+sabko dobara accept karna padta hai. Purane version ke acknowledgements history me rehte hain.
+
+**Profile completion %** — `GET /profile/completion`, 5 section weighted:
+Personal 20 · Bank 15 · Documents 20 · Family 15 · **Policies 30**.
+
+**Exit se link:** exit ke waqt policy pending ho to clearance me HR ka ek item apne aap aa jata hai
+(`exit_clearances.source = 'policy'`), aur saari policies accept hote hi wo **auto clear** ho jata hai.
+
+### 12. Permission Management
+Teen level ka model — har level upar wale ki ceiling ke andar rehta hai:
+
+```
+Super Admin  →  company ke liye module on/off (company_modules)
+                 OKR nahi chahiye? band. Us company me kisi ko bhi
+                 performance.* permission nahi milegi, admin ko bhi nahi
+                      ▼
+Role         →  default permission (HR role me 12, Team Lead me 6)
+                 role me add kiya = us role ke sabko turant mil gaya
+                      ▼
+Per user     →  admin kisi ek employee par grant / revoke kar sakta hai
+                 role wahi rehta hai, sirf us bande ka farq padta hai
+```
+
+**Formula:** `effective = role wali (live) + grant − revoke`, phir disabled module hata do.
+Sab `User::permissionSlugs()` me hai, per-user cached.
+
+| Admin kya chahta hai | Kahan jayega |
+|---|---|
+| Teeno HR ko payroll | HR **role** me add |
+| Sirf Priya ko payroll | Priya ki **profile** par grant |
+| Sneha se expense hatana | Sneha ki **profile** par revoke |
+| Kisi aur ko permission dene ka haq | `user.permission` de do |
+
+**Guards:** jo permission khud ke paas nahi wo kisi ko de nahi sakte (`PERMISSION_ESCALATION`) ·
+super admin ki permission koi nahi chhoo sakta · apni company ke andar hi ·
+`user.permission` khud se nahi hata sakte (`PERMISSION_SELF_LOCK`).
+
+`GET /permissions/tree` module-wise checkbox list deta hai — har permission par `can_assign`
+flag hai (jo aap de sakte ho), aur har module par `is_enabled`.
+
+Super admin module band kare to **pura cache flush** hota hai (`Cache::flush()`), kyunki
+TenantCache apne hi tenant ka scope rakhti hai aur wo doosri company ka data badal raha hota hai.
+
+### 13. Realtime & Notifications
 In-app inbox, preferences, announcements, Laravel Reverb websocket, FCM push.
 
-### 12. Scheduled Jobs (10)
+### 14. Scheduled Jobs (11)
 | Kab | Command | Kaam |
 |---|---|---|
 | Roz 00:30 | `exits:process` | LWD nikal chuke employees ka login band |
@@ -173,6 +230,7 @@ In-app inbox, preferences, announcements, Laravel Reverb websocket, FCM push.
 | Roz 23:55 | `attendance:auto-checkout` | Aaj ki khuli punch band |
 | Roz 06:00 | `attendance:auto-checkout --stale-only` | Pichle dino ki bhooli punch |
 | Roz 10:00 | `documents:expiry-alerts` | 30/15/7/1 din pehle |
+| Monday 10:30 | `policy:reminders` | Pending policy acceptance ka reminder |
 | 1 tarikh 02:00 | `leave:accrue` | Monthly accrual (idempotent) |
 | 1 Jan 03:00 | `leave:accrue --carry-forward` | Pichle saal ka balance aage |
 
@@ -267,7 +325,9 @@ Scratchpad me PHP scripts hain (curl se real HTTP calls karte hain, mock nahi):
 | test_exit | 113 |
 | test_performance | 114 |
 | test_asset | 106 |
-| **Total** | **1244** |
+| test_policy | 96 |
+| test_permission | 54 |
+| **Total** | **1394** |
 
 `test_employee.php` aur `test_visibility.php` bootstrap/fixture scripts hain — regression me
 nahi chalane chahiye (wo company aur org data create karte hain).
@@ -386,7 +446,8 @@ employee create block + upgrade prompt.
 
 **Naye module (priority order — Payroll / Dashboard / Recruitment sabse last me rakhe hain)**
 1. **Billing & Plans** — package flags, `PLAN_MODULE_LOCKED`, login limit
-2. **Compliance / Policy** — policy doc + acknowledgement (1 din)
+2. **OKR extension** — period cascade (quarter → month → week) + OKR ka weight score me +
+   appreciation/recognition. Schema (`performance_goals.period_type`, `recognitions`) ban chuka hai, code nahi
 3. **Helpdesk / Ticket** — employee query, SLA
 4. **Org Chart** — data hai, sirf API
 5. **Travel & Advance** — sirf tab jab company travel-heavy ho

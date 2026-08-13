@@ -181,7 +181,7 @@ final class PolicyService
                 'updated_by' => $actor->id,
             ])->save();
 
-            $this->clearGateIfDone($employee);
+            $this->clearGateIfDone($employee, $actor);
             $this->flush();
         });
 
@@ -339,20 +339,22 @@ final class PolicyService
         ];
     }
 
-    private function clearGateIfDone(Employee $employee): void
+    private function clearGateIfDone(Employee $employee, User $actor): void
     {
-        if ($employee->hasClearedPolicyGate()) {
-            return;
-        }
-
         $pending = PolicyAcknowledgement::query()
             ->where('employee_id', $employee->id)
             ->where('status', PolicyAcknowledgement::PENDING)
             ->exists();
 
-        if (! $pending) {
+        if ($pending) {
+            return;
+        }
+
+        if (! $employee->hasClearedPolicyGate()) {
             $employee->forceFill(['policy_gate_cleared_at' => Carbon::now()])->save();
         }
+
+        app(ClearanceService::class)->clearPolicyItems((int) $employee->id, $actor);
     }
 
     private function assignToEmployees(Policy $policy, User $actor): int

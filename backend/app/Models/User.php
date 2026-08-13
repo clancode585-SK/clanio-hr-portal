@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 
 class User extends Authenticatable
 {
@@ -140,7 +141,7 @@ class User extends Authenticatable
         }
 
         return TenantCache::remember(TenantCache::PERMISSIONS, (string) $this->id, function (): array {
-            return DB::table('permissions')
+            $fromRoles = DB::table('permissions')
                 ->join('role_permissions', 'role_permissions.permission_id', '=', 'permissions.id')
                 ->join('roles', 'roles.id', '=', 'role_permissions.role_id')
                 ->join('user_roles', 'user_roles.role_id', '=', 'roles.id')
@@ -149,7 +150,53 @@ class User extends Authenticatable
                 ->distinct()
                 ->pluck('permissions.slug')
                 ->all();
+
+            $fromDepartment = $this->department_id === null ? [] : DB::table('permissions')
+                ->join('department_permissions as dp', 'dp.permission_id', '=', 'permissions.id')
+                ->where('dp.department_id', $this->department_id)
+                ->distinct()
+                ->pluck('permissions.slug')
+                ->all();
+
+            $overrides = DB::table('user_permissions as up')
+                ->join('permissions as p', 'p.id', '=', 'up.permission_id')
+                ->where('up.user_id', $this->id)
+                ->get(['p.slug', 'up.effect']);
+
+            $granted = $overrides->where('effect', 'grant')->pluck('slug')->all();
+            $revoked = $overrides->where('effect', 'revoke')->pluck('slug')->all();
+
+            $default = array_unique(array_merge($fromRoles, $fromDepartment));
+            $effective = array_diff(array_merge($default, $granted), $revoked);
+
+            return array_values($this->withinEnabledModules($effective));
         });
+    }
+
+    /**
+     * Super admin ne jo module company ke liye band kiya hai, uski permission
+     * effective list se apne aap nikal jati hai.
+     */
+    private function withinEnabledModules(array $slugs): array
+    {
+        if ($slugs === [] || $this->company_id === null) {
+            return $slugs;
+        }
+
+        $disabled = DB::table('company_modules')
+            ->where('company_id', $this->company_id)
+            ->where('is_enabled', 0)
+            ->pluck('module')
+            ->all();
+
+        if ($disabled === []) {
+            return $slugs;
+        }
+
+        return array_filter(
+            $slugs,
+            static fn (string $slug): bool => ! in_array(Str::before($slug, '.'), $disabled, true)
+        );
     }
 
     public function hasPermission(string $slug): bool

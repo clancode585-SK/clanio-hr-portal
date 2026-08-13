@@ -28,6 +28,12 @@ class ExitClearance extends Model
 
     public const STATUSES = [self::PENDING, self::CLEARED, self::BLOCKED, self::NOT_APPLICABLE];
 
+    public const SOURCE_CHECKLIST = 'checklist';
+
+    public const SOURCE_ASSET = 'asset';
+
+    public const SOURCE_POLICY = 'policy';
+
     protected $fillable = [
         'status',
         'remarks',

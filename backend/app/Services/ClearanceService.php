@@ -8,6 +8,7 @@ use App\Exceptions\ApiException;
 use App\Models\ClearanceItem;
 use App\Models\EmployeeExit;
 use App\Models\ExitClearance;
+use App\Models\PolicyAcknowledgement;
 use App\Models\User;
 use App\Support\NotificationType;
 use App\Support\Recipients;
@@ -99,6 +100,7 @@ final class ClearanceService
             $clearance->company_id = $exit->company_id;
             $clearance->employee_exit_id = $exit->id;
             $clearance->asset_allocation_id = $allocation->id;
+            $clearance->source = ExitClearance::SOURCE_ASSET;
             $clearance->department = ClearanceItem::IT;
             $clearance->title = $allocation->asset?->label() . ' wapas';
             $clearance->is_recoverable = true;
@@ -109,10 +111,63 @@ final class ClearanceService
             $count++;
         }
 
+        $count += $this->addPolicyItem($exit, $actor);
+
         $this->flush();
         $this->notifySignOff($exit, $count, $actor);
 
         return $count;
+    }
+
+    private function addPolicyItem(EmployeeExit $exit, ?User $actor): int
+    {
+        $pending = PolicyAcknowledgement::query()
+            ->where('employee_id', $exit->employee_id)
+            ->where('status', PolicyAcknowledgement::PENDING)
+            ->count();
+
+        if ($pending === 0) {
+            return 0;
+        }
+
+        $clearance = new ExitClearance();
+        $clearance->company_id = $exit->company_id;
+        $clearance->employee_exit_id = $exit->id;
+        $clearance->source = ExitClearance::SOURCE_POLICY;
+        $clearance->department = ClearanceItem::HR;
+        $clearance->title = $pending . ' policy acknowledgement pending';
+        $clearance->is_recoverable = false;
+        $clearance->is_mandatory = true;
+        $clearance->created_by = $actor?->id;
+        $clearance->save();
+
+        return 1;
+    }
+
+    /**
+     * Saari policies accept hote hi exit ka policy wala item apne aap clear ho jata hai.
+     */
+    public function clearPolicyItems(int $employeeId, User $actor): void
+    {
+        $rows = ExitClearance::query()
+            ->whereHas('exit', fn ($query) => $query->where('employee_id', $employeeId))
+            ->where('source', ExitClearance::SOURCE_POLICY)
+            ->where('status', ExitClearance::PENDING)
+            ->get();
+
+        foreach ($rows as $row) {
+            $row->forceFill([
+                'status' => ExitClearance::CLEARED,
+                'remarks' => 'Saari policies accept ho gayi',
+                'cleared_by' => $actor->id,
+                'cleared_at' => Carbon::now(),
+                'updated_by' => $actor->id,
+            ])->save();
+        }
+
+        if ($rows->isNotEmpty()) {
+            $this->flush();
+        }
     }
 
     public function sign(ExitClearance $clearance, array $data, User $actor): ExitClearance

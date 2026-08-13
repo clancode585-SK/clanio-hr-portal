@@ -100,3 +100,7 @@ ALTER TABLE `companies`
 
 ALTER TABLE `employees`
     ADD COLUMN `policy_gate_cleared_at` TIMESTAMP NULL AFTER `exit_date`;
+
+ALTER TABLE `exit_clearances`
+    ADD COLUMN `source` VARCHAR(20) NOT NULL DEFAULT 'checklist' AFTER `asset_allocation_id`,
+    ADD KEY `ix_exit_clearances_source` (`employee_exit_id`, `source`);

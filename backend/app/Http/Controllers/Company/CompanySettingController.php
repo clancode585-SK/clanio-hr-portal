@@ -78,6 +78,8 @@ class CompanySettingController extends ApiController
                 'eod_cutoff' => substr((string) $company->eod_cutoff, 0, 5),
                 'regularization_days' => (int) $company->regularization_days,
                 'expense_claim_days' => (int) $company->expense_claim_days,
+                'notice_period_days' => (int) $company->notice_period_days,
+                'policy_gate_enabled' => (bool) $company->policy_gate_enabled,
                 'fiscal_year_start' => (int) $company->fiscal_year_start,
                 'timezone' => $company->timezone,
                 'currency' => $company->currency,
@@ -87,6 +89,8 @@ class CompanySettingController extends ApiController
                 'eod_cutoff' => 'Is time ke baad EOD bhara to late gina jayega',
                 'regularization_days' => 'Employee itne din peeche tak attendance correction maang sakta hai',
                 'expense_claim_days' => 'Itne din purana kharcha hi reimbursement mein claim ho sakta hai',
+                'notice_period_days' => 'Resignation par last working date isi hisab se apne aap banti hai',
+                'policy_gate_enabled' => 'On karo to naya employee saari policies accept karne tak tool nahi khol payega',
             ],
         ];
     }

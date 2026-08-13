@@ -39,6 +39,7 @@ use App\Http\Controllers\Company\TaskCommentController;
 use App\Http\Controllers\Company\TaskController;
 use App\Http\Controllers\Company\TeamController;
 use App\Http\Controllers\Company\UserController;
+use App\Http\Controllers\Company\UserPermissionController;
 use App\Http\Controllers\Company\WorkRecordController;
 use App\Http\Controllers\Company\WorkShiftController;
 use App\Http\Controllers\Permission\PermissionController;
@@ -72,12 +73,29 @@ Route::prefix('hrms')->group(function (): void {
             Route::get('companies/{company}', [CompanyController::class, 'show']);
             Route::put('companies/{company}', [CompanyController::class, 'update']);
             Route::delete('companies/{company}', [CompanyController::class, 'destroy']);
+            Route::get('companies/{company}/modules', [UserPermissionController::class, 'modules']);
+            Route::put('companies/{company}/modules', [UserPermissionController::class, 'setModules'])
+                ->name('companies.modules');
         });
 
         Route::get('company-settings', [CompanySettingController::class, 'show'])->middleware('permission:company.view');
         Route::put('company-settings', [CompanySettingController::class, 'update'])->middleware('permission:company.edit');
 
         Route::get('permissions', [PermissionController::class, 'index'])->middleware('permission:permission.view');
+        Route::get('permissions/tree', [UserPermissionController::class, 'tree'])
+            ->middleware('permission:permission.view');
+
+        Route::get('departments/{department}/permissions', [UserPermissionController::class, 'department'])
+            ->middleware('permission:user.permission');
+        Route::put('departments/{department}/permissions', [UserPermissionController::class, 'setDepartment'])
+            ->middleware('permission:user.permission');
+
+        Route::get('users/{user}/permissions', [UserPermissionController::class, 'show'])
+            ->middleware('permission:user.permission');
+        Route::put('users/{user}/permissions', [UserPermissionController::class, 'update'])
+            ->middleware('permission:user.permission');
+        Route::delete('users/{user}/permissions', [UserPermissionController::class, 'reset'])
+            ->middleware('permission:user.permission');
 
         Route::get('branches', [BranchController::class, 'index'])->middleware('permission:branch.view');
         Route::post('branches', [BranchController::class, 'store'])->middleware('permission:branch.create');

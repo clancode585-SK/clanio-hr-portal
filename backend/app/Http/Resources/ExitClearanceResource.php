@@ -18,6 +18,7 @@ class ExitClearanceResource extends JsonResource
             'id' => $this->id,
             'uuid' => $this->uuid,
             'employee_exit_id' => (int) $this->employee_exit_id,
+            'source' => $this->source,
             'department' => $this->department,
             'department_label' => $this->departmentLabel(),
             'title' => $this->title,
