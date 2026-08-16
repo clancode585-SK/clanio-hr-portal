@@ -8,6 +8,7 @@ use App\Exceptions\ApiException;
 use App\Models\Department;
 use App\Models\User;
 use App\Support\TenantCache;
+use Illuminate\Support\Facades\DB;
 
 final class DepartmentService
 {
@@ -44,24 +45,12 @@ final class DepartmentService
 
     public function delete(Department $department): void
     {
-        if ($department->teams()->exists()) {
-            throw new ApiException(
-                'This department has teams. Delete or move them first.',
-                409,
-                'DEPARTMENT_IN_USE'
-            );
-        }
+        DB::transaction(function () use ($department): void {
+            $department->teams()->delete();
+            $department->users()->update(['department_id' => null]);
+            $department->delete();
 
-        if ($department->users()->exists()) {
-            throw new ApiException(
-                'This department has users. Move them before deleting it.',
-                409,
-                'DEPARTMENT_IN_USE'
-            );
-        }
-
-        $department->delete();
-
-        TenantCache::flush(TenantCache::DEPARTMENTS);
+            TenantCache::flush(TenantCache::DEPARTMENTS);
+        });
     }
 }

@@ -20,11 +20,18 @@ class TeamController extends ApiController
 
     public function index(Request $request): JsonResponse
     {
+        $user = $request->user();
+        $query = Team::query();
+
+        if ($user?->isSuperAdmin() && app(\App\Support\TenantContext::class)->id() === null) {
+            $query = Team::withoutGlobalScopes();
+        }
+
         $teams = TenantCache::remember(
             TenantCache::TEAMS,
-            $this->cacheKey($request),
+            $this->cacheKey($request) . ($user?->isSuperAdmin() ? '_super' : ''),
             fn () => $this->applyFilters(
-                Team::query()->with('department')->withCount('users'),
+                $query->with('department')->withCount('users'),
                 $request,
                 ['name', 'code'],
                 ['status' => 'status', 'department_id' => 'department_id']

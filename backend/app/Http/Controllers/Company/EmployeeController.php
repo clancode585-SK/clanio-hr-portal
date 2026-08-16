@@ -20,24 +20,30 @@ class EmployeeController extends ApiController
 
     public function index(Request $request): JsonResponse
     {
-        $employees = TenantCache::remember(
-            TenantCache::EMPLOYEES,
-            'actor:' . $request->user()->id . ':' . $this->cacheKey($request),
-            fn () => $this->applyFilters(
-                Employee::query()
-                    ->with(['user', 'designation'])
-                    ->withCount(['familyMembers', 'bankAccounts'])
-                    ->visibleTo($request->user()),
-                $request,
-                ['employee_code', 'personal_email', 'pan_number'],
-                [
-                    'onboarding_status' => 'onboarding_status',
-                    'employment_type' => 'employment_type',
-                    'designation_id' => 'designation_id',
-                    'reporting_manager_id' => 'reporting_manager_id',
-                ]
-            )->latest('id')->paginate($this->perPage($request))
-        );
+        $user = $request->user();
+        $query = Employee::query()
+            ->withoutGlobalScope(\App\Support\Scopes\CompanyScope::class)
+            ->with([
+                'user' => fn ($q) => $q->withoutGlobalScope(\App\Support\Scopes\CompanyScope::class)->with(['department' => fn ($dq) => $dq->withoutGlobalScope(\App\Support\Scopes\CompanyScope::class)]),
+                'designation' => fn ($q) => $q->withoutGlobalScope(\App\Support\Scopes\CompanyScope::class),
+            ])
+            ->withCount(['familyMembers', 'bankAccounts']);
+
+        if ($user) {
+            $query->visibleTo($user);
+        }
+
+        $employees = $this->applyFilters(
+            $query,
+            $request,
+            ['employee_code', 'personal_email', 'pan_number'],
+            [
+                'onboarding_status' => 'onboarding_status',
+                'employment_type' => 'employment_type',
+                'designation_id' => 'designation_id',
+                'reporting_manager_id' => 'reporting_manager_id',
+            ]
+        )->latest('id')->paginate($this->perPage($request));
 
         return ApiResponse::paginated($employees, EmployeeResource::class, 'Employees fetched successfully');
     }

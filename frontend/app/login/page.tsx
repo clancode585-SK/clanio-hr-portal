@@ -13,7 +13,7 @@ export default function LoginPage() {
       className={`relative min-h-screen w-full flex items-center justify-center p-4 sm:p-6 lg:p-10 font-sans overflow-hidden transition-colors duration-500 ${
         isDark
           ? "bg-slate-950 text-slate-100 dark"
-          : "bg-gradient-to-br from-slate-100 via-indigo-50/50 to-purple-50/40 text-slate-900"
+          : "bg-gradient-to-br from-indigo-100/80 via-purple-100/50 to-blue-100/70 text-slate-900"
       }`}
     >
       {/* Pure CSS Ambient Background */}
@@ -33,8 +33,8 @@ export default function LoginPage() {
       {/* Main Glassmorphic Container Card - Prominent & Spacious */}
       <div className={`relative z-10 w-full max-w-[1200px] min-h-[550px] rounded-[36px] border transition-all duration-500 grid grid-cols-1 lg:grid-cols-12 overflow-hidden ${
         isDark
-          ? "bg-slate-900/70 border-slate-800/80 shadow-[0_25px_70px_-15px_rgba(0,0,0,0.8)] backdrop-blur-xl"
-          : "bg-white/60 border-white/80 shadow-[0_25px_70px_-15px_rgba(37,99,235,0.08)] backdrop-blur-xl"
+          ? "bg-slate-900/60 border-white/15 shadow-[0_25px_80px_-15px_rgba(0,0,0,0.9),0_0_30px_rgba(124,58,237,0.15)] backdrop-blur-2xl"
+          : "bg-white/70 border-white shadow-[0_20px_60px_-15px_rgba(15,23,42,0.18),0_0_40px_rgba(99,102,241,0.12)] backdrop-blur-2xl ring-1 ring-slate-900/5"
       }`}>
 
         {/* ---------------------------------------------------- */}
@@ -67,10 +67,10 @@ export default function LoginPage() {
         {/* ---------------------------------------------------- */}
         {/* RIGHT SECTION (45% / col-span-5)                     */}
         {/* ---------------------------------------------------- */}
-        <section className={`lg:col-span-5 rounded-t-3xl lg:rounded-t-none lg:rounded-l-3xl p-6 sm:p-10 lg:p-12 flex items-center justify-center relative z-10 transition-colors duration-500 ${
+        <section className={`lg:col-span-5 rounded-t-3xl lg:rounded-t-none lg:rounded-l-3xl p-6 sm:p-10 lg:p-12 flex items-center justify-center relative z-10 transition-all duration-500 ${
           isDark
-            ? "bg-slate-900/90 border-l border-slate-800/60 backdrop-blur-2xl"
-            : "bg-white/90 border-l border-white/80 backdrop-blur-2xl shadow-xl"
+            ? "bg-slate-900/80 border-l border-white/10 backdrop-blur-3xl shadow-[-15px_0_35px_-5px_rgba(0,0,0,0.5)]"
+            : "bg-white/80 border-l border-white/90 backdrop-blur-3xl shadow-[-15px_0_35px_-5px_rgba(37,99,235,0.08)]"
         }`}>
           <LoginForm isDark={isDark} onToggleTheme={() => setIsDark(!isDark)} />
         </section>

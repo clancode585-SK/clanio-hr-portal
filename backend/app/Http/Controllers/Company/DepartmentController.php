@@ -20,16 +20,21 @@ class DepartmentController extends ApiController
 
     public function index(Request $request): JsonResponse
     {
-        $departments = TenantCache::remember(
-            TenantCache::DEPARTMENTS,
-            $this->cacheKey($request),
-            fn () => $this->applyFilters(
-                Department::query()->withCount(['teams', 'users']),
-                $request,
-                ['name', 'code'],
-                ['status' => 'status', 'branch_id' => 'branch_id']
-            )->orderBy('name')->paginate($this->perPage($request))
-        );
+        $user = $request->user();
+        $query = Department::query()
+            ->withoutGlobalScope(\App\Support\Scopes\CompanyScope::class)
+            ->withCount(['teams', 'users']);
+
+        if ($user && ! $user->isSuperAdmin() && $user->company_id !== null) {
+            $query->where('company_id', $user->company_id);
+        }
+
+        $departments = $this->applyFilters(
+            $query,
+            $request,
+            ['name', 'code'],
+            ['status' => 'status', 'branch_id' => 'branch_id']
+        )->orderBy('name')->paginate($this->perPage($request));
 
         return ApiResponse::paginated($departments, DepartmentResource::class, 'Departments fetched successfully');
     }

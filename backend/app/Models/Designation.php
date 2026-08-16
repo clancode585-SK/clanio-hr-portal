@@ -20,6 +20,7 @@ class Designation extends Model
     use SoftDeletes;
 
     protected $fillable = [
+        'company_id',
         'name',
         'code',
         'level',
@@ -36,6 +37,23 @@ class Designation extends Model
     protected function casts(): array
     {
         return ['level' => 'integer'];
+    }
+
+    public function resolveRouteBinding($value, $field = null)
+    {
+        $query = $this->newQuery()->withoutGlobalScopes();
+        $user = auth()->user();
+        if ($user && ! $user->isSuperAdmin() && $user->company_id !== null) {
+            $query->where('company_id', $user->company_id);
+        }
+
+        if (is_numeric($value)) {
+            return $query->where('id', (int) $value)->firstOrFail();
+        }
+
+        return $query->where(function ($q) use ($value) {
+            $q->where('uuid', $value)->orWhere('code', $value);
+        })->firstOrFail();
     }
 
     public function department(): BelongsTo

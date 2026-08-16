@@ -49,15 +49,21 @@ final class EmployeeService
 
     public function update(Employee $employee, array $data, User $actor): Employee
     {
-        $employee->fill($data);
-        $employee->updated_by = $actor->id;
+        return DB::transaction(function () use ($employee, $data, $actor): Employee {
+            if (isset($data['user']) && is_array($data['user']) && $employee->user) {
+                $employee->user->fill($data['user'])->save();
+            }
 
-        $this->assertManagerIsNotSelf($employee, $employee->user_id);
-        $employee->save();
+            $employee->fill(Arr::except($data, ['user']));
+            $employee->updated_by = $actor->id;
 
-        TenantCache::flush(TenantCache::EMPLOYEES);
+            $this->assertManagerIsNotSelf($employee, $employee->user_id);
+            $employee->save();
 
-        return $employee->refresh()->load('user.roles', 'designation');
+            TenantCache::flush(TenantCache::EMPLOYEES);
+
+            return $employee->refresh()->load('user.roles', 'user.department', 'designation');
+        });
     }
 
     public function delete(Employee $employee): void
@@ -65,6 +71,9 @@ final class EmployeeService
         DB::transaction(function () use ($employee): void {
             $employee->familyMembers()->delete();
             $employee->bankAccounts()->delete();
+            if ($employee->user) {
+                $employee->user->delete();
+            }
             $employee->delete();
 
             TenantCache::flush(TenantCache::EMPLOYEES);

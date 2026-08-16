@@ -25,13 +25,21 @@ class TeamRequest extends FormRequest
 
         $departmentId = $this->input('department_id', $team?->department_id);
 
+        $departmentRule = Rule::exists('departments', 'id')->whereNull('deleted_at');
+        if ($companyId !== null) {
+            $departmentRule->where('company_id', $companyId);
+        }
+
+        $codeRule = Rule::unique('teams', 'code')
+            ->where('department_id', $departmentId)
+            ->whereNull('deleted_at')
+            ->ignore($team?->id);
+
         return [
             'name' => [$required, 'string', 'max:150'],
-            'code' => [$required, 'string', 'alpha_dash', 'max:30',
-                Rule::unique('teams', 'code')->where('department_id', $departmentId)->whereNull('deleted_at')->ignore($team?->id)],
+            'code' => [$required, 'string', 'alpha_dash', 'max:30', $codeRule],
             'description' => ['nullable', 'string', 'max:500'],
-            'department_id' => [$required, 'integer',
-                Rule::exists('departments', 'id')->where('company_id', $companyId)->whereNull('deleted_at')],
+            'department_id' => [$required, 'integer', $departmentRule],
             'status' => ['nullable', Rule::in(['active', 'inactive'])],
         ];
     }

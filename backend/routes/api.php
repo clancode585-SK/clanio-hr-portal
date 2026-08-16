@@ -13,13 +13,15 @@ use App\Http\Controllers\Company\EmployeeFamilyController;
 use App\Http\Controllers\Company\RoleController;
 use App\Http\Controllers\Company\TeamController;
 use App\Http\Controllers\Company\UserController;
+use App\Http\Controllers\NavigationController;
 use App\Http\Controllers\Permission\PermissionController;
 use Illuminate\Support\Facades\Route;
 
 Route::prefix('hrms')->group(function (): void {
     Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
-
+  
     Route::middleware(['auth:api', 'tenant', 'company.active', 'throttle:api'])->group(function (): void {
+        Route::get('navigation', [NavigationController::class, 'getSidebarMenu']);
         Route::post('auth/logout', [AuthController::class, 'logout']);
         Route::post('auth/change-password', [AuthController::class, 'changePassword'])->middleware('throttle:sensitive');
 
@@ -31,6 +33,10 @@ Route::prefix('hrms')->group(function (): void {
             Route::delete('companies/{company}', [CompanyController::class, 'destroy']);
         });
 
+          Route::get('employees', [EmployeeController::class, 'index']);
+        Route::get('departments', [DepartmentController::class, 'index']);
+
+
         Route::get('permissions', [PermissionController::class, 'index'])->middleware('permission:permission.view');
 
         Route::get('branches', [BranchController::class, 'index'])->middleware('permission:branch.view');
@@ -39,7 +45,7 @@ Route::prefix('hrms')->group(function (): void {
         Route::put('branches/{branch}', [BranchController::class, 'update'])->middleware('permission:branch.edit');
         Route::delete('branches/{branch}', [BranchController::class, 'destroy'])->middleware('permission:branch.delete');
 
-        Route::get('departments', [DepartmentController::class, 'index'])->middleware('permission:department.view');
+        // Route::get('departments', [DepartmentController::class, 'index'])->middleware('permission:department.view');
         Route::post('departments', [DepartmentController::class, 'store'])->middleware('permission:department.create');
         Route::get('departments/{department}', [DepartmentController::class, 'show'])->middleware('permission:department.view');
         Route::put('departments/{department}', [DepartmentController::class, 'update'])->middleware('permission:department.edit');
@@ -57,7 +63,7 @@ Route::prefix('hrms')->group(function (): void {
         Route::put('designations/{designation}', [DesignationController::class, 'update'])->middleware('permission:designation.edit');
         Route::delete('designations/{designation}', [DesignationController::class, 'destroy'])->middleware('permission:designation.delete');
 
-        Route::get('employees', [EmployeeController::class, 'index'])->middleware('permission:employee.view');
+        // Route::get('employees', [EmployeeController::class, 'index'])->middleware('permission:employee.view');
         Route::post('employees', [EmployeeController::class, 'store'])->middleware('permission:employee.create');
         Route::get('employees/{employee}', [EmployeeController::class, 'show'])->middleware('permission:employee.view');
         Route::put('employees/{employee}', [EmployeeController::class, 'update'])->middleware('permission:employee.edit');

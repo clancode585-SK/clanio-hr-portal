@@ -73,7 +73,7 @@ class EmployeeRequest extends FormRequest
                 Rule::exists('departments', 'id')->where('company_id', $companyId)->whereNull('deleted_at')],
             'user.team_id' => ['nullable', 'integer',
                 Rule::exists('teams', 'id')->where('company_id', $companyId)->whereNull('deleted_at')],
-            'user.role_ids' => ['required_with:user', 'array', 'min:1'],
+            'user.role_ids' => ['nullable', 'array'],
             'user.role_ids.*' => ['integer', Rule::exists('roles', 'id')
                 ->where(fn (Builder $query) => $companyId === null
                     ? $query->whereNull('company_id')
@@ -84,9 +84,18 @@ class EmployeeRequest extends FormRequest
 
     private function lockedUserRules(): array
     {
+        $companyId = app(TenantContext::class)->id();
+        $userId = $this->route('employee')?->user_id;
+
         return [
-            'user' => ['prohibited'],
             'user_id' => ['prohibited'],
+            'user' => ['nullable', 'array'],
+            'user.name' => ['sometimes', 'string', 'max:150'],
+            'user.email' => ['sometimes', 'email', 'max:255',
+                Rule::unique('users', 'email')->where('company_key', $companyId ?? 0)->whereNull('deleted_at')->ignore($userId)],
+            'user.phone' => ['nullable', 'string', 'max:20'],
+            'user.department_id' => ['nullable', 'integer',
+                Rule::exists('departments', 'id')->where('company_id', $companyId)->whereNull('deleted_at')],
         ];
     }
 

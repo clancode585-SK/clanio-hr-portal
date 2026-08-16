@@ -56,4 +56,14 @@ class Role extends Model
     {
         return $this->belongsToMany(User::class, 'user_roles');
     }
+
+    public function resolveRouteBinding($value, $field = null)
+    {
+        $query = $this->newQuery();
+        if (auth()->user()?->isSuperAdmin() && app(\App\Support\TenantContext::class)->id() === null) {
+            $query = static::withoutGlobalScopes();
+        }
+
+        return $this->resolveRouteBindingQuery($query, $value, $field)->firstOrFail();
+    }
 }

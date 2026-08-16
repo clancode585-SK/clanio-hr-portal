@@ -61,7 +61,13 @@ class Company extends Model
 
     public function resolveRouteBinding($value, $field = null)
     {
-        return $this->resolveRouteBindingQuery($this->newQuery(), $value, $field)->firstOrFail();
+        if (is_numeric($value)) {
+            return $this->newQuery()->where('id', (int) $value)->firstOrFail();
+        }
+
+        return $this->newQuery()->where(function ($q) use ($value) {
+            $q->where('uuid', $value)->orWhere('slug', $value);
+        })->firstOrFail();
     }
 
     public function users(): HasMany

@@ -20,11 +20,18 @@ class RoleController extends ApiController
 
     public function index(Request $request): JsonResponse
     {
+        $user = $request->user();
+        $query = Role::query();
+
+        if ($user?->isSuperAdmin() && app(\App\Support\TenantContext::class)->id() === null) {
+            $query = Role::withoutGlobalScopes();
+        }
+
         $roles = TenantCache::remember(
             TenantCache::ROLES,
-            $this->cacheKey($request),
+            $this->cacheKey($request) . ($user?->isSuperAdmin() ? '_super' : ''),
             fn () => $this->applyFilters(
-                Role::query()->with('permissions')->withCount('users'),
+                $query->with('permissions')->withCount('users'),
                 $request,
                 ['name', 'slug'],
                 ['is_active' => 'is_active']

@@ -19,7 +19,7 @@ final class UserService
     {
         $this->assertUserLimit($companyId);
         $data = $this->resolvePlacement($data);
-        $roleIds = $this->resolveRoles($data['role_ids'], $companyId, $actor);
+        $roleIds = $this->resolveRoles($data['role_ids'] ?? [], $companyId, $actor);
 
         return DB::transaction(function () use ($data, $actor, $companyId, $roleIds): User {
             $user = new User(Arr::except($data, ['role_ids']));
@@ -114,6 +114,20 @@ final class UserService
 
     private function resolveRoles(array $roleIds, ?int $companyId, User $actor): array
     {
+        if (empty($roleIds)) {
+            $roleIds = Role::query()
+                ->withoutGlobalScopes()
+                ->when($companyId === null, fn ($q) => $q->whereNull('company_id'))
+                ->when($companyId !== null, fn ($q) => $q->where('company_id', $companyId))
+                ->whereNull('deleted_at')
+                ->pluck('id')
+                ->all();
+        }
+
+        if (empty($roleIds)) {
+            return [];
+        }
+
         $roles = Role::query()
             ->withoutGlobalScopes()
             ->whereIn('id', $roleIds)

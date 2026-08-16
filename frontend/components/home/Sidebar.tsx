@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { fetchApi } from "@/lib/api";
 import {
   Search,
   ChevronRight,
@@ -10,12 +11,12 @@ import {
   ShieldCheck,
 } from "lucide-react";
 
-interface SubMenuItem {
+export interface SubMenuItem {
   id: string;
   label: string;
 }
 
-interface MenuItem {
+export interface MenuItem {
   id: string;
   label: string;
   iconPath: string;
@@ -26,146 +27,303 @@ interface MenuItem {
   subItems?: SubMenuItem[];
 }
 
+export interface FlatSidebarOption {
+  id: string;
+  label: string;
+  category?: string;
+  iconPath: string;
+}
+
 interface SidebarProps {
   isCollapsed?: boolean;
   isDarkMode?: boolean;
   onToggle?: () => void;
+  activeItem?: string;
+  onSelectItem?: (id: string) => void;
+  viewMode?: "admin" | "employee";
 }
+
+export const sidebarMenuItems: MenuItem[] = [
+  {
+    id: "dashboard",
+    label: "Dashboard",
+    iconPath: "/images/icons/dashboard.png",
+  },
+  {
+    id: "workforce",
+    label: "Workforce",
+    iconPath: "/images/icons/teamwork.png",
+    subItems: [
+      { id: "companies", label: "Companies" },
+      { id: "branches", label: "Branches" },
+      { id: "employees", label: "Employees" },
+      { id: "departments", label: "Departments" },
+      { id: "teams", label: "Teams" },
+      { id: "designations", label: "Designations" },
+      { id: "organization-chart", label: "Organization Chart" },
+    ],
+  },
+  {
+    id: "attendance",
+    label: "Attendance",
+    iconPath: "/images/icons/calendar.png",
+    badge: { text: "Today", variant: "emerald" },
+    subItems: [
+      { id: "attendance-list", label: "Attendance" },
+      { id: "shift-management", label: "Shift Management" },
+      { id: "holidays", label: "Holidays" },
+      { id: "timesheets", label: "Timesheets" },
+    ],
+  },
+  {
+    id: "leave",
+    label: "Leave",
+    iconPath: "/images/icons/calendar.png",
+    subItems: [
+      { id: "leave-requests", label: "Leave Requests" },
+      { id: "leave-balance", label: "Leave Balance" },
+      { id: "leave-policies", label: "Leave Policies" },
+    ],
+  },
+  {
+    id: "payroll",
+    label: "Payroll",
+    iconPath: "/images/icons/wages.png",
+    badge: { text: "Pending", variant: "amber" },
+    subItems: [
+      { id: "payroll-overview", label: "Payroll" },
+      { id: "salary-structure", label: "Salary Structure" },
+      { id: "payslips", label: "Payslips" },
+      { id: "reimbursements", label: "Reimbursements" },
+      { id: "loans-advances", label: "Loans & Advances" },
+    ],
+  },
+  {
+    id: "recruitment",
+    label: "Recruitment",
+    iconPath: "/images/icons/recruitment.png",
+    badge: { text: "3 New", variant: "purple" },
+    subItems: [
+      { id: "jobs", label: "Jobs" },
+      { id: "candidates", label: "Candidates" },
+      { id: "interviews", label: "Interviews" },
+      { id: "offers", label: "Offers" },
+    ],
+  },
+  {
+    id: "tasks",
+    label: "Tasks",
+    iconPath: "/images/icons/task.png",
+    subItems: [
+      { id: "my-tasks", label: "My Tasks" },
+      { id: "team-tasks", label: "Team Tasks" },
+      { id: "projects", label: "Projects" },
+      { id: "sod-eod", label: "SOD / EOD" },
+    ],
+  },
+  {
+    id: "documents",
+    label: "Documents",
+    iconPath: "/images/icons/folders.png",
+    subItems: [
+      { id: "employee-documents", label: "Employee Documents" },
+      { id: "company-policies", label: "Company Policies" },
+      { id: "templates", label: "Templates" },
+    ],
+  },
+  {
+    id: "reports",
+    label: "Reports",
+    iconPath: "/images/icons/seo-report.png",
+    subItems: [
+      { id: "hr-reports", label: "HR Reports" },
+      { id: "attendance-reports", label: "Attendance Reports" },
+      { id: "payroll-reports", label: "Payroll Reports" },
+      { id: "analytics", label: "Analytics" },
+    ],
+  },
+  {
+    id: "communication",
+    label: "Communication",
+    iconPath: "/images/icons/chat-bubbles.png",
+    badge: { text: "12", variant: "cyan" },
+    subItems: [
+      { id: "announcements", label: "Announcements" },
+      { id: "notifications", label: "Notifications" },
+      { id: "calendar", label: "Calendar" },
+    ],
+  },
+  {
+    id: "administration",
+    label: "Administration",
+    iconPath: "/images/icons/administration.png",
+    subItems: [
+      { id: "roles", label: "Roles" },
+      { id: "users-roles", label: "Users & Roles" },
+      { id: "company-settings", label: "Company Settings" },
+      { id: "billing", label: "Billing" },
+      { id: "audit-logs", label: "Audit Logs" },
+    ],
+  },
+  {
+    id: "help",
+    label: "Help",
+    iconPath: "/images/icons/help.png",
+  },
+];
+
+export const getFlatSidebarOptions = (): FlatSidebarOption[] => {
+  const options: FlatSidebarOption[] = [];
+  sidebarMenuItems.forEach((item) => {
+    if (item.subItems && item.subItems.length > 0) {
+      item.subItems.forEach((sub) => {
+        options.push({
+          id: sub.id,
+          label: sub.label,
+          category: item.label,
+          iconPath: item.iconPath,
+        });
+      });
+    } else {
+      options.push({
+        id: item.id,
+        label: item.label,
+        iconPath: item.iconPath,
+      });
+    }
+  });
+  return options;
+};
 
 export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed = false,
   isDarkMode = true,
+  activeItem: externalActiveItem,
+  onSelectItem,
+  viewMode = "admin",
 }) => {
-  const [activeItem, setActiveItem] = useState("dashboard");
+  const [internalActiveItem, setInternalActiveItem] = useState("employees");
+  const activeItem = externalActiveItem !== undefined ? externalActiveItem : internalActiveItem;
+
+  const [userName, setUserName] = useState("Platform Super Admin");
+  const [userRole, setUserRole] = useState("Super Administrator");
+  const [companyName, setCompanyName] = useState("Clanio HR");
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedName = localStorage.getItem("user_name");
+      const isSuper = localStorage.getItem("is_super_admin") === "true";
+      const storedEmail = localStorage.getItem("user_email");
+      const storedCompany = localStorage.getItem("company_name");
+
+      if (storedName) {
+        setUserName(storedName);
+      } else if (isSuper || storedEmail === "superadmin@clanio.com") {
+        setUserName("Platform Super Admin");
+      }
+
+      if (storedCompany) {
+        setCompanyName(storedCompany);
+      }
+
+      if (isSuper || storedEmail === "superadmin@clanio.com") {
+        setUserRole("Super Administrator");
+      } else {
+        setUserRole("Company Admin");
+      }
+    }
+  }, []);
+
+  const initials = userName
+    .split(" ")
+    .filter(Boolean)
+    .map((n) => n[0])
+    .join("")
+    .substring(0, 2)
+    .toUpperCase() || "SA";
+
+  const handleSelectItem = (id: string) => {
+    if (onSelectItem) {
+      onSelectItem(id);
+    } else {
+      setInternalActiveItem(id);
+    }
+  };
+
   const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
     workforce: true,
+    administration: true,
   });
   const [searchQuery, setSearchQuery] = useState("");
+  const [dynamicMenuItems, setDynamicMenuItems] = useState<MenuItem[]>(sidebarMenuItems);
 
-  const menuItems: MenuItem[] = [
-    {
-      id: "dashboard",
-      label: "Dashboard",
-      iconPath: "/images/icons/dashboard.png",
-    },
-    {
-      id: "workforce",
-      label: "Workforce",
-      iconPath: "/images/icons/teamwork.png",
-      subItems: [
-        { id: "employees", label: "Employees" },
-        { id: "departments", label: "Departments" },
-        { id: "designations", label: "Designations" },
-        { id: "organization-chart", label: "Organization Chart" },
-      ],
-    },
-    {
-      id: "attendance",
-      label: "Attendance",
-      iconPath: "/images/icons/calendar.png",
-      badge: { text: "Today", variant: "emerald" },
-      subItems: [
-        { id: "attendance-list", label: "Attendance" },
-        { id: "shift-management", label: "Shift Management" },
-        { id: "holidays", label: "Holidays" },
-        { id: "timesheets", label: "Timesheets" },
-      ],
-    },
-    {
-      id: "leave",
-      label: "Leave",
-      iconPath: "/images/icons/calendar.png",
-      subItems: [
-        { id: "leave-requests", label: "Leave Requests" },
-        { id: "leave-balance", label: "Leave Balance" },
-        { id: "leave-policies", label: "Leave Policies" },
-      ],
-    },
-    {
-      id: "payroll",
-      label: "Payroll",
-      iconPath: "/images/icons/wages.png",
-      badge: { text: "Pending", variant: "amber" },
-      subItems: [
-        { id: "payroll-overview", label: "Payroll" },
-        { id: "salary-structure", label: "Salary Structure" },
-        { id: "payslips", label: "Payslips" },
-        { id: "reimbursements", label: "Reimbursements" },
-        { id: "loans-advances", label: "Loans & Advances" },
-      ],
-    },
-    {
-      id: "recruitment",
-      label: "Recruitment",
-      iconPath: "/images/icons/recruitment.png",
-      badge: { text: "3 New", variant: "purple" },
-      subItems: [
-        { id: "jobs", label: "Jobs" },
-        { id: "candidates", label: "Candidates" },
-        { id: "interviews", label: "Interviews" },
-        { id: "offers", label: "Offers" },
-      ],
-    },
-    {
-      id: "tasks",
-      label: "Tasks",
-      iconPath: "/images/icons/task.png",
-      subItems: [
-        { id: "my-tasks", label: "My Tasks" },
-        { id: "team-tasks", label: "Team Tasks" },
-        { id: "projects", label: "Projects" },
-        { id: "sod-eod", label: "SOD / EOD" },
-      ],
-    },
-    {
-      id: "documents",
-      label: "Documents",
-      iconPath: "/images/icons/folders.png",
-      subItems: [
-        { id: "employee-documents", label: "Employee Documents" },
-        { id: "company-policies", label: "Company Policies" },
-        { id: "templates", label: "Templates" },
-      ],
-    },
-    {
-      id: "reports",
-      label: "Reports",
-      iconPath: "/images/icons/seo-report.png",
-      subItems: [
-        { id: "hr-reports", label: "HR Reports" },
-        { id: "attendance-reports", label: "Attendance Reports" },
-        { id: "payroll-reports", label: "Payroll Reports" },
-        { id: "analytics", label: "Analytics" },
-      ],
-    },
-    {
-      id: "communication",
-      label: "Communication",
-      iconPath: "/images/icons/chat-bubbles.png",
-      badge: { text: "12", variant: "cyan" },
-      subItems: [
-        { id: "announcements", label: "Announcements" },
-        { id: "notifications", label: "Notifications" },
-        { id: "calendar", label: "Calendar" },
-      ],
-    },
-    {
-      id: "administration",
-      label: "Administration",
-      iconPath: "/images/icons/administration.png",
-      subItems: [
-        { id: "users-roles", label: "Users & Roles" },
-        { id: "company-settings", label: "Company Settings" },
-        { id: "billing", label: "Billing" },
-        { id: "audit-logs", label: "Audit Logs" },
-      ],
-    },
-    {
-      id: "help",
-      label: "Help",
-      iconPath: "/images/icons/help.png",
-    },
+  useEffect(() => {
+    let isMounted = true;
+    const modeQuery = viewMode ? `?mode=${viewMode}` : "";
+    fetchApi<{ data?: { menu?: MenuItem[] } }>(`/navigation${modeQuery}`)
+      .then((res) => {
+        if (isMounted && res?.data?.menu && Array.isArray(res.data.menu) && res.data.menu.length > 0) {
+          setDynamicMenuItems(res.data.menu);
+        }
+      })
+      .catch((err) => {
+        console.warn("Backend dynamic navigation unavailable, using fallback menu.", err);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [viewMode]);
+
+  const isSuperAdmin = typeof window !== "undefined" && (
+    localStorage.getItem("is_super_admin") === "true" ||
+    localStorage.getItem("user_email") === "superadmin@clanio.com"
+  );
+
+  const adminOnlyMenus = ["workforce", "recruitment", "administration"];
+  const adminOnlySubItems = [
+    "shift-management",
+    "leave-policies",
+    "payroll-overview",
+    "salary-structure",
+    "loans-advances",
+    "team-tasks",
+    "projects",
   ];
+
+  const menuItems = React.useMemo(() => {
+    let items = dynamicMenuItems;
+
+    // Hide Teams tab strictly from Super Admin while keeping it visible for Company Admin
+    if (isSuperAdmin) {
+      items = items.map((item) => {
+        if (item.id === "workforce" && item.subItems) {
+          return {
+            ...item,
+            subItems: item.subItems.filter((sub) => sub.id !== "teams"),
+          };
+        }
+        return item;
+      });
+    }
+
+    if (viewMode === "employee") {
+      return items
+        .filter((item) => !adminOnlyMenus.includes(item.id))
+        .map((item) => {
+          if (item.subItems) {
+            return {
+              ...item,
+              subItems: item.subItems.filter(
+                (sub) => !adminOnlySubItems.includes(sub.id)
+              ),
+            };
+          }
+          return item;
+        });
+    }
+    return items;
+  }, [dynamicMenuItems, viewMode, isSuperAdmin]);
 
   const toggleSubmenu = (id: string) => {
     setOpenSubmenus((prev) => ({
@@ -234,7 +392,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside
       className={`${
-        isCollapsed ? "w-[84px] p-3.5" : "w-[280px] p-6"
+        isCollapsed ? "w-[84px] p-3.5" : "w-[280px] py-4 px-2"
       } h-screen flex flex-col justify-between relative overflow-hidden select-none z-30 shrink-0 font-sans backdrop-blur-xl transition-all duration-300 ease-in-out ${
         isDarkMode
           ? "bg-[#081425] text-[#94A3B8] border-r border-white/[0.06] shadow-[10px_0_40px_rgba(0,0,0,0.4)]"
@@ -303,7 +461,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* =================================================== */}
         {isCollapsed ? (
           <div
-            title="Acme Technologies Pvt Ltd (Enterprise Plan)"
+            title={`${companyName} (Enterprise Plan)`}
             className="w-11 h-11 mx-auto rounded-2xl bg-gradient-to-tr from-[#2563EB] to-[#7C3AED] p-0.5 flex items-center justify-center relative shrink-0 shadow-md shadow-purple-900/30 group cursor-pointer"
           >
             <div
@@ -355,7 +513,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         : "text-slate-900 group-hover:text-purple-700"
                     }`}
                   >
-                    Acme Technologies Pvt Ltd
+                    {companyName}
                   </div>
                   <div
                     className={`text-[10px] truncate ${
@@ -373,31 +531,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
             </div>
 
-            <div
-              className={`flex items-center justify-between pt-1 border-t text-[10px] ${
-                isDarkMode ? "border-white/[0.06]" : "border-purple-100"
-              }`}
-            >
-              <span
-                className={`px-2 py-0.5 rounded-full font-semibold border flex items-center gap-1 ${
-                  isDarkMode
-                    ? "bg-purple-500/15 text-purple-300 border-purple-500/25"
-                    : "bg-purple-100 text-purple-700 border-purple-200"
-                }`}
-              >
-                <ShieldCheck className="w-3 h-3 text-purple-400" />
-                Enterprise Plan
-              </span>
-              <span
-                className={`font-medium cursor-pointer transition-colors ${
-                  isDarkMode
-                    ? "text-slate-400 hover:text-white"
-                    : "text-slate-500 hover:text-purple-700"
-                }`}
-              >
-                Switch
-              </span>
-            </div>
+            
           </div>
         )}
 
@@ -472,9 +606,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     title={item.label}
                     onClick={() => {
                       if (hasSubItems && item.subItems?.[0]) {
-                        setActiveItem(item.subItems[0].id);
+                        handleSelectItem(item.subItems[0].id);
                       } else {
-                        setActiveItem(item.id);
+                        handleSelectItem(item.id);
                       }
                     }}
                     className={`w-11 h-11 rounded-2xl flex items-center justify-center relative transition-all duration-200 group ${
@@ -514,10 +648,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     if (hasSubItems) {
                       toggleSubmenu(item.id);
                     } else {
-                      setActiveItem(item.id);
+                      handleSelectItem(item.id);
                     }
                   }}
-                  className={`w-full relative flex items-center justify-between px-3.5 py-2.5 rounded-2xl text-xs font-medium transition-all duration-200 group ${
+                  className={`w-full relative flex items-center justify-between px-3 py-2 rounded-2xl text-[18px] font-medium transition-all duration-200 group ${
                     isParentActive && !hasSubItems
                       ? "bg-gradient-to-r from-[#2563EB] to-[#7C3AED] text-white shadow-[0_4px_25px_rgba(124,58,237,0.35)] font-semibold"
                       : isChildActive
@@ -604,8 +738,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       return (
                         <button
                           key={sub.id}
-                          onClick={() => setActiveItem(sub.id)}
-                          className={`w-full relative flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-xs transition-all duration-150 group ${
+                          onClick={() => handleSelectItem(sub.id)}
+                          className={`w-full relative flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-md transition-all duration-150 group ${
                             isSubActive
                               ? "bg-gradient-to-r from-[#2563EB] to-[#7C3AED] text-white font-semibold shadow-md shadow-purple-900/30"
                               : isDarkMode
@@ -672,7 +806,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       isDarkMode ? "bg-[#081425] text-white" : "bg-white text-slate-900"
                     }`}
                   >
-                    RS
+                    {initials}
                   </div>
                 </div>
                 <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
@@ -684,21 +818,21 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     isDarkMode ? "text-white" : "text-slate-900"
                   }`}
                 >
-                  Rahul Sharma
+                  {userName}
                 </div>
                 <div
                   className={`text-[10px] truncate ${
                     isDarkMode ? "text-slate-400" : "text-slate-500"
                   }`}
                 >
-                  HR Administrator
+                  {userRole}
                 </div>
               </div>
             </div>
 
             <div className="flex items-center gap-1 shrink-0">
               <button
-                onClick={() => setActiveItem("admin-settings")}
+                onClick={() => handleSelectItem("admin-settings")}
                 className={`p-1.5 rounded-xl transition-colors ${
                   isDarkMode
                     ? "bg-white/[0.04] hover:bg-white/10 text-slate-400 hover:text-white"

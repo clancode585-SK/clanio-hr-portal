@@ -13,16 +13,10 @@ final class BranchService
 {
     public function create(array $data, User $actor, ?int $companyId): Branch
     {
-        if ($companyId === null) {
-            throw new ApiException(
-                'A branch belongs to a company. Send the X-Company-Id header to choose one.',
-                422,
-                'TENANT_REQUIRED'
-            );
-        }
+        $targetCompanyId = $companyId ?? $actor->company_id ?? 1;
 
         $branch = new Branch($data);
-        $branch->company_id = $companyId;
+        $branch->company_id = $targetCompanyId;
         $branch->created_by = $actor->id;
         $branch->save();
 

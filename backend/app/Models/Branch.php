@@ -19,6 +19,7 @@ class Branch extends Model
     use SoftDeletes;
 
     protected $fillable = [
+        'company_id',
         'name',
         'code',
         'address',
@@ -41,5 +42,15 @@ class Branch extends Model
     public function users(): HasMany
     {
         return $this->hasMany(User::class);
+    }
+
+    public function resolveRouteBinding($value, $field = null)
+    {
+        $query = $this->newQuery();
+        if (auth()->user()?->isSuperAdmin() && app(\App\Support\TenantContext::class)->id() === null) {
+            $query = static::withoutGlobalScopes();
+        }
+
+        return $this->resolveRouteBindingQuery($query, $value, $field)->firstOrFail();
     }
 }

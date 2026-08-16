@@ -40,4 +40,14 @@ class Team extends Model
     {
         return $this->hasMany(User::class);
     }
+
+    public function resolveRouteBinding($value, $field = null)
+    {
+        $query = $this->newQuery();
+        if (auth()->user()?->isSuperAdmin() && app(\App\Support\TenantContext::class)->id() === null) {
+            $query = static::withoutGlobalScopes();
+        }
+
+        return $this->resolveRouteBindingQuery($query, $value, $field)->firstOrFail();
+    }
 }

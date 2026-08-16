@@ -64,16 +64,32 @@ class Employee extends Model
 
     public function scopeVisibleTo(Builder $query, ?User $actor): Builder
     {
-        return $query->whereHas('user', fn (Builder $inner) => DataScope::apply($inner, $actor));
+        if ($actor === null) {
+            return $query;
+        }
+
+        if ($actor->isSuperAdmin()) {
+            return $query;
+        }
+
+        if ($actor->company_id !== null) {
+            $query->where($query->qualifyColumn('company_id'), $actor->company_id);
+        }
+
+        return $query->whereHas('user', fn (Builder $inner) => DataScope::apply($inner->withoutGlobalScopes(), $actor));
     }
 
     public function resolveRouteBinding($value, $field = null)
     {
-        return $this->resolveRouteBindingQuery(
-            $this->newQuery()->visibleTo(auth()->user()),
-            $value,
-            $field
-        )->firstOrFail();
+        $query = $this->newQuery()->withoutGlobalScopes()->visibleTo(auth()->user());
+
+        if (is_numeric($value)) {
+            return $query->where($this->qualifyColumn('id'), (int) $value)->firstOrFail();
+        }
+
+        return $query->where(function (Builder $q) use ($value) {
+            $q->where($this->qualifyColumn('uuid'), $value)->orWhere($this->qualifyColumn('employee_code'), $value);
+        })->firstOrFail();
     }
 
     public function user(): BelongsTo

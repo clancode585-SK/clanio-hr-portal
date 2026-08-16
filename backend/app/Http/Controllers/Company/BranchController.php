@@ -20,11 +20,18 @@ class BranchController extends ApiController
 
     public function index(Request $request): JsonResponse
     {
+        $user = $request->user();
+        $query = Branch::query();
+
+        if ($user?->isSuperAdmin() && app(\App\Support\TenantContext::class)->id() === null) {
+            $query = Branch::withoutGlobalScopes();
+        }
+
         $branches = TenantCache::remember(
             TenantCache::BRANCHES,
-            $this->cacheKey($request),
+            $this->cacheKey($request) . ($user?->isSuperAdmin() ? '_super' : ''),
             fn () => $this->applyFilters(
-                Branch::query()->withCount('users'),
+                $query->with(['company'])->withCount('users'),
                 $request,
                 ['name', 'code'],
                 ['status' => 'status']

@@ -13,16 +13,10 @@ final class TeamService
 {
     public function create(array $data, User $actor, ?int $companyId): Team
     {
-        if ($companyId === null) {
-            throw new ApiException(
-                'A team belongs to a company. Send the X-Company-Id header to choose one.',
-                422,
-                'TENANT_REQUIRED'
-            );
-        }
+        $targetCompanyId = $companyId ?? $actor->company_id ?? 1;
 
         $team = new Team($data);
-        $team->company_id = $companyId;
+        $team->company_id = $targetCompanyId;
         $team->created_by = $actor->id;
         $team->save();
 

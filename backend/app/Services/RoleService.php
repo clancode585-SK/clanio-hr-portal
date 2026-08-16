@@ -19,8 +19,9 @@ final class RoleService
         $this->assertGrantable($actor, $data['permissions']);
 
         return DB::transaction(function () use ($data, $actor, $companyId): Role {
+            $targetCompanyId = $companyId ?? $actor->company_id ?? 1;
             $role = new Role(Arr::except($data, ['permissions']));
-            $role->company_id = $companyId;
+            $role->company_id = $targetCompanyId;
             $role->created_by = $actor->id;
             $role->save();
 

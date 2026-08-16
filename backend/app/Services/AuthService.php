@@ -46,6 +46,14 @@ final class AuthService
         return [
             'token' => ApiToken::issue($user, $request->ip(), $this->config('lifetime', 10080)),
             'role' => $user->primaryRole(),
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'company_id' => $user->company_id,
+                'company_name' => $user->company?->name ?? ($user->isSuperAdmin() ? 'Platform Super Admin' : 'Clanio HR'),
+                'is_super_admin' => $user->isSuperAdmin(),
+            ],
         ];
     }
 

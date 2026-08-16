@@ -8,6 +8,7 @@ use App\Exceptions\ApiException;
 use App\Models\Designation;
 use App\Models\User;
 use App\Support\TenantCache;
+use Illuminate\Support\Facades\DB;
 
 final class DesignationService
 {
@@ -44,16 +45,11 @@ final class DesignationService
 
     public function delete(Designation $designation): void
     {
-        if ($designation->employees()->exists()) {
-            throw new ApiException(
-                'This designation is assigned to employees. Reassign them first.',
-                409,
-                'DESIGNATION_IN_USE'
-            );
-        }
+        DB::transaction(function () use ($designation): void {
+            $designation->employees()->update(['designation_id' => null]);
+            $designation->delete();
 
-        $designation->delete();
-
-        TenantCache::flush(TenantCache::DESIGNATIONS);
+            TenantCache::flush(TenantCache::DESIGNATIONS);
+        });
     }
 }

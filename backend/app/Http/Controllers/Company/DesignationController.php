@@ -20,16 +20,22 @@ class DesignationController extends ApiController
 
     public function index(Request $request): JsonResponse
     {
-        $designations = TenantCache::remember(
-            TenantCache::DESIGNATIONS,
-            $this->cacheKey($request),
-            fn () => $this->applyFilters(
-                Designation::query()->with('department')->withCount('employees'),
-                $request,
-                ['name', 'code'],
-                ['status' => 'status', 'department_id' => 'department_id']
-            )->orderBy('level')->orderBy('name')->paginate($this->perPage($request))
-        );
+        $user = $request->user();
+        $query = Designation::query()
+            ->withoutGlobalScope(\App\Support\Scopes\CompanyScope::class)
+            ->with('department')
+            ->withCount('employees');
+
+        if ($user && ! $user->isSuperAdmin() && $user->company_id !== null) {
+            $query->where('company_id', $user->company_id);
+        }
+
+        $designations = $this->applyFilters(
+            $query,
+            $request,
+            ['name', 'code'],
+            ['status' => 'status', 'department_id' => 'department_id']
+        )->orderBy('name')->paginate($this->perPage($request));
 
         return ApiResponse::paginated($designations, DesignationResource::class, 'Designations fetched successfully');
     }
