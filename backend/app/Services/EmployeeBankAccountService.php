@@ -65,7 +65,7 @@ final class EmployeeBankAccountService
             );
         }
 
-        $account->delete();
+        $account->deactivate();
 
         TenantCache::flush(TenantCache::EMPLOYEES);
     }

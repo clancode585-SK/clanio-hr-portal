@@ -6,17 +6,17 @@ namespace App\Models;
 
 use App\Support\Concerns\Auditable;
 use App\Support\Concerns\BelongsToCompany;
+use App\Support\Concerns\HasActiveState;
 use App\Support\Concerns\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class EmployeeFamilyMember extends Model
 {
     use Auditable;
     use BelongsToCompany;
+    use HasActiveState;
     use HasUuid;
-    use SoftDeletes;
 
     public const RELATIONS = ['father', 'mother', 'spouse', 'son', 'daughter', 'brother', 'sister', 'other'];
 

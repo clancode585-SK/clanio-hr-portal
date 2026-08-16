@@ -35,7 +35,7 @@ trait Auditable
     protected function auditExcluded(): array
     {
         return array_merge(
-            ['password', 'remember_token', 'company_key', 'created_at', 'updated_at'],
+            ['password', 'remember_token', 'company_key', 'shift_key', 'holiday_key', 'open_key', 'is_open', 'created_at', 'updated_at'],
             $this->auditSensitive()
         );
     }

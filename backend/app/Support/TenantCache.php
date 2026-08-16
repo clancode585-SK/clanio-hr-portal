@@ -20,6 +20,32 @@ final class TenantCache
 
     public const EMPLOYEES = 'employees';
 
+    public const ATTENDANCE = 'attendance';
+
+    public const WORK_SHIFTS = 'work_shifts';
+
+    public const HOLIDAYS = 'holidays';
+
+    public const LEAVE_TYPES = 'leave_types';
+
+    public const LEAVE_BALANCES = 'leave_balances';
+
+    public const LEAVES = 'leaves';
+
+    public const EXPENSES = 'expenses';
+
+    public const EXITS = 'exits';
+
+    public const PERFORMANCE = 'performance';
+
+    public const ASSETS = 'assets';
+
+    public const POLICIES = 'policies';
+
+    public const TASKS = 'tasks';
+
+    public const DAILY_REPORTS = 'daily_reports';
+
     public const ROLES = 'roles';
 
     public const USERS = 'users';

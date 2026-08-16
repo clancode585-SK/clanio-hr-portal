@@ -35,4 +35,10 @@ return [
         ],
     ],
 
+    'fcm' => [
+        'project_id' => env('FCM_PROJECT_ID'),
+        'credentials' => env('FCM_CREDENTIALS'),
+        'timeout' => (int) env('FCM_TIMEOUT', 8),
+    ],
+
 ];

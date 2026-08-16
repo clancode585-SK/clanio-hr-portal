@@ -48,7 +48,7 @@ final class BranchService
             throw new ApiException('This branch has users. Move them before deleting it.', 409, 'BRANCH_IN_USE');
         }
 
-        $branch->delete();
+        $branch->deactivate();
 
         TenantCache::flush(TenantCache::BRANCHES);
     }

@@ -29,11 +29,13 @@ class EmployeeRequest extends FormRequest
             $creating ? $this->userRules($companyId) : $this->lockedUserRules(),
             [
                 'employee_code' => ['nullable', 'string', 'alpha_dash', 'max:30',
-                    Rule::unique('employees', 'employee_code')->where('company_id', $companyId)->whereNull('deleted_at')->ignore($employeeId)],
+                    Rule::unique('employees', 'employee_code')->where('company_id', $companyId)->where('is_active', 1)->ignore($employeeId)],
                 'designation_id' => ['nullable', 'integer',
-                    Rule::exists('designations', 'id')->where('company_id', $companyId)->whereNull('deleted_at')],
+                    Rule::exists('designations', 'id')->where('company_id', $companyId)->where('is_active', 1)],
+                'work_shift_id' => ['nullable', 'integer',
+                    Rule::exists('work_shifts', 'id')->where('company_id', $companyId)->where('is_active', 1)],
                 'reporting_manager_id' => ['nullable', 'integer',
-                    Rule::exists('users', 'id')->where('company_id', $companyId)->whereNull('deleted_at')],
+                    Rule::exists('users', 'id')->where('company_id', $companyId)->where('is_active', 1)],
                 'date_of_joining' => [$required, 'date'],
                 'employment_type' => ['nullable', Rule::in(['full_time', 'part_time', 'intern', 'contract', 'consultant'])],
                 'probation_end_date' => ['nullable', 'date', 'after_or_equal:date_of_joining'],
@@ -58,27 +60,27 @@ class EmployeeRequest extends FormRequest
     {
         return [
             'user_id' => ['nullable', 'required_without:user', 'integer',
-                Rule::exists('users', 'id')->where('company_id', $companyId)->whereNull('deleted_at'),
-                Rule::unique('employees', 'user_id')->whereNull('deleted_at')],
+                Rule::exists('users', 'id')->where('company_id', $companyId)->where('is_active', 1),
+                Rule::unique('employees', 'user_id')->where('is_active', 1)],
 
             'user' => ['nullable', 'required_without:user_id', 'prohibits:user_id', 'array'],
             'user.name' => ['required_with:user', 'string', 'max:150'],
             'user.email' => ['required_with:user', 'email', 'max:255',
-                Rule::unique('users', 'email')->where('company_key', $companyId ?? 0)->whereNull('deleted_at')],
+                Rule::unique('users', 'email')->where('company_key', $companyId ?? 0)->where('is_active', 1)],
             'user.password' => ['required_with:user', 'string', Password::min(8)->letters()->numbers()],
             'user.phone' => ['nullable', 'string', 'max:20'],
             'user.branch_id' => ['nullable', 'integer',
-                Rule::exists('branches', 'id')->where('company_id', $companyId)->whereNull('deleted_at')],
+                Rule::exists('branches', 'id')->where('company_id', $companyId)->where('is_active', 1)],
             'user.department_id' => ['nullable', 'integer',
-                Rule::exists('departments', 'id')->where('company_id', $companyId)->whereNull('deleted_at')],
+                Rule::exists('departments', 'id')->where('company_id', $companyId)->where('is_active', 1)],
             'user.team_id' => ['nullable', 'integer',
-                Rule::exists('teams', 'id')->where('company_id', $companyId)->whereNull('deleted_at')],
+                Rule::exists('teams', 'id')->where('company_id', $companyId)->where('is_active', 1)],
             'user.role_ids' => ['required_with:user', 'array', 'min:1'],
             'user.role_ids.*' => ['integer', Rule::exists('roles', 'id')
                 ->where(fn (Builder $query) => $companyId === null
                     ? $query->whereNull('company_id')
                     : $query->where('company_id', $companyId))
-                ->whereNull('deleted_at')],
+                ->where('is_active', 1)],
         ];
     }
 

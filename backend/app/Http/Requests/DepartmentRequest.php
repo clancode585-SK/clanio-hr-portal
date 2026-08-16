@@ -26,10 +26,10 @@ class DepartmentRequest extends FormRequest
         return [
             'name' => [$required, 'string', 'max:150'],
             'code' => [$required, 'string', 'alpha_dash', 'max:30',
-                Rule::unique('departments', 'code')->where('company_id', $companyId)->whereNull('deleted_at')->ignore($departmentId)],
+                Rule::unique('departments', 'code')->where('company_id', $companyId)->where('is_active', 1)->ignore($departmentId)],
             'description' => ['nullable', 'string', 'max:500'],
             'branch_id' => ['nullable', 'integer',
-                Rule::exists('branches', 'id')->where('company_id', $companyId)->whereNull('deleted_at')],
+                Rule::exists('branches', 'id')->where('company_id', $companyId)->where('is_active', 1)],
             'status' => ['nullable', Rule::in(['active', 'inactive'])],
         ];
     }

@@ -26,11 +26,11 @@ class DesignationRequest extends FormRequest
         return [
             'name' => [$required, 'string', 'max:150'],
             'code' => [$required, 'string', 'alpha_dash', 'max:30',
-                Rule::unique('designations', 'code')->where('company_id', $companyId)->whereNull('deleted_at')->ignore($designationId)],
+                Rule::unique('designations', 'code')->where('company_id', $companyId)->where('is_active', 1)->ignore($designationId)],
             'level' => ['nullable', 'integer', 'between:1,20'],
             'description' => ['nullable', 'string', 'max:500'],
             'department_id' => ['nullable', 'integer',
-                Rule::exists('departments', 'id')->where('company_id', $companyId)->whereNull('deleted_at')],
+                Rule::exists('departments', 'id')->where('company_id', $companyId)->where('is_active', 1)],
             'status' => ['nullable', Rule::in(['active', 'inactive'])],
         ];
     }

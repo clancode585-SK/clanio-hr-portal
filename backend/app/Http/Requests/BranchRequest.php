@@ -26,7 +26,7 @@ class BranchRequest extends FormRequest
         return [
             'name' => [$required, 'string', 'max:150'],
             'code' => [$required, 'string', 'alpha_dash', 'max:30',
-                Rule::unique('branches', 'code')->where('company_id', $companyId)->whereNull('deleted_at')->ignore($branchId)],
+                Rule::unique('branches', 'code')->where('company_id', $companyId)->where('is_active', 1)->ignore($branchId)],
             'address' => ['nullable', 'string', 'max:500'],
             'phone' => ['nullable', 'string', 'max:20'],
             'email' => ['nullable', 'email', 'max:255'],

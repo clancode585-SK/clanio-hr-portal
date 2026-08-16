@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Exceptions\ApiException;
 use App\Models\Employee;
+use App\Models\EmployeeDocument;
 use App\Models\User;
 use App\Support\TenantCache;
 use Illuminate\Support\Arr;
@@ -15,7 +16,10 @@ final class EmployeeService
 {
     private const CODE_PREFIX = 'EMP';
 
-    public function __construct(private readonly UserService $users) {}
+    public function __construct(
+        private readonly UserService $users,
+        private readonly PolicyService $policies
+    ) {}
 
     public function create(array $data, User $actor, ?int $companyId): Employee
     {
@@ -41,6 +45,8 @@ final class EmployeeService
             $this->assertManagerIsNotSelf($employee, $user->id);
             $employee->save();
 
+            $this->policies->assignPending($employee, $actor);
+
             TenantCache::flush(TenantCache::EMPLOYEES);
 
             return $employee->load('user.roles', 'designation');
@@ -63,9 +69,9 @@ final class EmployeeService
     public function delete(Employee $employee): void
     {
         DB::transaction(function () use ($employee): void {
-            $employee->familyMembers()->delete();
-            $employee->bankAccounts()->delete();
-            $employee->delete();
+            $employee->familyMembers()->update(['is_active' => 0]);
+            $employee->bankAccounts()->update(['is_active' => 0]);
+            $employee->deactivate();
 
             TenantCache::flush(TenantCache::EMPLOYEES);
         });
@@ -81,6 +87,12 @@ final class EmployeeService
 
         if ($employee->designation_id === null) {
             $missing[] = 'designation';
+        }
+
+        $uploaded = $employee->documents()->pluck('type')->unique()->all();
+
+        foreach (array_diff(EmployeeDocument::REQUIRED_FOR_ONBOARDING, $uploaded) as $type) {
+            $missing[] = EmployeeDocument::TYPES[$type] ?? $type;
         }
 
         if ($missing !== []) {

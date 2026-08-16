@@ -28,10 +28,10 @@ class TeamRequest extends FormRequest
         return [
             'name' => [$required, 'string', 'max:150'],
             'code' => [$required, 'string', 'alpha_dash', 'max:30',
-                Rule::unique('teams', 'code')->where('department_id', $departmentId)->whereNull('deleted_at')->ignore($team?->id)],
+                Rule::unique('teams', 'code')->where('department_id', $departmentId)->where('is_active', 1)->ignore($team?->id)],
             'description' => ['nullable', 'string', 'max:500'],
             'department_id' => [$required, 'integer',
-                Rule::exists('departments', 'id')->where('company_id', $companyId)->whereNull('deleted_at')],
+                Rule::exists('departments', 'id')->where('company_id', $companyId)->where('is_active', 1)],
             'status' => ['nullable', Rule::in(['active', 'inactive'])],
         ];
     }

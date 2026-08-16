@@ -42,7 +42,7 @@ final class EmployeeFamilyService
 
     public function delete(EmployeeFamilyMember $member): void
     {
-        $member->delete();
+        $member->deactivate();
 
         TenantCache::flush(TenantCache::EMPLOYEES);
     }

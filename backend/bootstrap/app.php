@@ -5,6 +5,7 @@ declare(strict_types=1);
 use App\Exceptions\ApiException;
 use App\Http\Middleware\CheckPermission;
 use App\Http\Middleware\EnsureCompanyActive;
+use App\Http\Middleware\EnsurePolicyAccepted;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\ForceJsonResponse;
 use App\Http\Middleware\ResolveTenant;
@@ -28,6 +29,10 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
         apiPrefix: 'api',
     )
+    ->withBroadcasting(
+        __DIR__ . '/../routes/channels.php',
+        attributes: ['prefix' => 'api/hrms', 'middleware' => ['api', 'auth:api']],
+    )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->api(prepend: [ForceJsonResponse::class]);
 
@@ -36,6 +41,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'company.active' => EnsureCompanyActive::class,
             'super.admin' => EnsureSuperAdmin::class,
             'permission' => CheckPermission::class,
+            'policy.gate' => EnsurePolicyAccepted::class,
         ]);
 
         $middleware->prependToPriorityList(SubstituteBindings::class, EnsureCompanyActive::class);
