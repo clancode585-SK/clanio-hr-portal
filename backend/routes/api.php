@@ -29,6 +29,7 @@ use App\Http\Controllers\Company\LeaveBalanceController;
 use App\Http\Controllers\Company\LeaveController;
 use App\Http\Controllers\Company\LeaveTypeController;
 use App\Http\Controllers\Company\NotificationController;
+use App\Http\Controllers\Company\OrgChartController;
 use App\Http\Controllers\Company\PerformanceController;
 use App\Http\Controllers\Company\PerformanceGoalController;
 use App\Http\Controllers\Company\PolicyController;
@@ -38,6 +39,8 @@ use App\Http\Controllers\Company\RegularizationController;
 use App\Http\Controllers\Company\RoleController;
 use App\Http\Controllers\Company\TaskAttachmentController;
 use App\Http\Controllers\Company\TaskCommentController;
+use App\Http\Controllers\Company\TicketCategoryController;
+use App\Http\Controllers\Company\TicketController;
 use App\Http\Controllers\Company\TaskController;
 use App\Http\Controllers\Company\TeamController;
 use App\Http\Controllers\Company\UserController;
@@ -98,6 +101,30 @@ Route::prefix('hrms')->group(function (): void {
             ->middleware('permission:user.permission');
         Route::delete('users/{user}/permissions', [UserPermissionController::class, 'reset'])
             ->middleware('permission:user.permission');
+
+        Route::get('org-chart', [OrgChartController::class, 'index']);
+
+        Route::get('ticket-categories', [TicketCategoryController::class, 'index']);
+        Route::post('ticket-categories', [TicketCategoryController::class, 'store'])
+            ->middleware('permission:ticket.category_manage');
+        Route::get('ticket-categories/{category}', [TicketCategoryController::class, 'show']);
+        Route::put('ticket-categories/{category}', [TicketCategoryController::class, 'update'])
+            ->middleware('permission:ticket.category_manage');
+        Route::delete('ticket-categories/{category}', [TicketCategoryController::class, 'destroy'])
+            ->middleware('permission:ticket.category_manage');
+
+        Route::get('tickets', [TicketController::class, 'index']);
+        Route::get('tickets/summary', [TicketController::class, 'summary']);
+        Route::post('tickets', [TicketController::class, 'store']);
+        Route::get('tickets/{ticket}', [TicketController::class, 'show']);
+        Route::post('tickets/{ticket}/claim', [TicketController::class, 'claim'])->name('tickets.claim');
+        Route::post('tickets/{ticket}/assign', [TicketController::class, 'assign'])->name('tickets.assign');
+        Route::post('tickets/{ticket}/comments', [TicketController::class, 'comment'])->name('tickets.comment');
+        Route::post('tickets/{ticket}/ask-info', [TicketController::class, 'askInfo'])->name('tickets.ask-info');
+        Route::post('tickets/{ticket}/resolve', [TicketController::class, 'resolve'])->name('tickets.resolve');
+        Route::post('tickets/{ticket}/reopen', [TicketController::class, 'reopen'])->name('tickets.reopen');
+        Route::post('tickets/{ticket}/close', [TicketController::class, 'close'])->name('tickets.close');
+        Route::post('tickets/{ticket}/cancel', [TicketController::class, 'cancel'])->name('tickets.cancel');
 
         Route::get('branches', [BranchController::class, 'index'])->middleware('permission:branch.view');
         Route::post('branches', [BranchController::class, 'store'])->middleware('permission:branch.create');

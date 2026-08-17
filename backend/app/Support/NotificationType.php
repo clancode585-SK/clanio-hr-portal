@@ -132,6 +132,22 @@ final class NotificationType
 
     public const ANNOUNCEMENT = 'announcement.general';
 
+    public const TICKET_RAISED = 'ticket.raised';
+
+    public const TICKET_ASSIGNED = 'ticket.assigned';
+
+    public const TICKET_REPLIED = 'ticket.replied';
+
+    public const TICKET_INFO_NEEDED = 'ticket.info_needed';
+
+    public const TICKET_RESOLVED = 'ticket.resolved';
+
+    public const TICKET_REOPENED = 'ticket.reopened';
+
+    public const TICKET_CLOSED = 'ticket.closed';
+
+    public const TICKET_BREACHED = 'ticket.breached';
+
     public const LOW = 'low';
 
     public const NORMAL = 'normal';
@@ -140,7 +156,7 @@ final class NotificationType
 
     public const PRIORITIES = [self::LOW, self::NORMAL, self::HIGH];
 
-    public const GROUPS = ['leave', 'attendance', 'document', 'task', 'report', 'expense', 'exit', 'performance', 'asset', 'policy', 'holiday', 'announcement', 'account'];
+    public const GROUPS = ['leave', 'attendance', 'document', 'task', 'report', 'expense', 'exit', 'performance', 'asset', 'policy', 'holiday', 'announcement', 'ticket', 'account'];
 
     public static function group(string $type): string
     {
@@ -159,7 +175,9 @@ final class NotificationType
             self::EXIT_APPLIED, self::EXIT_APPROVED, self::EXIT_REJECTED,
             self::EXIT_DATE_CHANGED, self::EXIT_COMPLETED,
             self::APPRAISAL_LAUNCHED, self::APPRAISAL_FINALISED,
-            self::ASSET_REQUEST_RAISED, self::POLICY_PUBLISHED, self::POLICY_REMINDER => self::HIGH,
+            self::ASSET_REQUEST_RAISED, self::POLICY_PUBLISHED, self::POLICY_REMINDER,
+            self::TICKET_RAISED, self::TICKET_ASSIGNED, self::TICKET_INFO_NEEDED,
+            self::TICKET_RESOLVED, self::TICKET_REOPENED, self::TICKET_BREACHED => self::HIGH,
             self::ATTENDANCE_CHECKED_IN, self::ATTENDANCE_CHECKED_OUT, self::REPORT_SUBMITTED => self::LOW,
             default => self::NORMAL,
         };

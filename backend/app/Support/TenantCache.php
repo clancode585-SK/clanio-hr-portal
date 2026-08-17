@@ -46,6 +46,8 @@ final class TenantCache
 
     public const DAILY_REPORTS = 'daily_reports';
 
+    public const TICKETS = 'tickets';
+
     public const ROLES = 'roles';
 
     public const USERS = 'users';

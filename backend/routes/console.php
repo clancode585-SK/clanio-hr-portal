@@ -25,6 +25,9 @@ Schedule::command('performance:snapshot')->monthlyOn(1, '01:00')->withoutOverlap
 // pending policy acceptance ka reminder — har Monday
 Schedule::command('policy:reminders')->weeklyOn(1, '10:30')->withoutOverlapping();
 
+// SLA cross kar chuke tickets — har ghante escalate
+Schedule::command('tickets:escalate')->hourly()->withoutOverlapping();
+
 // leave balance
 Schedule::command('leave:accrue')->monthlyOn(1, '02:00')->withoutOverlapping();
 Schedule::command('leave:accrue --carry-forward')->yearlyOn(1, 1, '03:00')->withoutOverlapping();
