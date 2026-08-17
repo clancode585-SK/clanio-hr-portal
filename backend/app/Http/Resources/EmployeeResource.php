@@ -37,6 +37,12 @@ class EmployeeResource extends JsonResource
             'emergency_contact_phone' => $this->emergency_contact_phone,
             'pan_number' => $this->pan_number,
 
+            'has_pf_account' => (bool) $this->has_pf_account,
+            'uan_number' => $this->uan_number,
+            'aadhaar_number' => $this->aadhaar_number,
+            'esic_number' => $this->esic_number,
+            'pt_state' => $this->pt_state,
+
             'designation_id' => $this->designation_id,
             'work_shift_id' => $this->work_shift_id,
             'reporting_manager_id' => $this->reporting_manager_id,
@@ -53,6 +59,10 @@ class EmployeeResource extends JsonResource
                     'documents' => $this->whenCounted('documents', fn (int $count): bool => $count > 0),
                 ],
             ],
+
+            'family_count' => $this->whenCounted('familyMembers'),
+            'bank_account_count' => $this->whenCounted('bankAccounts'),
+            'document_count' => $this->whenCounted('documents'),
 
             'user' => new UserResource($this->whenLoaded('user')),
             'designation' => new DesignationResource($this->whenLoaded('designation')),

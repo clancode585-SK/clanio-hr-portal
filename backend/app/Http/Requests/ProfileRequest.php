@@ -34,6 +34,12 @@ class ProfileRequest extends FormRequest
             'emergency_contact_phone' => ['sometimes', 'nullable', 'string', 'max:20'],
             'pan_number' => ['sometimes', 'nullable', 'string', 'size:10'],
 
+            'has_pf_account' => ['sometimes', 'boolean'],
+            'uan_number' => ['sometimes', 'nullable', 'required_if:has_pf_account,true', 'string', 'digits:12'],
+            'aadhaar_number' => ['sometimes', 'nullable', 'string', 'digits:12'],
+
+            'esic_number' => ['prohibited'],
+            'pt_state' => ['prohibited'],
             'email' => ['prohibited'],
             'employee_code' => ['prohibited'],
             'designation_id' => ['prohibited'],

@@ -60,8 +60,15 @@ class EmployeeController extends ApiController
     {
         return ApiResponse::success(
             new EmployeeResource(
-                $employee->load(['user.roles', 'designation', 'reportingManager'])
-                    ->loadCount(['familyMembers', 'bankAccounts', 'documents'])
+                $employee->load([
+                    'user.roles',
+                    'designation',
+                    'workShift',
+                    'reportingManager',
+                    'familyMembers',
+                    'bankAccounts',
+                    'documents.verifier',
+                ])->loadCount(['familyMembers', 'bankAccounts', 'documents'])
             ),
             'Employee details fetched successfully'
         );

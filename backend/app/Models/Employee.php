@@ -58,6 +58,11 @@ class Employee extends Model
         'emergency_contact_relation',
         'emergency_contact_phone',
         'pan_number',
+        'has_pf_account',
+        'uan_number',
+        'aadhaar_number',
+        'esic_number',
+        'pt_state',
     ];
 
     protected $attributes = [
@@ -75,6 +80,7 @@ class Employee extends Model
             'date_of_birth' => 'date:Y-m-d',
             'exit_date' => 'date:Y-m-d',
             'policy_gate_cleared_at' => 'datetime',
+            'has_pf_account' => 'boolean',
         ];
     }
 

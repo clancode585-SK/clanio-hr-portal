@@ -62,6 +62,12 @@ class ProfileResource extends JsonResource
                 'emergency_contact_phone' => $employee->emergency_contact_phone,
                 'pan_number' => $employee->pan_number,
 
+                'has_pf_account' => (bool) $employee->has_pf_account,
+                'uan_number' => $employee->uan_number,
+                'aadhaar_number' => $employee->aadhaar_number,
+                'esic_number' => $employee->esic_number,
+                'pt_state' => $employee->pt_state,
+
                 'designation' => $this->one(DesignationResource::class, $employee->designation),
                 'work_shift' => $this->one(WorkShiftResource::class, $employee->workShift),
                 'reporting_manager' => $this->one(UserResource::class, $employee->reportingManager),
@@ -77,6 +83,7 @@ class ProfileResource extends JsonResource
                 'name', 'phone', 'date_of_birth', 'gender', 'marital_status', 'blood_group',
                 'personal_email', 'personal_phone', 'current_address', 'permanent_address',
                 'emergency_contact_name', 'emergency_contact_relation', 'emergency_contact_phone', 'pan_number',
+                'has_pf_account', 'uan_number', 'aadhaar_number',
             ],
         ];
     }

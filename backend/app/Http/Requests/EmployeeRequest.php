@@ -52,6 +52,14 @@ class EmployeeRequest extends FormRequest
                 'emergency_contact_relation' => ['nullable', 'string', 'max:50'],
                 'emergency_contact_phone' => ['nullable', 'string', 'max:20'],
                 'pan_number' => ['nullable', 'string', 'size:10'],
+
+                'has_pf_account' => ['nullable', 'boolean'],
+                'uan_number' => ['nullable', 'required_if:has_pf_account,true', 'string', 'digits:12',
+                    Rule::unique('employees', 'uan_number')->where('company_id', $companyId)->where('is_active', 1)->ignore($employeeId)],
+                'aadhaar_number' => ['nullable', 'string', 'digits:12',
+                    Rule::unique('employees', 'aadhaar_number')->where('company_id', $companyId)->where('is_active', 1)->ignore($employeeId)],
+                'esic_number' => ['nullable', 'string', 'digits:17'],
+                'pt_state' => ['nullable', 'string', 'max:50'],
             ]
         );
     }
@@ -89,6 +97,18 @@ class EmployeeRequest extends FormRequest
         return [
             'user' => ['prohibited'],
             'user_id' => ['prohibited'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'uan_number.required_if' => 'PF account hai to UAN number dena zaroori hai.',
+            'uan_number.digits' => 'UAN 12 digit ka hota hai.',
+            'uan_number.unique' => 'Ye UAN kisi aur employee par already laga hua hai.',
+            'aadhaar_number.digits' => 'Aadhaar 12 digit ka hota hai.',
+            'aadhaar_number.unique' => 'Ye Aadhaar kisi aur employee par already laga hua hai.',
+            'esic_number.digits' => 'ESIC number 17 digit ka hota hai.',
         ];
     }
 
