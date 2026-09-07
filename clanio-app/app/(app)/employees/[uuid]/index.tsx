@@ -29,6 +29,7 @@ export default function EmployeeDetailScreen() {
   const [problem, setProblem] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
   const [busy, setBusy] = useState(false)
+  const [onboarding, setOnboarding] = useState(false)
 
   const canManage = can('user.permission')
 
@@ -140,6 +141,24 @@ export default function EmployeeDetailScreen() {
     }
   }
 
+  const completeOnboarding = async () => {
+    if (onboarding) {
+      return
+    }
+
+    setOnboarding(true)
+    setProblem(null)
+
+    try {
+      await api(`/employees/${uuid}/complete-onboarding`, { method: 'POST' })
+      await record.reload()
+    } catch (caught) {
+      setProblem(caught instanceof ApiError ? caught.message : 'Could not complete onboarding.')
+    } finally {
+      setOnboarding(false)
+    }
+  }
+
   if (record.loading) {
     return (
       <Screen title="Employee" leading="back">
@@ -196,6 +215,31 @@ export default function EmployeeDetailScreen() {
                 />
               ) : null}
             </>
+          ) : null}
+
+          {can('employee.edit') ? (
+            <Button
+              label="Edit details"
+              variant="secondary"
+              onPress={() => router.push(`/employees/${uuid}/edit` as never)}
+              fullWidth
+            />
+          ) : null}
+
+          <Button
+            label="Family, bank and documents"
+            variant="secondary"
+            onPress={() => router.push(`/employees/${uuid}/records` as never)}
+            fullWidth
+          />
+
+          {can('employee.edit') && employee.onboarding?.status && employee.onboarding.status !== 'completed' ? (
+            <Button
+              label="Mark onboarding complete"
+              onPress={completeOnboarding}
+              loading={onboarding}
+              fullWidth
+            />
           ) : null}
 
         </ScrollView>

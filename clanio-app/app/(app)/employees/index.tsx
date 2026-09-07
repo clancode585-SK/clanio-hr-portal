@@ -50,7 +50,11 @@ export default function EmployeesScreen() {
   }, [list.data, search])
 
   return (
-    <Screen title="Employees" subtitle={`${list.data?.length ?? 0} total`}>
+    <Screen
+      title="Employees"
+      subtitle={`${list.data?.length ?? 0} total`}
+      action={can('employee.create') ? { label: 'New', onPress: () => router.push('/employees/new') } : undefined}
+    >
       {list.loading ? (
         <Loader />
       ) : list.error ? (
@@ -82,6 +86,11 @@ export default function EmployeesScreen() {
               <EmptyState
                 title={search ? 'No matches' : 'No employees yet'}
                 message={search ? 'Try a different search term.' : 'No one has been added to this company yet.'}
+                action={
+                  can('employee.create') && !search
+                    ? { label: 'Add employee', onPress: () => router.push('/employees/new') }
+                    : undefined
+                }
               />
             </View>
           }
@@ -91,7 +100,7 @@ export default function EmployeesScreen() {
               subtitle={item.designation?.name ?? item.user?.email ?? '—'}
               badge={item.employee_code}
               meta={item.employment_status === 'active' ? undefined : item.employment_status}
-              onPress={can('user.permission') ? () => router.push(`/employees/${item.uuid}`) : undefined}
+              onPress={() => router.push(`/employees/${item.uuid}`)}
             />
           )}
         />

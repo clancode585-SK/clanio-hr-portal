@@ -1,4 +1,5 @@
 import { config } from './config'
+import { currentCompanyId } from './tenant'
 import { currentToken } from './session'
 import type { PageMeta } from './types'
 
@@ -65,6 +66,11 @@ type RequestOptions = {
 type UnauthenticatedHandler = () => void
 
 let onUnauthenticated: UnauthenticatedHandler | null = null
+let onPolicyBlocked: (() => void) | null = null
+
+export function setPolicyBlockedHandler(handler: (() => void) | null): void {
+  onPolicyBlocked = handler
+}
 
 export function setUnauthenticatedHandler(handler: UnauthenticatedHandler | null): void {
   onUnauthenticated = handler
@@ -91,10 +97,17 @@ async function request<T>(path: string, options: RequestOptions): Promise<Envelo
 
   const headers: Record<string, string> = {
     Accept: 'application/json',
-    'X-Company-Id': config.companyId,
   }
 
-  if (body !== undefined) {
+  const company = currentCompanyId()
+
+  if (company !== null) {
+    headers['X-Company-Id'] = company
+  }
+
+  const isForm = typeof FormData !== 'undefined' && body instanceof FormData
+
+  if (body !== undefined && !isForm) {
     headers['Content-Type'] = 'application/json'
   }
 
@@ -109,7 +122,7 @@ async function request<T>(path: string, options: RequestOptions): Promise<Envelo
       method,
       headers,
       signal,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
     })
   } catch {
     throw new ApiError('Cannot reach the server. Check your connection.', 0, 'NETWORK_ERROR')
@@ -120,6 +133,10 @@ async function request<T>(path: string, options: RequestOptions): Promise<Envelo
   if (!response.ok || payload?.success === false) {
     const status = payload?.status ?? response.status
     const code = payload?.error_code ?? 'REQUEST_FAILED'
+
+    if (code === 'POLICY_ACCEPTANCE_PENDING') {
+      onPolicyBlocked?.()
+    }
 
     if (status === 401 && !skipAuthHandler) {
       onUnauthenticated?.()

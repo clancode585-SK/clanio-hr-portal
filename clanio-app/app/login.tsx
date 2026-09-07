@@ -232,10 +232,8 @@ export default function LoginScreen() {
             fullWidth
           />
 
-          <Pressable hitSlop={8}>
-            <Text style={[styles.help, { color: theme.inkSubtle }]}>
-              Forgot your password? Contact your HR team.
-            </Text>
+          <Pressable hitSlop={8} onPress={() => router.push('/forgot-password')} disabled={busy}>
+            <Text style={[styles.help, { color: theme.brand }]}>Forgot your password?</Text>
           </Pressable>
         </View>
 

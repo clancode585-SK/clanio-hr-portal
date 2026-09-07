@@ -3,13 +3,14 @@ import { Redirect, useRouter } from 'expo-router'
 import { Drawer } from 'expo-router/drawer'
 import { ActivityIndicator, StyleSheet, View } from 'react-native'
 import { DrawerContent } from '@/components/DrawerContent'
+import { PolicyGateScreen } from '@/components/PolicyGateScreen'
 import { useAuth } from '@/lib/auth'
 import { useTheme } from '@/theme/useTheme'
 
 export default function AppLayout() {
   const theme = useTheme()
   const router = useRouter()
-  const { ready, token } = useAuth()
+  const { ready, token, policyBlocked } = useAuth()
 
   useEffect(() => {
     if (ready && !token) {
@@ -27,6 +28,10 @@ export default function AppLayout() {
 
   if (!token) {
     return <Redirect href="/login" />
+  }
+
+  if (policyBlocked) {
+    return <PolicyGateScreen />
   }
 
   return (

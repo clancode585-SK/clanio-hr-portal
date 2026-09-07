@@ -7,7 +7,7 @@ import { Logo } from '@/components/ui/Logo'
 import { ThemeSwitch } from '@/components/ui/ThemeSwitch'
 import { useAuth } from '@/lib/auth'
 import { config } from '@/lib/config'
-import { visibleSections } from '@/lib/nav'
+import { platformSections, visibleSections } from '@/lib/nav'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -16,9 +16,10 @@ export function DrawerContent(props: DrawerContentComponentProps) {
   const router = useRouter()
   const pathname = usePathname()
   const insets = useSafeAreaInsets()
-  const { profile, can, signOut } = useAuth()
+  const { profile, can, signOut, isSuperAdmin, companyId } = useAuth()
 
-  const sections = visibleSections(can)
+  const onPlatform = isSuperAdmin && companyId === null
+  const sections = onPlatform ? platformSections : visibleSections(can)
   const initials = (profile?.name ?? '?')
     .split(' ')
     .filter(Boolean)

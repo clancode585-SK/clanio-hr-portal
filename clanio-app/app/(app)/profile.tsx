@@ -1,16 +1,57 @@
+import { useCallback, useState } from 'react'
 import { useRouter } from 'expo-router'
-import { RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
+import {
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native'
+import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Screen } from '@/components/Screen'
 import { Button } from '@/components/ui/Button'
+import { Field } from '@/components/ui/Field'
+import { Notice } from '@/components/ui/Notice'
 import { ThemeSwitch } from '@/components/ui/ThemeSwitch'
+import { api, ApiError } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { useResource } from '@/lib/useResource'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
+type Completion = {
+  percent?: number
+  missing?: string[]
+}
+
 export default function ProfileScreen() {
   const theme = useTheme()
+  const insets = useSafeAreaInsets()
   const router = useRouter()
   const { profile, refreshProfile, signOut } = useAuth()
+
+  const [open, setOpen] = useState(false)
+  const [current, setCurrent] = useState('')
+  const [next, setNext] = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [errors, setErrors] = useState<Record<string, string>>({})
+  const [problem, setProblem] = useState<string | null>(null)
+  const [done, setDone] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const load = useCallback(async () => {
+    try {
+      return await api<Completion>('/profile/completion')
+    } catch {
+      return {} as Completion
+    }
+  }, [])
+
+  const completion = useResource<Completion>(load, [])
 
   const initials = (profile?.name ?? '?')
     .split(' ')
@@ -24,12 +65,89 @@ export default function ProfileScreen() {
     router.replace('/login')
   }
 
+  const close = () => {
+    setOpen(false)
+    setErrors({})
+    setProblem(null)
+  }
+
+  const changePassword = async () => {
+    if (busy) {
+      return
+    }
+
+    const found: Record<string, string> = {}
+
+    if (current.length === 0) {
+      found.current_password = 'Enter your current password'
+    }
+
+    if (next.length < 8 || !/[a-zA-Z]/.test(next) || !/\d/.test(next)) {
+      found.password = 'At least 8 characters with a letter and a number'
+    }
+
+    if (next !== confirm) {
+      found.password_confirmation = 'Both passwords must match'
+    }
+
+    setErrors(found)
+
+    if (Object.keys(found).length > 0) {
+      return
+    }
+
+    setBusy(true)
+    setProblem(null)
+
+    try {
+      await api('/auth/change-password', {
+        method: 'POST',
+        body: { current_password: current, password: next, password_confirmation: confirm },
+      })
+
+      setCurrent('')
+      setNext('')
+      setConfirm('')
+      close()
+      setDone('Password changed. Use the new one next time you sign in.')
+    } catch (caught) {
+      if (caught instanceof ApiError && caught.status === 422 && Object.keys(caught.fields).length > 0) {
+        const mapped: Record<string, string> = {}
+
+        for (const [field, messages] of Object.entries(caught.fields)) {
+          mapped[field] = messages[0]
+        }
+
+        setErrors(mapped)
+        setProblem('Check the highlighted fields.')
+      } else {
+        setProblem(caught instanceof ApiError ? caught.message : 'Could not change the password.')
+      }
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const percent = completion.data?.percent
+  const missing = completion.data?.missing ?? []
+
   return (
     <Screen title="My Profile" subtitle={profile?.employee?.employee_code ?? undefined}>
       <ScrollView
         contentContainerStyle={styles.scroll}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={refreshProfile} tintColor={theme.brand} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={false}
+            onRefresh={() => {
+              void refreshProfile()
+              void completion.refresh()
+            }}
+            tintColor={theme.brand}
+          />
+        }
       >
+        {done ? <Notice tone="success" title="Saved" message={done} /> : null}
+
         <View style={[styles.hero, { backgroundColor: theme.surface, borderColor: theme.line }]}>
           <View style={[styles.avatar, { backgroundColor: theme.brandSoft }]}>
             <Text style={[styles.avatarText, { color: theme.brand }]}>{initials || '?'}</Text>
@@ -37,6 +155,25 @@ export default function ProfileScreen() {
           <Text style={[styles.name, { color: theme.ink }]}>{profile?.name ?? '—'}</Text>
           <Text style={[styles.email, { color: theme.inkMuted }]}>{profile?.email ?? '—'}</Text>
         </View>
+
+        {percent != null ? (
+          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}>
+            <View style={styles.progressHead}>
+              <Text style={[styles.progressLabel, { color: theme.inkMuted }]}>Profile completeness</Text>
+              <Text style={[styles.progressValue, { color: theme.brand }]}>{percent}%</Text>
+            </View>
+
+            <View style={[styles.track, { backgroundColor: theme.canvas }]}>
+              <View
+                style={[styles.fill, { backgroundColor: theme.brand, width: `${Math.min(100, Math.max(0, percent))}%` }]}
+              />
+            </View>
+
+            {missing.length > 0 ? (
+              <Text style={[styles.missing, { color: theme.inkSubtle }]}>Still missing: {missing.join(', ')}</Text>
+            ) : null}
+          </View>
+        ) : null}
 
         <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}>
           <Row label="Role" value={profile?.roles?.map((role) => role.name).join(', ') || '—'} />
@@ -52,8 +189,66 @@ export default function ProfileScreen() {
           <ThemeSwitch />
         </View>
 
+        <Button
+          label="Change password"
+          variant="secondary"
+          onPress={() => {
+            setOpen(true)
+            setDone(null)
+          }}
+          fullWidth
+        />
         <Button label="Sign out" variant="secondary" onPress={leave} fullWidth />
       </ScrollView>
+
+      <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
+        <Pressable style={styles.backdrop} onPress={close} />
+
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+          <View style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
+            <View style={[styles.grab, { backgroundColor: theme.line }]} />
+
+            <ScrollView style={styles.sheetBody} keyboardShouldPersistTaps="handled">
+              <Text style={[styles.sheetTitle, { color: theme.ink }]}>Change password</Text>
+
+              {problem ? <Notice tone="danger" title="Could not change" message={problem} /> : null}
+
+              <View style={styles.form}>
+                <Field
+                  label="Current password"
+                  value={current}
+                  onChangeText={setCurrent}
+                  placeholder="The one you use today"
+                  secure
+                  error={errors.current_password}
+                  editable={!busy}
+                />
+                <Field
+                  label="New password"
+                  value={next}
+                  onChangeText={setNext}
+                  placeholder="At least 8 characters"
+                  secure
+                  error={errors.password}
+                  editable={!busy}
+                />
+                <Field
+                  label="Repeat new password"
+                  value={confirm}
+                  onChangeText={setConfirm}
+                  placeholder="Type it again"
+                  secure
+                  error={errors.password_confirmation}
+                  editable={!busy}
+                />
+
+                <Button label="Update password" onPress={changePassword} loading={busy} fullWidth />
+                <Button label="Cancel" variant="ghost" onPress={close} disabled={busy} fullWidth />
+              </View>
+            </ScrollView>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </Screen>
   )
 }
@@ -64,9 +259,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <View style={styles.row}>
       <Text style={[styles.rowLabel, { color: theme.inkMuted }]}>{label}</Text>
-      <Text numberOfLines={1} style={[styles.rowValue, { color: theme.ink }]}>
-        {value}
-      </Text>
+      <Text style={[styles.rowValue, { color: theme.ink }]}>{value}</Text>
     </View>
   )
 }
@@ -74,43 +267,33 @@ function Row({ label, value }: { label: string; value: string }) {
 const styles = StyleSheet.create({
   scroll: {
     padding: spacing.lg,
-    gap: spacing.lg,
+    gap: spacing.md,
   },
   hero: {
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: radius.xl,
+    borderRadius: radius.lg,
     padding: spacing.xl,
     gap: 4,
   },
   avatar: {
-    width: 72,
-    height: 72,
-    borderRadius: radius.pill,
+    width: 68,
+    height: 68,
+    borderRadius: 34,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing.sm,
   },
   avatarText: {
-    fontSize: font.xxl,
+    fontSize: font.xl,
     fontWeight: '800',
   },
   name: {
-    fontSize: font.xl,
+    fontSize: font.lg,
     fontWeight: '700',
-    letterSpacing: -0.4,
   },
   email: {
     fontSize: font.sm,
-  },
-  block: {
-    gap: spacing.sm,
-  },
-  blockTitle: {
-    fontSize: font.xs,
-    fontWeight: '700',
-    letterSpacing: 0.8,
-    textTransform: 'uppercase',
   },
   card: {
     borderWidth: 1,
@@ -120,10 +303,10 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
     gap: spacing.lg,
-    paddingVertical: 11,
+    paddingVertical: 9,
   },
   rowLabel: {
     fontSize: font.xs,
@@ -134,7 +317,76 @@ const styles = StyleSheet.create({
   rowValue: {
     flexShrink: 1,
     fontSize: font.sm,
-    fontWeight: '500',
+    fontWeight: '600',
     textAlign: 'right',
+  },
+  progressHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingTop: spacing.sm,
+  },
+  progressLabel: {
+    fontSize: font.xs,
+    fontWeight: '700',
+    letterSpacing: 0.6,
+    textTransform: 'uppercase',
+  },
+  progressValue: {
+    fontSize: font.lg,
+    fontWeight: '800',
+  },
+  track: {
+    height: 8,
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginTop: spacing.sm,
+  },
+  fill: {
+    height: 8,
+    borderRadius: 4,
+  },
+  missing: {
+    fontSize: font.xs,
+    paddingVertical: spacing.md,
+  },
+  block: {
+    gap: spacing.sm,
+  },
+  blockTitle: {
+    fontSize: font.xs,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+    textTransform: 'uppercase',
+  },
+  backdrop: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.4)',
+  },
+  sheet: {
+    maxHeight: '88%',
+    borderTopLeftRadius: radius.xl,
+    borderTopRightRadius: radius.xl,
+    paddingTop: spacing.sm,
+  },
+  grab: {
+    alignSelf: 'center',
+    width: 38,
+    height: 4,
+    borderRadius: 2,
+    marginBottom: spacing.md,
+  },
+  sheetBody: {
+    paddingHorizontal: spacing.xl,
+  },
+  sheetTitle: {
+    fontSize: font.xl,
+    fontWeight: '700',
+    letterSpacing: -0.3,
+    marginBottom: spacing.lg,
+  },
+  form: {
+    gap: spacing.lg,
+    paddingBottom: spacing.lg,
   },
 })

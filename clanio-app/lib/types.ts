@@ -142,10 +142,61 @@ export type Employee = {
   designation_id: number | null
   reporting_manager_id: number | null
   work_shift_id: number | null
+  date_of_birth: string | null
+  gender: string | null
+  marital_status: string | null
+  blood_group: string | null
+  personal_email: string | null
+  personal_phone: string | null
+  current_address: string | null
+  permanent_address: string | null
+  emergency_contact_name: string | null
+  emergency_contact_relation: string | null
+  emergency_contact_phone: string | null
+  pan_number: string | null
+  aadhaar_number: string | null
   user: EmployeeUser | null
   designation: Designation | null
   onboarding: {
     status: string
     steps: Record<string, boolean>
   }
+}
+
+export type Branch = {
+  id: number
+  uuid: string
+  name: string
+  code: string
+  address: string | null
+  phone: string | null
+  email: string | null
+  is_head_office: boolean
+  status: string
+  users_count: number
+}
+
+export type Team = {
+  id: number
+  uuid: string
+  name: string
+  code: string
+  description: string | null
+  department_id: number | null
+  department: { id: number; name: string } | null
+  status: string
+  users_count: number
+}
+
+export type WorkShift = {
+  id: number
+  uuid: string
+  name: string
+  code: string
+  start_time: string
+  end_time: string
+  grace_minutes: number
+  weekly_offs: number[]
+  is_default: boolean
+  status: string
 }

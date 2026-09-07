@@ -1,23 +1,94 @@
-import { ResourceList } from '@/components/ResourceList'
+import { ApprovalList, type Action, type Detail, type Row } from '@/components/ApprovalList'
+import { useAuth } from '@/lib/auth'
 
 type Item = Record<string, any>
 
 export default function ExpenseClaimsScreen() {
+  const { can } = useAuth()
+  const canVerify = can('expense.verify')
+  const canPay = can('expense.pay')
+
   return (
-    <ResourceList<Item>
+    <ApprovalList<Item>
       title="Expense Claims"
       endpoint="/expense-claims"
       searchPlaceholder="Search claims"
       emptyTitle="No claims"
       emptyMessage="Reimbursement claims will appear here."
-      toRow={(item) => ({
+      filters={[
+        { key: 'pending', label: 'Pending', test: (item) => item.status === 'pending' },
+        { key: 'approved', label: 'Approved', test: (item) => item.status === 'approved' },
+        { key: 'verified', label: 'Verified', test: (item) => item.status === 'verified' },
+        { key: 'paid', label: 'Paid', test: (item) => item.status === 'paid' },
+      ]}
+      toRow={(item): Row => ({
         key: String(item.uuid ?? item.id),
         title: item.employee_name ?? 'Employee',
-        subtitle: (item.category_label ?? '') + ' · ' + (item.expense_date ?? ''),
-        badge: item.amount != null ? '₹' + item.amount : undefined,
+        subtitle: `${item.category_label ?? item.category} · ${item.expense_date}`,
+        badge: item.amount != null ? `₹${item.amount}` : undefined,
         meta: item.status,
-        search: (item.employee_name ?? '') + ' ' + (item.purpose ?? ''),
+        search: `${item.employee_name ?? ''} ${item.purpose ?? ''} ${item.status ?? ''}`,
       })}
+      toDetails={(item): Detail[] => [
+        { label: 'Category', value: item.category_label ?? item.category ?? '—' },
+        { label: 'Purpose', value: item.purpose ?? '—' },
+        { label: 'Date', value: item.expense_date ?? '—' },
+        { label: 'Claimed', value: item.amount != null ? `₹${item.amount}` : '—' },
+        { label: 'Approved', value: item.approved_amount != null ? `₹${item.approved_amount}` : '—' },
+        { label: 'Payable', value: item.payable_amount != null ? `₹${item.payable_amount}` : '—' },
+        { label: 'Detail', value: item.description ?? '—' },
+        { label: 'Bills', value: String(item.bill_count ?? item.bills?.length ?? 0) },
+        { label: 'Status', value: item.status ?? '—' },
+      ]}
+      toActions={(item): Action[] => {
+        const id = item.uuid ?? item.id
+
+        if (item.status === 'pending' && canVerify) {
+          return [
+            { key: 'approve', label: 'Approve', tone: 'primary', path: `/expense-claims/${id}/approve`, remarks: 'optional' },
+            {
+              key: 'reject',
+              label: 'Reject',
+              tone: 'danger',
+              path: `/expense-claims/${id}/reject`,
+              remarks: 'required',
+              remarksKey: 'reason',
+              remarksLabel: 'Reason',
+            },
+          ]
+        }
+
+        if (item.status === 'approved' && canVerify) {
+          return [
+            { key: 'verify', label: 'Verify full amount', tone: 'primary', path: `/expense-claims/${id}/verify`, remarks: 'optional' },
+            {
+              key: 'reject',
+              label: 'Reject',
+              tone: 'danger',
+              path: `/expense-claims/${id}/reject`,
+              remarks: 'required',
+              remarksKey: 'reason',
+              remarksLabel: 'Reason',
+            },
+          ]
+        }
+
+        if (item.status === 'verified' && canPay) {
+          return [
+            {
+              key: 'pay',
+              label: 'Mark as paid',
+              tone: 'primary',
+              path: `/expense-claims/${id}/pay`,
+              remarks: 'optional',
+              remarksKey: 'payment_remarks',
+              body: { payment_mode: 'bank_transfer' },
+            },
+          ]
+        }
+
+        return []
+      }}
     />
   )
 }

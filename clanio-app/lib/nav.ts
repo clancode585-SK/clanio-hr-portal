@@ -25,7 +25,7 @@ export const navSections: NavSection[] = [
         href: '/attendance',
         label: 'Attendance Log',
         icon: 'time-outline',
-        permissions: [],
+        permissions: ['employee.view'],
         description: 'Who punched in and when',
       },
       {
@@ -39,14 +39,14 @@ export const navSections: NavSection[] = [
         href: '/tasks',
         label: 'Tasks',
         icon: 'checkbox-outline',
-        permissions: [],
+        permissions: ['task.edit'],
         description: 'Who is working on what',
       },
       {
         href: '/work-record',
         label: 'Work Record',
         icon: 'stats-chart-outline',
-        permissions: [],
+        permissions: ['daily_report.view_team'],
         description: 'Monthly performance score',
       },
     ],
@@ -54,13 +54,18 @@ export const navSections: NavSection[] = [
   {
     title: 'Approvals',
     items: [
-      { href: '/leaves', label: 'Leave Requests', icon: 'calendar-outline', permissions: [] },
-      { href: '/regularizations', label: 'Regularizations', icon: 'create-outline', permissions: [] },
-      { href: '/expense-claims', label: 'Expense Claims', icon: 'card-outline', permissions: [] },
-      { href: '/exits', label: 'Resignations', icon: 'exit-outline', permissions: [] },
-      { href: '/asset-requests', label: 'Asset Requests', icon: 'construct-outline', permissions: [] },
-      { href: '/tickets', label: 'Helpdesk', icon: 'chatbubbles-outline', permissions: [] },
+      { href: '/leaves', label: 'Leave Requests', icon: 'calendar-outline', permissions: ['leave.approve'] },
+      { href: '/regularizations', label: 'Regularizations', icon: 'create-outline', permissions: ['attendance.regularize'] },
+      { href: '/expense-claims', label: 'Expense Claims', icon: 'card-outline', permissions: ['expense.verify', 'expense.pay'] },
+      { href: '/exits', label: 'Resignations', icon: 'exit-outline', permissions: ['exit.approve'] },
+      { href: '/clearance', label: 'Clearance', icon: 'checkmark-done-outline', permissions: ['clearance.sign'] },
+      { href: '/asset-requests', label: 'Asset Requests', icon: 'construct-outline', permissions: ['asset.support', 'asset.manage'] },
+      { href: '/tickets', label: 'Helpdesk', icon: 'chatbubbles-outline', permissions: ['ticket.view_all', 'ticket.resolve'] },
     ],
+  },
+  {
+    title: 'Platform',
+    items: [{ href: '/companies', label: 'Companies', icon: 'business-outline', permissions: ['company.create'] }],
   },
   {
     title: 'People',
@@ -86,6 +91,7 @@ export const navSections: NavSection[] = [
       { href: '/appraisal-cycles', label: 'Appraisal Cycles', icon: 'refresh-circle-outline', permissions: ['performance.manage'] },
       { href: '/appraisals', label: 'Appraisals', icon: 'clipboard-outline', permissions: ['performance.finalise'] },
       { href: '/incentives', label: 'Incentives', icon: 'cash-outline', permissions: ['incentive.approve', 'incentive.manage'] },
+      { href: '/incentive-rules', label: 'Incentive Rules', icon: 'options-outline', permissions: ['incentive.manage'] },
       { href: '/recognitions', label: 'Recognition', icon: 'heart-outline', permissions: ['recognition.give'] },
     ],
   },
@@ -100,6 +106,7 @@ export const navSections: NavSection[] = [
       { href: '/permissions', label: 'Permissions', icon: 'key-outline', permissions: ['user.permission'] },
       { href: '/assets', label: 'IT Assets', icon: 'laptop-outline', permissions: ['asset.manage'] },
       { href: '/policies', label: 'Policies', icon: 'reader-outline', permissions: ['policy.manage'] },
+      { href: '/clearance-items', label: 'Exit Checklist', icon: 'list-outline', permissions: ['clearance.manage'] },
       { href: '/ticket-categories', label: 'Ticket Categories', icon: 'pricetags-outline', permissions: ['ticket.category_manage'] },
       { href: '/company-settings', label: 'Company Settings', icon: 'settings-outline', permissions: ['company.view'] },
     ],
@@ -107,9 +114,39 @@ export const navSections: NavSection[] = [
   {
     title: 'My Space',
     items: [
+      { href: '/notifications', label: 'Notifications', icon: 'notifications-outline', permissions: [] },
       { href: '/my-attendance', label: 'My Attendance', icon: 'person-outline', permissions: [] },
       { href: '/my-leave', label: 'My Leave', icon: 'airplane-outline', permissions: [] },
+      { href: '/my-requests', label: 'My Requests', icon: 'paper-plane-outline', permissions: [] },
+      { href: '/my-policies', label: 'Policies', icon: 'reader-outline', permissions: [] },
       { href: '/profile', label: 'My Profile', icon: 'id-card-outline', permissions: [] },
+    ],
+  },
+]
+
+export const platformSections: NavSection[] = [
+  {
+    title: null,
+    items: [{ href: '/dashboard', label: 'Dashboard', icon: 'grid-outline', permissions: [] }],
+  },
+  {
+    title: 'Platform',
+    items: [
+      { href: '/companies', label: 'Companies', icon: 'business-outline', permissions: [] },
+      { href: '/plans', label: 'Plans', icon: 'pricetags-outline', permissions: [] },
+      { href: '/billing', label: 'Billing Settings', icon: 'card-outline', permissions: [] },
+      { href: '/revenue', label: 'Revenue', icon: 'trending-up-outline', permissions: [] },
+    ],
+  },
+  {
+    title: 'Access',
+    items: [{ href: '/platform-permissions', label: 'Permissions', icon: 'key-outline', permissions: [] }],
+  },
+  {
+    title: 'Account',
+    items: [
+      { href: '/notifications', label: 'Notifications', icon: 'notifications-outline', permissions: [] },
+      { href: '/profile', label: 'Profile Settings', icon: 'settings-outline', permissions: [] },
     ],
   },
 ]

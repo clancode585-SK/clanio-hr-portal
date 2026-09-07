@@ -14,6 +14,7 @@ type Props = {
   autoCapitalize?: 'none' | 'sentences' | 'words' | 'characters'
   editable?: boolean
   multiline?: boolean
+  maxLength?: number
 }
 
 export function Field({
@@ -27,6 +28,7 @@ export function Field({
   autoCapitalize = 'none',
   editable = true,
   multiline = false,
+  maxLength,
 }: Props) {
   const theme = useTheme()
   const [focused, setFocused] = useState(false)
@@ -50,6 +52,7 @@ export function Field({
           autoCorrect={false}
           editable={editable}
           multiline={multiline}
+          maxLength={maxLength}
           onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           style={[
