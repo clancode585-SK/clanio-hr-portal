@@ -18,6 +18,7 @@ import { ListRow } from '@/components/ui/ListRow'
 import { Notice } from '@/components/ui/Notice'
 import { EmptyState, ErrorState, Loader } from '@/components/ui/States'
 import { api, ApiError } from '@/lib/api'
+import { downloadFile } from '@/lib/download'
 import { useResource } from '@/lib/useResource'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
@@ -41,6 +42,26 @@ export default function MyPoliciesScreen() {
 
   const record = useResource<Policy[]>(load, [])
 
+  const openFile = async () => {
+    if (!reading || busy) {
+      return
+    }
+
+    setBusy(true)
+    setProblem(null)
+
+    try {
+      await downloadFile(
+        `/policies/${reading.uuid ?? reading.id}/download`,
+        reading.original_name ?? `${reading.title ?? 'policy'}.pdf`
+      )
+    } catch (caught) {
+      setProblem(caught instanceof Error ? caught.message : 'Could not open the document.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const accept = async () => {
     if (!reading || busy) {
       return
@@ -50,7 +71,7 @@ export default function MyPoliciesScreen() {
     setProblem(null)
 
     try {
-      await api(`/policies/${reading.uuid ?? reading.id}/acknowledge`, {
+      await api(`/policies/${reading.policy_uuid ?? reading.policy_id}/acknowledge`, {
         method: 'PUT',
         body: { note: note.trim() || null },
       })
@@ -148,11 +169,14 @@ export default function MyPoliciesScreen() {
               {reading?.body ? (
                 <Text style={[styles.body, { color: theme.ink }]}>{reading.body}</Text>
               ) : (
-                <Notice
-                  tone="info"
-                  title="Document only"
-                  message="This policy is a file. Open it from the web portal to read the full text."
-                />
+                <View style={styles.actions}>
+                  <Notice
+                    tone="info"
+                    title="This one is a document"
+                    message="Open the file to read it, then come back and accept."
+                  />
+                  <Button label="Open the document" variant="secondary" onPress={openFile} loading={busy} fullWidth />
+                </View>
               )}
 
               <View style={styles.actions}>

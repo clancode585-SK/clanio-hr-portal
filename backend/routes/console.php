@@ -25,6 +25,12 @@ Schedule::command('performance:snapshot')->monthlyOn(1, '01:00')->withoutOverlap
 // pending policy acceptance ka reminder — har Monday
 Schedule::command('policy:reminders')->weeklyOn(1, '10:30')->withoutOverlapping();
 
+// adhoora profile — jisne setup skip kiya usko beech beech me yaad dilate raho
+Schedule::command('profile:reminders')->dailyAt('11:30')->weekdays()->withoutOverlapping();
+
+// salary date aa gayi aur payroll approved hai to ek hi baar me sab ki salary chali jaayegi
+Schedule::command('salary:disburse')->dailyAt('09:30')->withoutOverlapping();
+
 // SLA cross kar chuke tickets — har ghante escalate
 Schedule::command('tickets:escalate')->hourly()->withoutOverlapping();
 

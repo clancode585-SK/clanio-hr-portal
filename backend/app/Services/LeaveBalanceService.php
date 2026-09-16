@@ -10,6 +10,7 @@ use App\Models\LeaveBalance;
 use App\Models\LeaveRequest;
 use App\Models\LeaveType;
 use App\Models\User;
+use App\Support\CompanyTime;
 use App\Support\Scopes\CompanyScope;
 use App\Support\TenantCache;
 use Illuminate\Support\Carbon;
@@ -61,7 +62,7 @@ final class LeaveBalanceService
 
     public function accrue(int $year, User $actor): array
     {
-        $month = Carbon::now()->format('Y-m');
+        $month = CompanyTime::now()->format('Y-m');
         $credited = 0;
         $skipped = 0;
 

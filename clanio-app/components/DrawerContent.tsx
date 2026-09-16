@@ -1,3 +1,4 @@
+import { useCallback, useEffect, useState } from 'react'
 import { DrawerContentScrollView, type DrawerContentComponentProps } from 'expo-router/drawer'
 import { usePathname, useRouter } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
@@ -5,7 +6,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Icon } from '@/components/ui/Icon'
 import { Logo } from '@/components/ui/Logo'
 import { ThemeSwitch } from '@/components/ui/ThemeSwitch'
+import { api } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { onRealtime } from '@/lib/realtime'
 import { config } from '@/lib/config'
 import { platformSections, visibleSections } from '@/lib/nav'
 import { useTheme } from '@/theme/useTheme'
@@ -19,6 +22,27 @@ export function DrawerContent(props: DrawerContentComponentProps) {
   const { profile, can, signOut, isSuperAdmin, companyId } = useAuth()
 
   const onPlatform = isSuperAdmin && companyId === null
+  const [unread, setUnread] = useState(0)
+
+  const pullUnread = useCallback(async () => {
+    try {
+      const result = await api<{ unread_count?: number }>('/notifications/unread-count')
+
+      setUnread(Number(result.unread_count ?? 0))
+    } catch {
+      setUnread(0)
+    }
+  }, [])
+
+  useEffect(() => {
+    void pullUnread()
+
+    return onRealtime((event) => {
+      if (event.name.startsWith('notification.') || event.name === 'announcement.new') {
+        void pullUnread()
+      }
+    })
+  }, [pullUnread, pathname])
   const sections = onPlatform ? platformSections : visibleSections(can)
   const initials = (profile?.name ?? '?')
     .split(' ')
@@ -81,6 +105,12 @@ export function DrawerContent(props: DrawerContentComponentProps) {
                   >
                     {item.label}
                   </Text>
+
+                  {item.href === '/notifications' && unread > 0 ? (
+                    <View style={[styles.badge, { backgroundColor: theme.danger }]}>
+                      <Text style={styles.badgeText}>{unread > 99 ? '99+' : unread}</Text>
+                    </View>
+                  ) : null}
                 </Pressable>
               )
             })}
@@ -157,6 +187,19 @@ const styles = StyleSheet.create({
     paddingVertical: 11,
     paddingHorizontal: spacing.md,
     borderRadius: radius.sm,
+  },
+  badge: {
+    minWidth: 20,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: font.xs,
+    fontWeight: '800',
   },
   itemLabel: {
     fontSize: font.md,

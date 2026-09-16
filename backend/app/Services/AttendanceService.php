@@ -11,6 +11,7 @@ use App\Models\Employee;
 use App\Models\User;
 use App\Models\WorkShift;
 use App\Support\AttendanceCache;
+use App\Support\CompanyTime;
 use App\Support\Realtime;
 use App\Support\WorkCalendar;
 use Illuminate\Http\Request;
@@ -263,7 +264,7 @@ final class AttendanceService
     public function today(User $actor): array
     {
         $employee = $this->employeeFor($actor);
-        $date = Carbon::today();
+        $date = CompanyTime::day($employee->company_id);
 
         $row = AttendanceCache::state(
             $employee->id,
@@ -279,7 +280,7 @@ final class AttendanceService
         $employee = $this->calendarEmployee($actor, $employeeId);
         $start = Carbon::createFromFormat('Y-m-d', $month . '-01')->startOfMonth();
         $end = $start->copy()->endOfMonth();
-        $today = Carbon::today();
+        $today = CompanyTime::day($employee->company_id);
 
         $records = Attendance::query()
             ->where('employee_id', $employee->id)

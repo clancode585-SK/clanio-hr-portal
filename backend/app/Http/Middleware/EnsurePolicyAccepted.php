@@ -17,6 +17,7 @@ class EnsurePolicyAccepted
         'auth/change-password',
         'profile',
         'profile/completion',
+        'onboarding',
         'my-policies',
         'notifications',
         'realtime/config',

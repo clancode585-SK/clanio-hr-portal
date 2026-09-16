@@ -24,7 +24,7 @@ class CompanySettingRequest extends FormRequest
             'policy_gate_enabled' => ['nullable', 'boolean'],
             'ticket_sla_enabled' => ['nullable', 'boolean'],
             'fiscal_year_start' => ['nullable', 'integer', 'between:1,12'],
-            'timezone' => ['nullable', 'string', 'max:64'],
+            'timezone' => ['nullable', 'string', 'max:64', 'timezone'],
             'currency' => ['nullable', 'string', 'size:3'],
         ];
     }

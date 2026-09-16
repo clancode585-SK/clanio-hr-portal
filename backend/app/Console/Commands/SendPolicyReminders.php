@@ -7,11 +7,11 @@ namespace App\Console\Commands;
 use App\Models\Company;
 use App\Models\PolicyAcknowledgement;
 use App\Services\NotificationService;
+use App\Support\CompanyTime;
 use App\Support\NotificationType;
 use App\Support\Scopes\CompanyScope;
 use App\Support\TenantContext;
 use Illuminate\Console\Command;
-use Illuminate\Support\Carbon;
 
 class SendPolicyReminders extends Command
 {
@@ -26,11 +26,11 @@ class SendPolicyReminders extends Command
 
     public function handle(): int
     {
-        $today = Carbon::today();
         $sent = 0;
 
         foreach (Company::query()->where('status', 'active')->get(['id']) as $company) {
             app(TenantContext::class)->set($company);
+            $today = CompanyTime::day($company);
 
             $pending = PolicyAcknowledgement::query()
                 ->withoutGlobalScope(CompanyScope::class)

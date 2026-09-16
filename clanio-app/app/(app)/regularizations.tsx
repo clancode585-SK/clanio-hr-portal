@@ -1,4 +1,5 @@
 import { ApprovalList, type Action, type Detail, type Row } from '@/components/ApprovalList'
+import { formatTime } from '@/lib/clock'
 import { useAuth } from '@/lib/auth'
 
 type Item = Record<string, any>
@@ -73,9 +74,5 @@ function formatPunch(block: Record<string, any> | null | undefined, key = 'check
     return '—'
   }
 
-  const date = new Date(value)
-
-  return Number.isNaN(date.getTime())
-    ? String(value)
-    : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+  return formatTime(String(value), String(value))
 }

@@ -4,6 +4,7 @@ import { Screen } from '@/components/Screen'
 import { Button } from '@/components/ui/Button'
 import { Notice } from '@/components/ui/Notice'
 import { ErrorState, Loader } from '@/components/ui/States'
+import { formatTime } from '@/lib/clock'
 import { api, ApiError } from '@/lib/api'
 import { useResource } from '@/lib/useResource'
 import { useTheme } from '@/theme/useTheme'
@@ -100,16 +101,6 @@ export default function MyAttendanceScreen() {
       </ScrollView>
     </Screen>
   )
-}
-
-function formatTime(value: string | null): string {
-  if (!value) {
-    return '—'
-  }
-
-  const date = new Date(value)
-
-  return Number.isNaN(date.getTime()) ? value : date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
 }
 
 function Row({ label, value }: { label: string; value: string }) {

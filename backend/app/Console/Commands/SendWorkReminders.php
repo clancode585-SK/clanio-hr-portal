@@ -9,6 +9,7 @@ use App\Models\DailyReport;
 use App\Models\Employee;
 use App\Models\Task;
 use App\Services\NotificationService;
+use App\Support\CompanyTime;
 use App\Support\NotificationType;
 use App\Support\Scopes\CompanyScope;
 use App\Support\TenantContext;
@@ -93,7 +94,7 @@ class SendWorkReminders extends Command
             ->get(['id', 'uuid', 'title', 'priority', 'assignee_id', 'assigned_by', 'due_date']);
 
         foreach ($tasks as $task) {
-            $days = (int) Carbon::parse($task->due_date)->diffInDays(Carbon::today());
+            $days = (int) Carbon::parse($task->due_date)->diffInDays(CompanyTime::day($company));
 
             $recipients = array_values(array_unique(array_filter([
                 (int) $task->assignee_id,
@@ -117,7 +118,7 @@ class SendWorkReminders extends Command
 
     private function missingReport(Company $company, string $section): int
     {
-        $today = Carbon::today();
+        $today = CompanyTime::day($company);
 
         $employees = Employee::query()
             ->withoutGlobalScope(CompanyScope::class)

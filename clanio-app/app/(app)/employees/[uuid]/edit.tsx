@@ -14,6 +14,7 @@ import {
   employmentTypes,
   genders,
   loadFormOptions,
+  managerHint,
   maritalStatuses,
   type FormOptions,
 } from '@/lib/employeeOptions'
@@ -39,6 +40,7 @@ export default function EmployeeEditScreen() {
   const [dateOfJoining, setDateOfJoining] = useState('')
   const [employmentType, setEmploymentType] = useState('full_time')
   const [dateOfBirth, setDateOfBirth] = useState('')
+  const [fatherName, setFatherName] = useState('')
   const [gender, setGender] = useState<string | null>(null)
   const [maritalStatus, setMaritalStatus] = useState<string | null>(null)
   const [bloodGroup, setBloodGroup] = useState<string | null>(null)
@@ -76,6 +78,7 @@ export default function EmployeeEditScreen() {
     setDateOfJoining(employee.date_of_joining ?? '')
     setEmploymentType(employee.employment_type ?? 'full_time')
     setDateOfBirth(employee.date_of_birth ?? '')
+    setFatherName(employee.father_name ?? '')
     setGender(employee.gender ?? null)
     setMaritalStatus(employee.marital_status ?? null)
     setBloodGroup(employee.blood_group ?? null)
@@ -109,7 +112,7 @@ export default function EmployeeEditScreen() {
       })),
       managers: data.managers
         .filter((row) => row.id !== record.data?.employee.user_id)
-        .map((row) => ({ value: String(row.id), label: row.name, hint: row.email })),
+        .map((row) => ({ value: String(row.id), label: row.name, hint: managerHint(row) })),
     }
   }, [record.data])
 
@@ -133,6 +136,7 @@ export default function EmployeeEditScreen() {
       date_of_joining: dateOfJoining.trim(),
       employment_type: employmentType,
       date_of_birth: dateOfBirth.trim() || null,
+      father_name: fatherName.trim() || null,
       gender,
       marital_status: maritalStatus,
       blood_group: bloodGroup,
@@ -295,6 +299,15 @@ export default function EmployeeEditScreen() {
             onChangeText={setDateOfBirth}
             placeholder="YYYY-MM-DD"
             error={errors.date_of_birth}
+            editable={canEdit && !busy}
+          />
+          <Field
+            label="Father's name"
+            value={fatherName}
+            onChangeText={setFatherName}
+            placeholder="Ramesh Verma"
+            autoCapitalize="words"
+            error={errors.father_name}
             editable={canEdit && !busy}
           />
           <Select

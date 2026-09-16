@@ -26,6 +26,8 @@ type Blocker = {
   message: string
 }
 
+type Workspace = { slug: string; name: string }
+
 const THROTTLE_SECONDS = 60
 
 export default function LoginScreen() {
@@ -40,6 +42,7 @@ export default function LoginScreen() {
   const [blocker, setBlocker] = useState<Blocker | null>(null)
   const [busy, setBusy] = useState(false)
   const [cooldown, setCooldown] = useState(0)
+  const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const timer = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
@@ -84,7 +87,7 @@ export default function LoginScreen() {
     setCooldown(seconds)
   }
 
-  const submit = async () => {
+  const submit = async (companySlug?: string) => {
     if (busy || cooldown > 0) {
       return
     }
@@ -109,7 +112,7 @@ export default function LoginScreen() {
     setBusy(true)
 
     try {
-      await signIn(email.trim(), password)
+      await signIn(email.trim(), password, companySlug)
       router.replace('/dashboard')
     } catch (error) {
       handleFailure(error)
@@ -119,6 +122,21 @@ export default function LoginScreen() {
   }
 
   const handleFailure = (error: unknown) => {
+    setWorkspaces([])
+
+    if (error instanceof ApiError && error.code === 'AUTH_COMPANY_REQUIRED') {
+      const list = Array.isArray(error.raw.companies) ? (error.raw.companies as Workspace[]) : []
+
+      setWorkspaces(list.filter((row) => typeof row?.slug === 'string'))
+      setBlocker({
+        tone: 'warning',
+        title: 'Which workspace',
+        message: list.length > 0 ? error.message : error.message + ' Ask your HR for the workspace name.',
+      })
+
+      return
+    }
+
     if (!(error instanceof ApiError)) {
       setBlocker({ tone: 'danger', title: 'Sign in failed', message: 'Something went wrong. Please try again.' })
 
@@ -224,13 +242,28 @@ export default function LoginScreen() {
             editable={!busy}
           />
 
-          <Button
-            label={cooldown > 0 ? `Wait ${cooldown}s` : 'Sign in'}
-            onPress={submit}
-            loading={busy}
-            disabled={cooldown > 0}
-            fullWidth
-          />
+          {workspaces.length > 0 ? (
+            <View style={styles.workspaces}>
+              {workspaces.map((row) => (
+                <Button
+                  key={row.slug}
+                  label={row.name}
+                  variant="secondary"
+                  onPress={() => void submit(row.slug)}
+                  loading={busy}
+                  fullWidth
+                />
+              ))}
+            </View>
+          ) : (
+            <Button
+              label={cooldown > 0 ? `Wait ${cooldown}s` : 'Sign in'}
+              onPress={() => void submit()}
+              loading={busy}
+              disabled={cooldown > 0}
+              fullWidth
+            />
+          )}
 
           <Pressable hitSlop={8} onPress={() => router.push('/forgot-password')} disabled={busy}>
             <Text style={[styles.help, { color: theme.brand }]}>Forgot your password?</Text>
@@ -278,6 +311,9 @@ const styles = StyleSheet.create({
     borderRadius: radius.xl,
     padding: spacing.xl,
     gap: spacing.lg,
+  },
+  workspaces: {
+    gap: spacing.sm,
   },
   help: {
     fontSize: font.sm,

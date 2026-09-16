@@ -31,7 +31,7 @@ export function PolicyGateScreen() {
     const result = await api<{ items?: Policy[]; pending?: number; gate_cleared?: boolean }>('/my-policies')
 
     return {
-      items: (result.items ?? []).filter((row) => row.needs_ack && !row.acknowledged_at),
+      items: (result.items ?? []).filter((row) => row.status === 'pending' && !row.acknowledged_at),
       pending: Number(result.pending ?? 0),
       cleared: result.gate_cleared !== false,
     }
@@ -50,7 +50,7 @@ export function PolicyGateScreen() {
     setProblem(null)
 
     try {
-      await api(`/policies/${policy.uuid ?? policy.id}/acknowledge`, { method: 'PUT', body: {} })
+      await api(`/policies/${policy.policy_uuid ?? policy.policy_id}/acknowledge`, { method: 'PUT', body: {} })
 
       const remaining = (record.data?.items.length ?? 0) - 1
 

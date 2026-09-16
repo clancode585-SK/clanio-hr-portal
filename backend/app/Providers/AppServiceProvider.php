@@ -31,7 +31,8 @@ class AppServiceProvider extends ServiceProvider
     {
         RateLimiter::for('login', fn (Request $request): array => [
             Limit::perMinute(5)->by($request->ip() . '|' . Str::lower((string) $request->input('email'))),
-            Limit::perHour(30)->by((string) $request->ip()),
+            Limit::perHour(30)->by($request->ip() . '|' . Str::lower((string) $request->input('email'))),
+            Limit::perMinute(60)->by((string) $request->ip()),
         ]);
 
         RateLimiter::for('api', fn (Request $request): array => [
@@ -41,5 +42,13 @@ class AppServiceProvider extends ServiceProvider
 
         RateLimiter::for('sensitive', fn (Request $request): Limit => Limit::perHour(20)
             ->by('sensitive:' . ($request->user()?->id ?? $request->ip())));
+
+        RateLimiter::for('careers', fn (Request $request): Limit => Limit::perMinute(60)
+            ->by('careers:' . $request->ip()));
+
+        RateLimiter::for('apply', fn (Request $request): array => [
+            Limit::perMinute(10)->by('apply:' . $request->ip()),
+            Limit::perDay(150)->by('apply:' . $request->ip()),
+        ]);
     }
 }

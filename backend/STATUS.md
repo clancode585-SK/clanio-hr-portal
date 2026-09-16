@@ -1,9 +1,9 @@
-# Clanio HRMS — Backend Status
+# Clanio HRMS — Status
 
-**Last session: 18 August 2026**
+**Last session: 16 September 2026**
 
-Poora detail `../PROJECT-NOTES.md` me hai. Ye file sirf ye batati hai ki
-**abhi kahan ruke hain aur aage kya karna hai.**
+Ye file batati hai **abhi kahan hain aur aage kya karna hai.** Purane
+detail `../PROJECT-NOTES.md` me hain.
 
 ---
 
@@ -11,149 +11,532 @@ Poora detail `../PROJECT-NOTES.md` me hai. Ye file sirf ye batati hai ki
 
 | | |
 |---|---|
-| Modules | **20** |
-| API endpoints | **314** under `/api/hrms` |
-| Services | 41 |
-| Schema files | 21 (raw SQL, koi migration nahi) |
-| Scheduled commands | 8 |
-| Test suites | 17 — sab green |
-| Frontend | sirf Login page |
+| API endpoints | **421** under `/api/hrms` |
+| App me integrated | **421 / 421** |
+| Services | 51 |
+| Company controllers | 58 |
+| Schema files | 32 (raw SQL, koi migration nahi) |
+| Permissions | 104 |
+| Mobile app | Expo SDK 57 — **poori ban chuki hai**, saare role |
+
+Do endpoint jaan-boojh kar chhode hain — `exits/pending-hr-approval` aur
+`exits/serving-notice`. Exits screen wahi data client side filter karke
+"With HR" aur "On notice" tab me dikha deti hai, extra call ki zarurat nahi.
 
 ---
 
-## Pichli baar kya bana
+## Is session me kya bana
 
-### 19. Org Chart
+### Data Import — CSV se bulk data
+- `ImportModules.php` — 11 module, har ek ke apne columns + validation rules
+- `ImportService.php` — CSV padhkar **existing tables** me. Koi nayi table nahi
+- 3 route: `imports/modules`, `imports/{module}/sample`, `imports/{module}`
+- Dobara import karo to `code`/`email` se match karke **update** hota hai, duplicate nahi
+- Ek row galat ho to baaki nahi rukte — us row ka reason milta hai
+- Nayi permission nahi — har module apna existing use karta hai
+- **Test: 14/14 pass**
 
-Company → Branch → Department → Team → Employee ka dynamic tree, DB se banta hai.
+Modules: departments, designations, branches, work_shifts, leave_types,
+holidays, teams, employees, leave_balances, attendance, assets.
+Payroll nahi — module hi nahi hai.
 
-```
-GET /org-chart
-    ?depth=branch|department|team|employee    (default employee)
-    &branch_id=1
-    &include_exited=1
-```
+### Realtime notification — Reverb websocket
+- Backend me pehle se tha, app kabhi connect hi nahi hui thi
+- `lib/realtime.ts` — Pusher protocol seedha, koi library nahi, auto reconnect
+- Login par `user.{id}` + `company.{id}` channel subscribe
+- Naya notification aate hi upar se banner slide hota hai, bell par live badge
+- **Live verified** — server se event bheja, app me turant dikha
 
-- Har level par `employee_count` — jod milta hai (test me verify kiya)
-- Jinka branch/dept/team assign nahi — `unassigned`,
-  `employees_without_department`, `employees_without_team` me alag dikhte hain
-- Exit ho chuke employee aur super admin default me nahi aate
-- Koi permission middleware nahi — har logged-in banda apni company ka chart dekhta hai
-- Har node me `reporting_manager_id` bhi hai, frontend chahe to reporting tree bana le
+### Push notification — app side ready
+- `expo-notifications`, token `/devices` par register, logout par delete
+- Notification tap → `action_url` ke hisab se sahi screen
+- Package: `com.clanio.hrms`
+- **Abhi chalega nahi** — Firebase chahiye (neeche dekho)
 
-**Files:** `app/Services/OrgChartService.php`,
-`app/Http/Controllers/Company/OrgChartController.php`
-**Test:** 29/29
+### File download — 5 jagah
+Employee documents, task attachments, expense bills, exit documents, policy PDF.
+Pehle upload ho jaata tha par wapas dekha nahi ja sakta tha.
+Native par share sheet, web par seedha download. **Test 7/7 pass.**
 
-> Departments me `branch_id` NULL hai, isliye tree **employee ke branch se** banta hai.
-> Kisi department ko ek branch se pin karna ho to `departments.branch_id` set kar do.
+### Super Admin module
+Platform dashboard, companies list + 5-step add wizard (plan + GST + dummy
+payment), company detail, 28 module toggle, impersonation, archive, plans,
+revenue, permissions master list.
 
-### 20. Helpdesk / Ticket
+### Roles theek kiye — company 1
+| Role | Level | Scope | Perms |
+|---|---|---|---|
+| Company Admin | 2 | all_company | 80 |
+| HR Manager | 3 | all_company | 55 |
+| Finance Manager | 3 | all_company | 7 |
+| Senior Manager | 3 | department | 15 |
+| Manager | 4 | department | 10 |
+| Team Lead | 5 | team | 10 |
+| Member | 8 | self | 3 |
 
-Do tarah ke ticket, ek hi table me `scope` column se:
+Team Lead ko leave approve, attendance fix, team SOD/EOD mila.
+HR ko `user.permission` mila. `Temp Role` hata diya.
 
-```
-scope = platform   →  Company Admin  →  Super Admin
-scope = internal   →  Employee       →  HR / Manager / IT / Admin
-```
+### Gap band kiye — 14 Sep
+| Kya | Kahan |
+|---|---|
+| Audit Log viewer | `GET /audit-logs`, `/filters`, `/{id}` + screen. 897 row pehle se DB me. Event/entity/actor filter, before-after diff, load more |
+| `ticket_slas` edit API | `GET`/`PUT /ticket-slas` + Response Times screen. 4 priority, ghante shabdon me |
+| `GET /employees/reporting-managers` | Manager dropdown ab `/users` ki jagah isse aata hai — designation, department, reports count dikhta hai |
+| `plan.manage` leak | Company admin role ko platform permission mil rahi thi. `PLATFORM_ONLY_PERMISSIONS` me daal diya |
 
-**Routing ka dimaag `ticket_category_routes` me hai** — category decide karti hai
-ki kaun-kaun se option dikhenge:
+Naya permission `audit.view` — super admin + company admin ko mila.
+**Test: API 29/29, app 33/33 pass.**
 
-| Category | Kisko bhej sakte ho | Default |
-|---|---|---|
-| Salary / Payslip | sirf HR | HR |
-| Policy / Document | sirf HR | HR |
-| Leave / Attendance | Manager ya HR | Manager |
-| Work / Task / Project | sirf Manager | Manager |
-| IT / Laptop / System | sirf IT | IT |
-| Office / Facility | sirf Admin | Admin |
-| Kuch aur | Manager / HR / IT / Admin | **koi nahi** — khud chuno |
+### Invoices — plan lete hi invoice ban jaata hai
+- `invoices` table — number `CLN-2026-0001` se sequenced, saal ke hisab se
+- Trigger: `PUT /companies/{company}/plan`. Plan ya seats badla to **turant** invoice
+- Wahi plan wahi seats dobara bheja to invoice nahi banta — duplicate se bacha
+- Signup wizard payment reference bhejta hai → invoice `paid`. Warna `pending`
+- Company ka naam, GSTIN, address invoice par **freeze** ho jaate hain — baad me company badle to purana invoice nahi badalta
+- `GET /invoices`, `/invoices/summary`, `/invoices/{id}`, `/invoices/{id}/download` (CSV)
+- Super admin hi `mark-paid` aur `cancel` kar sakta hai. Paid invoice cancel nahi hoti
+- Screen: Invoices — collected/awaiting total, status filter, detail sheet, download
+- Company admin sirf apne invoice dekhta hai, download kar sakta hai, paid nahi kar sakta
+- Naye permission `invoice.view` (super admin + company admin), `invoice.manage` (sirf platform)
+- **Test: API 40/40 pass**
 
-`route_to = manager` par ticket raise karne wale ke **apne** `reporting_manager_id`
-ko jati hai — koi hardcode nahi. Department khali ho to apne aap
-`ticket.view_all` walon ke paas chali jati hai.
+### Recruitment — opening se joining tak, website ke saath
+4 table: `job_openings`, `candidates`, `applications`, `career_pages`.
 
-**Status ka safar:** `open → in_progress → waiting_on_user → resolved → closed`
-(+ `reopen` 7 din tak, `cancel`)
+**Tool ke andar**
+- Opening me poora JD — title, location, experience, employment type, positions,
+  key responsibilities, required skills, good to have (ek line = ek bullet)
+- Draft private rehta hai. Publish karte hi career page par live
+- Publish se pehle responsibilities aur requirements maange jaate hain
+- Pipeline: applied → screening → interview → offer → joined / rejected / dropped
+- Offer ke liye CTC, joined ke liye date, reject ke liye reason zaruri
+- Joined hone ke baad candidate wapas move nahi hota
+- Resume download, candidate ki saari detail, cover note
+- Nayi application par `recruitment.manage` walon ko notification + websocket banner
 
-- Resolve karte waqt **note likhna mandatory** hai
-- **Ticket band karne ka haq raise karne wale ka** — handler sirf `resolved` tak le ja sakta hai
-- `ask-info` par status `waiting_on_user`, aur **SLA ki ghadi ruk jati hai**
+**Company ki website ke liye — unka code chhue bina**
+1. **Embed** — 2 line paste karo, jobs unke hi page ke andar, unki CSS inherit
+   karke. Form bhi hamara, submit seedha hamare server par — webhook ki zarurat nahi
+2. **Hosted page** — `/careers/{key}` — server rendered, Google for Jobs ka
+   JSON-LD saath, company ka logo aur colour
+3. **Public API** — `GET /careers/{key}/openings`, `/openings/{slug}`,
+   `POST /openings/{slug}/apply`. Login ke bahar, throttled
 
-**SLA — default BAND hai.** Ticket kabhi bhi raise ho sakti hai, solve karne ki
-koi fixed deadline nahi. Chahiye to on karo:
+**Career Page screen**
+- 2 line ka snippet + Copy button
+- Paste hote hi status khud **Connected** ho jaata hai, domain aur views dikhte hain
+- Heading, intro, layout, button colour, Clanio credit
+- Allowed domains — bharo to sirf wahi site jobs dikha sakti hai
 
-```
-PUT /company-settings  { "ticket_sla_enabled": true }
-```
+**Spam se bachav:** honeypot field, apply 10/min + 150/din per IP, ek email ek
+opening par ek hi baar, resume sirf PDF/DOC 5MB tak
 
-On karne par deadline **sirf office hours** ginti hai — shift window, weekly off
-aur public holiday chhod ke (`app/Support/BusinessHours.php`). Raat 11 baje ticket
-aayi to ghadi agli subah shift start se chalti hai.
+Naye permission `recruitment.view`, `recruitment.manage`, `recruitment.career_page`
+— company admin aur HR manager ko mile.
 
-```
-urgent   1h reply /   4h solve        high    4h /  24h
-medium   8h        /  48h             low    24h / 120h
-```
+**Test: API 64/64, asli browser me career page + embed 33/33, app screens 36/36.**
 
-(`ticket_slas` table; category par override — `response_hours` / `resolution_hours`)
+### Interview rounds + Jitsi
+- `interviews` table — round number, kind (telephonic/technical/managerial/HR/final),
+  mode (video/in person/phone), interviewer, time, how long
+- **Jitsi link apne aap ban jaata hai** — video round pe `meet.jit.si/clanio-<company>-<ref>-r1-<random>`.
+  Koi API key nahi, koi account nahi. Browser me khulta hai
+- In person round bina jagah ke nahi banta. Phone round pe link nahi banta
+- **Ek interviewer ka same time par doosra round nahi** — clash pakda jaata hai
+- Round schedule hote hi application khud `interview` stage me chali jaati hai
+- Interviewer ko notification + websocket banner. Candidate ko email joining link ke saath
+- Reschedule pe dono ko dobara bataya jaata hai, link wahi rehta hai
+- Interviewer ki apni screen — **My Interviews**: kya lena hai, candidate ki detail,
+  resume download, join button. Feedback: verdict (selected/hold/rejected), score /5, notes
+- Feedback ek hi baar. Feedback aane ke baad round cancel nahi hota
+- `interview.conduct` permission — admin, HR, senior manager, manager, TL ko mila
 
-**Permissions (5):** `ticket.view_all`, `ticket.assign`, `ticket.resolve`,
-`ticket.category_manage`, `ticket.platform`
-Raise karne ke liye **koi permission nahi** — har employee kar sakta hai.
+### Candidate ko email
+- Apply karte hi **thank you** email, reference number ke saath
+- Interview schedule/reschedule pe **joining link wali email**
+- `MAIL_MAILER=log` hai, to abhi log file me jaati hai. SMTP daalte hi asli chali jaayegi
 
-**Cron:** `tickets:escalate` har ghante — SLA cross hui to breach mark + escalate
+### Job feed — Indeed ke liye
+`/careers/{key}/feed.xml` — XML feed, poora JD saath. Indeed aur kai board
+feed crawl karte hain.
 
-**Files:** `app/Services/TicketService.php`, `TicketCategoryService.php`,
-`app/Support/BusinessHours.php`, `database/schema/ticket_schema.sql` (5 table)
-**Test:** 118/118
+### Offer letter
+- `offer_letters` table — number `OL-2026-0001` se sequenced
+- Candidate offer stage par ho tabhi letter banta hai. **Ek candidate, ek letter**
+- CTC, joining date, designation, reporting to, probation, notice, reply-by date, extra terms
+- Letter banate hi application ka `offered_ctc` aur `joining_date` bhar jaata hai
+- **Letterhead wala HTML letter** — company ka naam, address, GSTIN, terms table,
+  conditions, dono taraf signature block. Preview + download
+- Candidate ko email letter ke saath
+- Accepted / declined mark karo. **Declined pe candidate khud `dropped` ho jaata hai**
+- Answered letter dobara answer nahi hota, wapas bhi nahi khichta
+- `recruitment.offer` permission — admin + HR
+
+### Google Form se resume
+- Har company ka apna `intake_key` — `POST /api/hrms/intake/{key}`
+- Career Page ke response me **poori Apps Script** milti hai jo form me paste karni hai.
+  Wo form ke jawab padhkar hamari API par bhej deti hai
+- Role title ya uska web address, dono chalte hain. Galat role par saaf message
+- Resume ka Google Drive link note me chala jaata hai
+- Source `google_form` set hota hai, intake counter chalta hai
+
+### Manager ka vacancy request
+Bana hua hai (`POST /openings/request`, `PUT /openings/{id}/decide`) — manager
+maange, HR approve/decline kare, tab draft bane. **Par aapne kaha zarurat nahi —
+HR seedha opening daal sakta hai.** API pada hai, app me screen nahi banayi.
+
+### Candidate portal → joining → onboarding (15 Sep)
+
+**Candidate ka apna page** — `/track/{token}`, login nahi chahiye, link hi chaabi hai
+- Har candidate ka apna 48-char token, per company. Ek banda 2 company me apply kare
+  to do alag page, do alag token
+- Timeline: Application received → Being screened → Interviews → Offer → Joined
+- Apne interview round, time aur **Jitsi join link** dikhte hain
+- Offer aaya to poori terms + **I accept / I am not going ahead** button
+- Accept karte hi joining date ka **countdown** ("20 days to go")
+- Rejected/dropped par saaf likha hota hai ki application band ho gayi
+- `noindex` — Google me nahi aata. Galat token 404
+- Tracking link teeno email me jaata hai (apply, interview, offer)
+
+**Offer accept hone ke baad company me aana**
+- `GET /joinings` — HR ko overdue / this week / later me bata hua list,
+  naam, role, joining date, CTC, letter number
+- `POST /applications/{id}/convert` — accepted candidate ka **user + employee ban jaata hai**:
+  employee code (EMP0007…), joining date offer se, onboarding `in_progress`
+- Sirf accepted offer wala convert hota hai. Do baar nahi hota
+- Us company me wahi email pehle se ho to saaf mana kar deta hai
+- Convert hote hi HR/admin ko **new joining ka notification**, naye employee ko welcome
+- Employee ban jaane ke baad **aapka purana onboarding checklist** chalu ho jaata hai
+- `employees` list ka cache flush hota hai, to naya banda turant dikhta hai
+
+**Ek email, kai company**
+- `users` par `(company_key, email)` unique — ek email 2+ company me chalti hai,
+  ek company me duplicate nahi. Candidates par bhi wahi
+- Login ab password se khud tay karta hai kaun si company. Do jagah **same password**
+  ho to 409 me company ki list aati hai (`company_slug` bhejo)
+- Galat password har jagah → 401, aur dono par failed attempt count hota hai
+
+**Saath me theek kiya:** `ApiException` me ab `errors` array jaata hai (409 me
+company list bhejne ke liye), aur ₹ ab Indian grouping me — ₹18,50,000, ₹1,850,000 nahi.
+
+### App ke screens (15 Sep, dopahar)
+
+- **Joining Soon** — `/joinings`. Date passed / this week / joined this month ke counter,
+  teen group me list (date passed laal border ke saath), naam, designation, joining date,
+  CTC, letter number, contact
+- **Put on the roll** — usi sheet me: workspace role (zaruri), work email, department,
+  designation, reporting manager, branch, team, shift. Dabate hi user + employee ban jaate
+  hain, employee code milta hai, onboarding shuru
+- **Offer letter** — applicant sheet me. Candidate `offer` stage par ho to "Raise an offer
+  letter": CTC, joining date, designation, reporting to, probation, notice, reply-by, extra
+  terms. Ban jaane ke baad number, status, download, aur "They accepted" / "They turned it down"
+- **Google Form + job feed** — Career Page screen me: poori Apps Script + Copy button,
+  kitne log form se aaye, aur Indeed ke liye feed ka link
+- **Ek email do company me** — login 409 aane par dono company ke naam **button** ban jaate
+  hain, chun lo aur wahi workspace khul jaata hai. `ApiError` me ab `raw` errors aate hain
+
+Sab dashboard tile ke saath: "Joining soon", "Interviews to take", "New applicants",
+"Open positions".
 
 ---
 
 ## Abhi kya pending hai
 
-### A. Chhote gap — pehle yahi nikalne chahiye
+### A. Backend module
 
-| # | Kya | Kyun zaroori |
-|---|---|---|
-| 1 | `company_modules` ki row nayi company par banti nahi | super admin ko khali checkbox screen dikhti hai |
-| 2 | Rohit (Company Admin) ka employee record nahi | uska attendance / leave / SOD-EOD / performance kuch nahi chalega |
-| 3 | Role ka naam `Employee` hai | `Member` hona chahiye — HR bhi to employee hi hai |
-| 4 | Priya aur Amit ka `reporting_manager` blank | inki leave / expense kisi ke paas approval me nahi jayegi |
-| 5 | `Temp Role` / `Temp Designation` / `Temp User` | test ka kachra, DB me pada hai |
+Koi backend module pending nahi. Jo bhi chhod rakha tha (audit log, ticket SLA,
+reporting managers, invoices) sab ban gaya. Aage ka kaam sirf section C me hai.
 
-### B. Design ho chuka, bana nahi
+### B. Firebase — push chalane ke liye
 
-| # | Kya |
+Code taiyar hai, bas ye do file chahiye:
+
+1. Firebase project → Android app add karo package **`com.clanio.hrms`**
+   → `google-services.json` → `clanio-app/` me rakho
+2. Project Settings → Service accounts → Generate private key
+   → JSON backend me rakho, phir `.env`:
+   ```
+   FCM_PROJECT_ID=<firebase project id>
+   FCM_CREDENTIALS=<service account json ka poora path>
+   ```
+3. Push **Expo Go me kaam nahi karta** — `npx expo run:android` se dev build banao
+
+Jab tak ye nahi hai, app crash nahi karegi — token register nahi hoga, chup-chaap skip.
+
+### B2. SMTP — candidate ko asli email jaane ke liye
+
+`MAIL_MAILER=log` hai, to email log file me likhi jaati hai, bheji nahi jaati.
+Apne domain ka SMTP ya SendGrid / Amazon SES / Zoho ka detail do, `.env` me
+`MAIL_MAILER=smtp` + host, port, username, password. Code taiyar hai — thank-you
+email aur interview joining link dono usi waqt chalne lagenge.
+
+### B3. Timezone — ho gaya, per company
+
+DB me har timestamp UTC me hi rehta hai. Company-local rule aur display
+`companies.timezone` ke hisaab se chalta hai — teen company teen zone me ho
+sakti hain.
+
+Backend me `App\Support\CompanyTime`:
+
+```
+CompanyTime::zone($co)              company ka IANA zone (galat value par Asia/Kolkata)
+CompanyTime::now($co)               ab ka waqt company zone me
+CompanyTime::today($co)             company zone ki aaj ki aadhi raat
+CompanyTime::date($co)              'Y-m-d' company ke hisaab se
+CompanyTime::day($co)               date column se compare karne wala naive midnight
+CompanyTime::at($date,$time,$co)    cutoff jaisa waqt company zone me
+CompanyTime::parse($naive,$co)      HR ne jo wall-clock daala use company zone me padhta hai
+CompanyTime::toZone($moment,$co)    UTC se company zone me dikhane ke liye
+```
+
+Company ke id par zone cache hota hai; `Company` save hote hi cache khud saaf
+ho jaata hai. Zone ab `timezone` rule se validate hota hai — bakwaas zone save
+hi nahi hoga.
+
+Kya theek hua: SOD/EOD cutoff pehle UTC se compare hota tha, is liye IST 4 baje
+shaam tak koi report late nahi ginti thi. Interview ka slot wall-clock ke tarah
+store ho raha tha; ab sahi UTC instant banta hai aur wapas company zone me
+15:30 hi dikhta hai (app, email, candidate portal — teeno jagah zone ka naam
+bhi likha aata hai).
+
+App me `clanio-app/lib/clock.ts` — zone `/profile` ke `organisation.timezone`
+se aata hai, aur `today()` device ki ghadi nahi, company ki ghadi maanta hai.
+
+Test: `CompanyTime` 25/25, SOD-late + interview slot 19/19, candidate portal
+8/8, app clock 18/18, browser (device America/Los_Angeles rakh ke) 18/18,
+saare 6 scheduled command clean.
+
+### Onboarding — first login ka pura flow
+
+**HR ka hissa:** naya joiner aaya to HR account banati hai. Create wizard me ab
+**father's name aur date of birth mandatory** hain — inke bina employee ban hi
+nahi sakta. Baaki wahi — naam, email, temporary password, phone, department,
+designation, role, manager, shift, joining date.
+
+**Employee pehli baar login karta hai, teen step aate hain:**
+
+```
+1. Terms & Conditions + Privacy Policy     ← rok deta hai, skip nahi
+2. Profile form (4 step)                   ← skip kar sakta hai
+3. Guided tour (9 stop)                    ← skip kar sakta hai, dobara nahi aayega
+4. Tool khul gaya
+```
+
+**Step 1** — `policy_gate_enabled` ON karo aur T&C / Privacy Policy ko
+"needs acknowledgement" ke saath publish kar do. Jab tak dono accept nahi hoti,
+drawer khulta hi nahi. Ek baar accept, `policy_gate_cleared_at` stamp lag gaya,
+phir kabhi nahi poochega.
+
+**Step 2** — 4 step: About you → Bank account → Documents → Family.
+
+| Step | Mandatory (bharne par) |
 |---|---|
-| 6 | `GET /employees/reporting-managers` — dropdown (department + level filter, khali ho to upar chadho, cross-dept toggle) + manager level aur circular chain ki validation |
-| 7 | Nayi company par **5 default role** seed — abhi sirf `Company Admin` banta hai |
-| 8 | Department permission preset — `department_permissions` abhi **poori khali** hai |
-| 9 | `ticket_slas` edit karne ka API — table hai, endpoint nahi |
+| About you | phone, gender, address, PAN, emergency contact ka naam + phone |
+| Bank | holder name, bank, account number, IFSC (format check hota hai) |
+| Documents | photo, Aadhaar, PAN — teeno upload |
+| Family | naam + relation (nominee 100%) |
 
-### C. Module pending
+Har step par **Skip this step**, aur kabhi bhi **Finish later**. Skip kiya to
+rokta nahi — bas app ke top par ek patti aati hai *"Please complete your
+profile — 50% done · Bank account, Documents"* (band kar sakte ho), aur
+`profile:reminders` command har weekday 11:30 par notification bhejta hai
+(ek employee ko 3 din me ek baar se zyada nahi). My Profile par section-wise
+tick-list aur **Finish my profile** button hamesha rehta hai.
 
-| # | Kya | Note |
+**Step 3** — 9 stop ka tour, role ke hisaab se: Member ko sirf uske screen
+dikhte hain, HR ko Employees aur Openings wale stop extra. "Take me there"
+seedha us screen par le jaata hai. **Skip kiya to wapas nahi aata** —
+`users.tour_done_at` stamp. My Profile se **Show the tour again** karke
+wapas dekh sakte ho.
+
+**Naya:** `database/schema/onboarding_flow.sql` — `employees.father_name`,
+`profile_setup_seen_at`, `profile_nudged_at`, `users.tour_done_at`.
+Purane users ko backfill me "done" mark kar diya, unko ye flow nahi dikhega.
+Super admin ko bhi nahi.
+
+`OnboardingService` decide karta hai kaunsa step baaki hai; `GET /onboarding`
+se aata hai aur login response me bhi. Employee apni family/bank/document ab
+`profile/*` routes se khud add karta hai — HR ki permission nahi chahiye.
+
+**Do purane bug pakde gaye** — policy gate screen `needs_ack` field par filter
+kar rahi thi jo API bhejti hi nahi thi (is liye gate **kabhi chala hi nahi**),
+aur accept karte waqt policy ki jagah acknowledgement ka uuid bhej rahi thi.
+Dono theek. Ab `/my-policies` policy ka poora text bhi bhejta hai, to employee
+T&C app me hi padh sakta hai.
+
+**Test:** API 39/39, browser me pura first-login flow 75/75.
+
+### Payroll — phase 1 aur 2 ban gaye
+
+Poora payroll 4 phase me ban raha hai. Do ho gaye:
+
+```
+1. Salary Structure    ✅  74/74 test
+2. Payroll Run         ✅  76/76 test
+3. Payslip download    ⬜
+4. Bank transfer       ⬜
+```
+
+**Phase 1 — Salary Structure**
+
+Component master per company. **Kuch auto-seed nahi hota** — HR
+`POST /salary-components/standard` se ek click me 11 standard Indian component
+bana leta hai, phir naam aur percent apne hisaab se badal sakta hai:
+
+```
+Earning    BASIC (50% of gross)  HRA (40% of basic)  CONV 1600  MED 1250
+           SPL (balance — jo bacha wo isme)
+Deduction  PF  ESI  PT  TDS
+Employer   PF_ER  ESI_ER   (net me nahi jaate, cost to company me jaate hain)
+```
+
+Structure **effective-dated** hai, is liye "mahine ke hisaab se" chalta hai —
+April se 6L, October se 7.8L, to September ki salary purane structure se aur
+October ki naye se banti hai. Naya structure banate hi purana apne aap
+`effective_to` ke saath band ho jaata hai. Us date par already structure ho to
+refuse karta hai.
+
+`SalaryMath` sab hisaab ek jagah karta hai. Company settings me PF/ESI/PT ki
+rate editable hai (`pf_wage_ceiling` 15000, `esi_wage_limit` 21000, PT flat).
+PF wage ceiling par lagta hai, ESI limit se neeche hi, aur jiska PF account nahi
+hai uska PF 0. **TDS ki line hai par khaali** — HR chahe to amount daale.
+
+Guards: Basic ke bina structure nahi banta (PF usi par lagta hai), ek se zyada
+"balance" component nahi ho sakta, aur jo component kisi structure me laga hai
+wo delete nahi hota. `salary-structures/coverage?month=` batata hai kis-kis ka
+structure baaki hai.
+
+**Phase 2 — Payroll Run**
+
+```
+Open month  →  Calculate  →  (LOP theek karo)  →  Approve  →  [pay]
+   draft       calculated                         approved
+```
+
+Ek mahine ka ek hi run. Aane wale mahine ka payroll nahi chalta. Calculate par
+har employee ka payslip banta hai — us mahine ka structure **freeze** hokar
+`payroll_item_lines` me copy ho jaata hai, to baad me structure badle to purani
+payslip nahi badalti.
+
+**LOP HR ke haath me hai** — attendance sirf sujhaav deti hai
+(`lop_suggested`, absent + half-day/2). HR `PUT /payslips/{id}/lop` se badal
+sakta hai; jo HR ne set kiya wo `lop_locked_by_hr` ho jaata hai aur
+**recalculate par nahi udta**. Earning pro-rate hoti hai (paid_days /
+working_days), **PF/ESI/PT pro-rate nahi hote**. Payslip par har line ka
+"full" aur "actual" dono dikhta hai.
+
+Kisi ek ki salary rokni ho to `hold` (reason ke saath), phir `release`.
+Approve ke baad amount lock — LOP change aur recalculate dono 409 dete hain.
+Jis run me ek bhi salary ja chuki ho wo cancel nahi hoti.
+
+Employee apni payslip `GET /my-payslips` se dekhta hai (sirf approved ya paid
+mahine). Naye permission: `salary_structure.view/manage`,
+`salary_component.manage`, `payroll.view/run/approve` — company admin aur
+HR manager ko diye.
+
+**Phase 3 — Payslip**
+
+`resources/views/payroll/payslip.blade.php` — company letterhead, do column
+(earning / deduction), paid days, net pay, aur **amount in words**
+(`Money::inWords` — "Forty Eight Thousand Two Hundred Rupees Only"). LOP hua ho
+to har earning ke saath uska full month amount bhi grey me dikhta hai.
+
+`GET /payslips/{id}/preview` browser me kholta hai, `/download` file deta hai
+(`Payslip-EMP0001-2026-08.html`). Employee **sirf apni** payslip khol sakta hai,
+aur wo bhi approve hone ke baad — dusre ki kholne par 403.
+
+**Phase 4 — Bank transfer**
+
+```
+company_bank_accounts   admin ka account jisse paisa jaata hai
+salary_disbursements    har transfer ki koshish ka record (UTR, reference, status)
+bank_transactions       admin ke account ka statement (debit/credit + running balance)
+```
+
+Bank gateway **pluggable** hai — `App\Support\Bank\BankGateway` interface,
+abhi `MockBank` laga hai. Asli bank ka API aane par sirf ek naya driver likhna
+hoga, baaki payroll ka code waisa hi rahega:
+
+```
+BANK_DRIVER=mock
+BANK_MOCK_FAIL_IFSC=HDFC0000999    is IFSC par fail hota hai (fail case test karne ko)
+BANK_MOCK_PENDING=false            true karo to transfer "with the bank" par rukega
+```
+
+Mock me asli paisa kahin nahi jaata — balance hamare hi row me ghatta hai, aur
+API response me `is_mock: true` ke saath saaf likha aata hai. Test ke liye
+`POST /company-bank-accounts/{id}/top-up` se balance daal sakte ho (sirf mock par).
+
+**Do tarike se salary jaati hai:**
+
+1. **Ek click me poora mahina** — `POST /payroll-runs/{id}/transfer`. Jo fail
+   hoti hai wo baaki ko nahi rokti; hold wali chhod deta hai. Response me
+   `sent / failed / skipped_on_hold` aur kis-kis ka fail hua uska reason.
+2. **HR ek employee par click kare** — pehle `GET /payslips/{id}/transfer-quote`
+   se popup ka data (**poora structure**, kis account se jaayega, kis account me
+   jaayega, amount, aur `blockers` agar kuch rok raha hai), phir
+   `POST /payslips/{id}/transfer`.
+
+**Salary date ka trigger** — `salary:disburse` command roz 9:30 par chalta hai,
+approved run jiska `pay_date` aa gaya uski saari salary bhej deta hai.
+`--dry-run` se pehle dekh sakte ho kiski jaayegi.
+
+Har transfer par company ka balance ghatta hai aur statement me debit chadhta
+hai (narration me employee ka naam, reference ke saath). Employee ko turant
+notification jaata hai — gayi ya fail hui. Fail hui salary **retry ho sakti
+hai** (IFSC theek karke dobara bhejo). Jab run me kuch pending na bache, run
+apne aap `paid` ho jaata hai. Jis account se salary ja chuki ho wo delete nahi
+hota.
+
+Naye permission: `company_bank.view/manage`, `salary.disburse` — company admin
+ko diye, HR manager ko sirf view.
+
+**Test:** structure 74/74, payroll run 76/76, bank + payslip 98/98 —
+**kul 248/248**.
+
+**App ke screens**
+
+| Screen | Kahan | Kya karta hai |
 |---|---|---|
-| 10 | Audit Log viewer | data DB me pada hai (`created_by`/`updated_by`), API nahi |
-| 11 | Bulk Import | Excel se employee upload |
-| 12 | Billing & Plans | **rate fix nahi**, isliye ruka |
+| Salary Components | Setup | 11 standard ek click me, phir naam/percent badlo. Har row par likha hai "50% of gross", "40% of Basic", "Whatever is left" |
+| Salary structure | Employee ke andar | CTC daalo → **Show me the breakup** → poora breakup dekh kar save. Purana structure apne aap band, history dikhti hai |
+| Payroll | Approve section | Mahine ki list, status tag, paid/total ka progress bar. Jinka structure nahi hai unki warning |
+| Payroll detail | Payroll par tap | Summary + payslip list + filter chip (Everyone / Not sent / Paid / Failed / On hold). Calculate → Approve → Send salary to N employees |
+| Payslip sheet | Row par tap | Poora breakup (deduction par `−`, employer share par "(company)"), **LOP field** attendance ke sujhaav ke saath, transfer route (kis account se kis account me), hold/release, download |
+| Company Bank | Setup | Account add (IFSC validate hota hai), balance, test top-up, aur **statement** — har debit narration aur running balance ke saath |
+| My Payslips | My Space | Employee apni payslip dekhta aur download karta hai. Employer share uski list me nahi, par ek line me bata diya jaata hai |
 
-### D. Jaan-boojh kar last ke liye rakhe hain
+**Teen bug pakde gaye aur theek kiye** (browser me chalane par nikle):
+
+1. Payslip list me `run` relation load nahi hota tha — is liye LOP field aur download button dono chhup jaate the
+2. `/my-payslips` me `lines` load nahi hote the — employee ki payslip me sirf "Net pay" dikhta tha, breakup gayab
+3. Action ke baad `reload()` poora screen blank kar deta tha — `refresh()` par shift kiya, ab content dikhta rehta hai
+
+Saath me run detail ka call halka kiya — `items` dobara nahi bhejta, kyunki payslip ka apna endpoint hai.
+
+**Test:** API 248/248 · browser: components + structure + bank 72/72,
+payroll run se salary transfer tak 79/79.
+
+### C. Jaan-boojh kar last ke liye
 
 ```
-13. Payroll + Salary Structure
-14. LOP  (attendance → payroll)
-15. Statutory  (PF / ESI / PT / TDS challan, filing)
-16. Full & Final Settlement
-17. Dashboard / Reports
-18. Recruitment  (job, candidate, interview)
-19. Onboarding flow  (offer letter → joining)
-20. HTML letter templates  (offer, relieving, experience)
+Payroll + Salary Structure    LOP  (attendance → payroll)
+Statutory  (PF/ESI/PT/TDS)    Full & Final Settlement
+Dashboard / Reports           Onboarding flow
+HTML letter templates
 ```
 
-### E. Hata diye — inpe kaam nahi karna
+Order dependency se tay hai:
+Salary Structure → LOP → Payroll run → Statutory → Salary slip → FnF → Reports.
+
+Payroll shuru karne se pehle 3 baat tay karni hai: TDS kitna deep (HR manually
+daale / simple slab / poora regime), payroll approve HR kare ya Finance bhi,
+aur PF/ESI/PT ki rates company settings me editable hon ya code me fix.
+
+Salary slip download bhi yahi aayega — pehle payroll banega.
+
+### D. Hata diye — inpe kaam nahi karna
 
 ```
 Travel & Advance      Timesheet / Project
@@ -162,94 +545,71 @@ Insurance             Training / LMS
 
 ---
 
-## Audit Log ka design (tay ho chuka, bana nahi)
+## Nayi company banne par kya milta hai
+
+| Kya | Milta hai |
+|---|---|
+| Roles | **sirf Company Admin** |
+| Leave types | 6 (CL, SL, EL, ML, PL, LWP) |
+| Ticket categories | 11 + routes + SLA |
+| Company modules | 28, sab ON |
+| Departments, designations, shifts, branches | **kuch nahi** |
+| Clearance items | **kuch nahi** |
+
+Naye admin ko ye order follow karna padta hai — app ka **Setup checklist**
+dashboard par yahi guide karta hai:
 
 ```
-Super Admin       →  saari companies + platform level
-Company Admin     →  apni company ka poora
-HR Manager        →  apni company ka, par HR se juda hi
-Manager / Member  →  kuch nahi
+1. Role banao (Manager / TL / Member)
+2. Department
+3. Designation
+4. Work shift
+5. Tab employee add karo
 ```
 
-Permission: `audit.view`
-
-Do baatein pakki karni hain:
-
-1. **Kaun dekh raha hai wo bhi log ho** — warna audit log ka matlab hi nahi
-2. **Sensitive value mask ho** — Aadhaar, PAN, bank a/c, password
-   (`XXXX4521 → XXXX9832`, poora number nahi) — warna log khud ek leak ban jayega
+Aapka faisla: default role seed **nahi** karna. Admin khud banayega.
 
 ---
 
-## Multiple Company Admin — verify ho chuka hai
-
-Ek company me kitne bhi admin ho sakte hain. `user_roles` ka unique
-`(user_id, role_id)` par hai, isliye alag-alag log wahi role le sakte hain.
-
-`UserService::resolveRoles()` ka guard `hierarchy_level < actor->lowestRoleLevel()`
-hai — **strictly less than**. Isliye Company Admin (level 2) doosra Company Admin
-(level 2) bana sakta hai, par Super Admin nahi bana sakta.
+## App chalane ke liye
 
 ```
-Rohit  ──POST /users {role_ids:[2]}──►  Vikram  (poora barabar admin)
-Vikram ──POST /users {role_ids:[2]}──►  Teesra
+cd backend      php artisan serve --host=0.0.0.0 --port=8001
+cd backend      php artisan reverb:start --host=0.0.0.0 --port=8080
+cd clanio-app   npx expo start --clear
 ```
 
-> Ye **poora barabar** ka admin hota hai — naya admin purane ko bhi delete kar sakta hai.
-> Aisa nahi chahiye to naya role banao (`Co-Admin`, level 3) aur usme `user.delete` mat do.
+Reverb ke bina app chalti hai, bas realtime banner nahi aayega.
+
+`php artisan serve` single-threaded hai — dev me parallel calls dheeri lagti
+hain. `PHP_CLI_SERVER_WORKERS=10` lagane se theek ho jaata hai.
 
 ---
 
-## Frontend shuru karne se pehle jaan lo
+## Test ka haal
 
-Login response me **user object hai hi nahi**:
+| Kya | Result |
+|---|---|
+| Har module ka chain (attendance, task, SOD/EOD, leave, expense, regularization, asset, ticket, goal, appraisal, recognition, exit, clearance, policy) | pass |
+| Company onboarding end to end | 46 check |
+| Tech team scenario (Manager → TL → 2 dev) | 32 check |
+| Super admin scenario | 18 check |
+| Data import | 14/14 |
+| Audit log, ticket SLA, manager dropdown | API 29/29, app 33/33 |
+| Invoices (plan kharidna → invoice → paid/cancel → download) | API 40/40 |
+| Recruitment API | 64/64 |
+| Career page + embed asli browser me | 33/33 |
+| Recruitment app screens | 36/36 |
+| Interviews + Jitsi API | 47/47 |
+| Interviews app (HR schedule → interviewer feedback → HR reads it) | 54/54 |
+| Offer letter + Google Form intake + vacancy request (API) | 58/58 |
+| Candidate portal → accept → joining → onboarding (API + portal page) | 51/51 |
+| App: offer letter, Google Form, joining pipeline, put on the roll | 51/51 |
+| App: ek email do company me login | 6/6 |
+| File download | 7/7 |
+| Saare 7 role ka scope aur permission | verified |
+| App browser me — har role login karke | 0 JS error |
 
-```json
-{ "data": {
-    "token": "...",
-    "role": "company_admin",
-    "policy_gate": { "blocked": false, "pending": 0 }
-} }
-```
-
-Naam, avatar, department, designation, permissions — kuch nahi milta.
-Login ke turant baad do call karni padengi:
-
-```
-POST /auth/login   →  token + role + policy_gate
-GET  /profile      →  naam, email, department, designation, roles, employee detail
-```
-
-`policy_gate.blocked` **true** aaye to seedha policy-accept screen par bhejo,
-dashboard par nahi.
-
-Baaki jo dhyan rakhna:
-
-- Har request me `Authorization: Bearer <token>` **aur** `X-Company-Id: 1`
-- Login par rate limit **5 per minute**; **5 galat password** par account 15 min lock
-- App timezone **UTC** hai, MySQL **IST** — timestamp hamesha API se aaye ISO string
-  se lo, khud calculate mat karo
-- Route binding `uuid` aur numeric `id` dono accept karta hai
-- List response me `meta` (pagination), error me `error_code` + `errors`
-
----
-
-## Test kaise chalayein
-
-Suites scratchpad me PHP scripts hain, real HTTP hit karti hain — Apache chalna
-chahiye (`http://localhost/clanio-hr-portal/backend/public/api/hrms`).
-
-```
-Purani 16 suites:
-C:\Users\ICG-21\AppData\Local\Temp\claude\...\270b9723-...\scratchpad\
-
-Nayi 2 suites (org chart, ticket):
-C:\Users\ICG-21\AppData\Local\Temp\claude\...\4d29eece-...\scratchpad\
-```
-
-Chalane se pehle:
-
-- Default shift `09:30–18:30`, Sunday off hona chahiye — kuch suites isko badal deti hain
-- Ticket ka data saaf kar lo, warna count wale assertions fail honge
-- `test_realtime` ke liye Reverb chahiye:
-  `php artisan reverb:start --host=127.0.0.1 --port=8080`
+**Abhi tak asli phone par nahi chali.** Native me `expo-secure-store`,
+file picker, share sheet, drawer gesture, safe area — sab alag hain.
+Sabse pehle wahi test karna.

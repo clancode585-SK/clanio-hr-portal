@@ -19,6 +19,7 @@ import { ListRow } from '@/components/ui/ListRow'
 import { Notice } from '@/components/ui/Notice'
 import { Select, type Option } from '@/components/ui/Select'
 import { ErrorState, Loader } from '@/components/ui/States'
+import { today } from '@/lib/clock'
 import { api, apiList, ApiError } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useTheme } from '@/theme/useTheme'
@@ -321,10 +322,6 @@ export default function MyLeaveScreen() {
       </Modal>
     </Screen>
   )
-}
-
-function today(): string {
-  return new Date().toISOString().slice(0, 10)
 }
 
 const styles = StyleSheet.create({

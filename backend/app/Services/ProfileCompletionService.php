@@ -33,8 +33,11 @@ final class ProfileCompletionService
 
     public function forUser(User $actor, ?int $employeeId = null): array
     {
-        $employee = $this->employeeFor($actor, $employeeId);
+        return $this->forEmployee($this->employeeFor($actor, $employeeId));
+    }
 
+    public function forEmployee(Employee $employee): array
+    {
         $sections = [
             $this->personal($employee),
             $this->bank($employee),

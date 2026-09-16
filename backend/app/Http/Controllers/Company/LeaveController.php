@@ -14,6 +14,7 @@ use App\Http\Resources\LeaveRequestResource;
 use App\Models\LeaveRequest;
 use App\Services\LeaveRequestService;
 use App\Support\ApiResponse;
+use App\Support\CompanyTime;
 use App\Support\TenantCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -94,7 +95,7 @@ class LeaveController extends ApiController
     public function calendar(LeaveCalendarRequest $request): JsonResponse
     {
         return ApiResponse::success(
-            $this->leaves->calendar($request->user(), $request->validated('month') ?? now()->format('Y-m')),
+            $this->leaves->calendar($request->user(), $request->validated('month') ?? CompanyTime::now()->format('Y-m')),
             'Leave calendar fetched successfully'
         );
     }

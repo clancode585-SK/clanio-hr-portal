@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\EmployeeExit;
 use App\Models\ExitDocument;
 use App\Models\User;
+use App\Support\CompanyTime;
 use App\Support\NotificationType;
 use App\Support\Recipients;
 use App\Support\TenantCache;
@@ -38,7 +39,7 @@ final class ExitService
 
         $resignationDate = isset($data['resignation_date'])
             ? Carbon::parse($data['resignation_date'])->startOfDay()
-            : Carbon::today();
+            : CompanyTime::day($employee->company_id);
 
         $this->assertResignationDate($resignationDate);
 
@@ -367,7 +368,7 @@ final class ExitService
                 'original_name' => $file->getClientOriginalName(),
                 'mime_type' => $file->getClientMimeType(),
                 'size_bytes' => $file->getSize() ?: 0,
-                'issued_on' => $data['issued_on'] ?? Carbon::today()->toDateString(),
+                'issued_on' => $data['issued_on'] ?? CompanyTime::date(),
                 'remarks' => $data['remarks'] ?? null,
             ]);
 
@@ -445,7 +446,7 @@ final class ExitService
                 'employee_code' => $row->employee_code,
                 'employee_name' => $row->employee_name,
                 'last_working_date' => $row->last_working_date,
-                'days_left' => (int) Carbon::today()->diffInDays(Carbon::parse($row->last_working_date), false),
+                'days_left' => (int) CompanyTime::day()->diffInDays(Carbon::parse($row->last_working_date), false),
             ])
             ->all();
 
@@ -482,7 +483,7 @@ final class ExitService
 
     private function assertResignationDate(Carbon $date): void
     {
-        if ($date->greaterThan(Carbon::today())) {
+        if ($date->greaterThan(CompanyTime::day())) {
             throw new ApiException('Resignation date aane wale din ki nahi ho sakti.', 422, 'EXIT_DATE_INVALID');
         }
     }

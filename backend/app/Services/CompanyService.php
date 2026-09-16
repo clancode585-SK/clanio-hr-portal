@@ -12,6 +12,7 @@ use App\Models\Role;
 use App\Models\TicketCategory;
 use App\Models\TicketCategoryRoute;
 use App\Models\User;
+use App\Support\CompanyTime;
 use App\Support\TenantCache;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
@@ -22,6 +23,8 @@ final class CompanyService
     public const PLATFORM_ONLY_PERMISSIONS = [
         'company.create',
         'company.delete',
+        'plan.manage',
+        'invoice.manage',
     ];
 
     private const CODE_PREFIX = 'EMP';
@@ -151,7 +154,7 @@ final class CompanyService
     private function createAdminEmployee(Company $company, User $admin, array $data, User $actor): Employee
     {
         $employee = new Employee([
-            'date_of_joining' => $data['date_of_joining'] ?? Carbon::today()->toDateString(),
+            'date_of_joining' => $data['date_of_joining'] ?? CompanyTime::date($company),
             'employment_type' => 'full_time',
         ]);
 

@@ -53,6 +53,7 @@ class User extends Authenticatable
             'is_super_admin' => 'boolean',
             'failed_login_attempts' => 'integer',
             'last_login_at' => 'datetime',
+            'tour_done_at' => 'datetime',
             'locked_until' => 'datetime',
         ];
     }

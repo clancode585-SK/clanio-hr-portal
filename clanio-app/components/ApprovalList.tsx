@@ -21,6 +21,8 @@ import { ListRow } from '@/components/ui/ListRow'
 import { Notice } from '@/components/ui/Notice'
 import { EmptyState, ErrorState, Loader } from '@/components/ui/States'
 import { api, apiList, ApiError } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
+import { downloadFile } from '@/lib/download'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -34,6 +36,21 @@ export type Row = {
 }
 
 export type Detail = { label: string; value: string }
+
+export type FileRef = { id: string; label: string; path: string; fileName: string }
+
+export type Bulk<T> = {
+  label: string
+  path: string
+  listKey: string
+  idOf: (item: T) => string
+  eligible: (item: T) => boolean
+  permission?: string
+  title: string
+  confirmLabel: string
+  extra?: ExtraField[]
+  body?: Record<string, unknown>
+}
 
 export type Action = {
   key: string
@@ -60,6 +77,9 @@ type Props<T> = {
   endpoint: string
   toRow: (item: T) => Row
   toDetails: (item: T) => Detail[]
+  detailPath?: (item: T) => string
+  toFiles?: (item: T) => FileRef[]
+  bulk?: Bulk<T>
   toActions: (item: T) => Action[]
   searchPlaceholder?: string
   emptyTitle?: string
@@ -72,6 +92,9 @@ export function ApprovalList<T>({
   endpoint,
   toRow,
   toDetails,
+  detailPath,
+  toFiles,
+  bulk,
   toActions,
   searchPlaceholder = 'Search',
   emptyTitle = 'Nothing pending',
@@ -89,6 +112,11 @@ export function ApprovalList<T>({
   const [filter, setFilter] = useState<string>('all')
 
   const [open, setOpen] = useState<T | null>(null)
+  const { can } = useAuth()
+  const [opening, setOpening] = useState<string | null>(null)
+  const [picking, setPicking] = useState(false)
+  const [chosen, setChosen] = useState<string[]>([])
+  const [confirming, setConfirming] = useState(false)
   const [remarks, setRemarks] = useState('')
   const [extras, setExtras] = useState<Record<string, string>>({})
   const [running, setRunning] = useState<string | null>(null)
@@ -138,6 +166,88 @@ export function ApprovalList<T>({
     return term ? mapped.filter((entry) => entry.row.search.toLowerCase().includes(term)) : mapped
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [items, search, filter])
+
+  const toggle = (id: string) => {
+    setChosen((current) => (current.includes(id) ? current.filter((one) => one !== id) : [...current, id]))
+  }
+
+  const leavePicking = () => {
+    setPicking(false)
+    setChosen([])
+    setConfirming(false)
+    setExtras({})
+  }
+
+  const runBulk = async () => {
+    if (!bulk || chosen.length === 0 || running) {
+      return
+    }
+
+    for (const field of bulk.extra ?? []) {
+      if (field.required && String(extras[field.key] ?? '').trim().length === 0) {
+        setProblem(field.label + ' is required.')
+
+        return
+      }
+    }
+
+    setRunning('bulk')
+    setProblem(null)
+
+    const body: Record<string, unknown> = { ...(bulk.body ?? {}), [bulk.listKey]: chosen }
+
+    for (const field of bulk.extra ?? []) {
+      const value = String(extras[field.key] ?? '').trim()
+
+      if (value.length > 0) {
+        body[field.key] = value
+      }
+    }
+
+    try {
+      await api(bulk.path, { method: 'POST', body })
+      leavePicking()
+      await pull('refresh')
+    } catch (caught) {
+      setProblem(caught instanceof ApiError ? caught.message : 'That did not go through.')
+    } finally {
+      setRunning(null)
+    }
+  }
+
+  const reveal = async (item: T) => {
+    setOpen(item)
+    setProblem(null)
+
+    if (!detailPath) {
+      return
+    }
+
+    try {
+      const full = await api<T>(detailPath(item))
+
+      setOpen(full)
+    } catch {
+      setProblem(null)
+    }
+  }
+
+  const openFile = async (file: FileRef) => {
+    if (opening) {
+      return
+    }
+
+    setOpening(file.id)
+    setProblem(null)
+
+    try {
+      await downloadFile(file.path, file.fileName)
+    } catch (caught) {
+      setProblem(caught instanceof Error ? caught.message : 'Could not open the file.')
+    } finally {
+      setOpening(null)
+    }
+  }
 
   const close = () => {
     setOpen(null)
@@ -197,12 +307,26 @@ export function ApprovalList<T>({
   }
 
   const actions = open ? toActions(open) : []
+  const canBulk = Boolean(bulk) && (!bulk?.permission || can(bulk.permission))
+
+  const files = open && toFiles ? toFiles(open) : []
+
   const needsRemarks = actions.some((action) => action.remarks && action.remarks !== 'none')
   const extraFields = actions.flatMap((action) => action.extra ?? [])
   const requiredBy = actions.find((action) => action.remarks === 'required')
 
   return (
-    <Screen title={title} subtitle={`${items?.length ?? 0} total`}>
+    <Screen
+      title={title}
+      subtitle={picking ? `${chosen.length} selected` : `${items?.length ?? 0} total`}
+      action={
+        canBulk
+          ? picking
+            ? { label: 'Cancel', onPress: leavePicking }
+            : { label: bulk!.label, onPress: () => setPicking(true) }
+          : undefined
+      }
+    >
       {loading ? (
         <Loader />
       ) : error ? (
@@ -264,19 +388,64 @@ export function ApprovalList<T>({
               />
             </View>
           }
-          renderItem={({ item }) => (
-            <ListRow
-              title={item.row.title}
-              subtitle={item.row.subtitle}
-              badge={item.row.badge}
-              meta={item.row.meta}
-              onPress={() => {
-                setOpen(item.item)
-                setRemarks('')
-                setProblem(null)
-              }}
-            />
-          )}
+          renderItem={({ item }) => {
+            if (picking && bulk) {
+              const id = bulk.idOf(item.item)
+              const allowed = bulk.eligible(item.item)
+              const active = chosen.includes(id)
+
+              return (
+                <Pressable
+                  onPress={() => (allowed ? toggle(id) : undefined)}
+                  style={[
+                    styles.pick,
+                    {
+                      backgroundColor: theme.surface,
+                      borderColor: active ? theme.brand : theme.line,
+                      opacity: allowed ? 1 : 0.45,
+                    },
+                  ]}
+                >
+                  <View
+                    style={[
+                      styles.box,
+                      {
+                        backgroundColor: active ? theme.brand : 'transparent',
+                        borderColor: active ? theme.brand : theme.line,
+                      },
+                    ]}
+                  >
+                    {active ? <Icon name="checkmark" size={13} color="#FFFFFF" /> : null}
+                  </View>
+
+                  <View style={styles.pickText}>
+                    <Text style={[styles.pickTitle, { color: theme.ink }]}>{item.row.title}</Text>
+                    <Text style={[styles.pickSub, { color: theme.inkSubtle }]}>
+                      {allowed ? item.row.subtitle : 'Not ready for this yet'}
+                    </Text>
+                  </View>
+
+                  {item.row.badge ? (
+                    <Text style={[styles.pickBadge, { color: theme.ink }]}>{item.row.badge}</Text>
+                  ) : null}
+                </Pressable>
+              )
+            }
+
+            return (
+              <ListRow
+                title={item.row.title}
+                subtitle={item.row.subtitle}
+                badge={item.row.badge}
+                meta={item.row.meta}
+                onPress={() => {
+                  void reveal(item.item)
+                  setRemarks('')
+                  setProblem(null)
+                }}
+              />
+            )
+          }}
         />
       )}
 
@@ -302,6 +471,33 @@ export function ApprovalList<T>({
                     </View>
                   ))}
                 </View>
+
+                {files.length > 0 ? (
+                  <View style={styles.files}>
+                    <Text style={[styles.filesTitle, { color: theme.inkSubtle }]}>
+                      Files ({files.length})
+                    </Text>
+
+                    {files.map((file) => (
+                      <Pressable
+                        key={file.id}
+                        onPress={() => openFile(file)}
+                        style={({ pressed }) => [
+                          styles.file,
+                          { backgroundColor: pressed ? theme.canvas : theme.surface, borderColor: theme.line },
+                        ]}
+                      >
+                        <Icon name="document-text-outline" size={18} color={theme.brand} />
+                        <Text numberOfLines={1} style={[styles.fileName, { color: theme.ink }]}>
+                          {file.label}
+                        </Text>
+                        <Text style={[styles.fileHint, { color: theme.inkSubtle }]}>
+                          {opening === file.id ? 'Opening' : 'Open'}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                ) : null}
 
                 {problem ? <Notice tone="danger" title="Failed" message={problem} /> : null}
 
@@ -369,6 +565,44 @@ export function ApprovalList<T>({
           </View>
         </KeyboardAvoidingView>
       </Modal>
+
+      {picking && bulk ? (
+        <View style={[styles.bulkBar, { backgroundColor: theme.surface, borderTopColor: theme.line, paddingBottom: insets.bottom + spacing.md }]}>
+          {problem ? <Notice tone="danger" title="Failed" message={problem} /> : null}
+
+          {confirming ? (
+            <>
+              {(bulk.extra ?? []).map((field) => (
+                <View key={field.key} style={styles.extraField}>
+                  <Text style={[styles.remarksLabel, { color: theme.inkMuted }]}>{field.label}</Text>
+                  <TextInput
+                    value={extras[field.key] ?? ''}
+                    onChangeText={(next) => setExtras((current) => ({ ...current, [field.key]: next }))}
+                    placeholder={field.placeholder}
+                    placeholderTextColor={theme.inkSubtle}
+                    style={[styles.extraInput, { color: theme.ink, borderColor: theme.line, backgroundColor: theme.canvas }]}
+                  />
+                </View>
+              ))}
+
+              <Button
+                label={`${bulk.confirmLabel} (${chosen.length})`}
+                onPress={runBulk}
+                loading={running === 'bulk'}
+                fullWidth
+              />
+              <Button label="Back" variant="ghost" onPress={() => setConfirming(false)} disabled={running !== null} fullWidth />
+            </>
+          ) : (
+            <Button
+              label={chosen.length === 0 ? 'Pick some rows first' : `${bulk.title} · ${chosen.length}`}
+              onPress={() => setConfirming(true)}
+              disabled={chosen.length === 0}
+              fullWidth
+            />
+          )}
+        </View>
+      ) : null}
     </Screen>
   )
 }
@@ -474,12 +708,80 @@ const styles = StyleSheet.create({
   extra: {
     gap: 6,
   },
+  extraField: {
+    gap: 6,
+  },
   extraInput: {
     borderWidth: 1,
     borderRadius: radius.md,
     paddingHorizontal: spacing.lg,
     paddingVertical: 12,
     fontSize: font.md,
+  },
+  pick: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderWidth: 1,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+  },
+  box: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  pickText: {
+    flex: 1,
+    gap: 2,
+  },
+  pickTitle: {
+    fontSize: font.md,
+    fontWeight: '600',
+  },
+  pickSub: {
+    fontSize: font.sm,
+  },
+  pickBadge: {
+    fontSize: font.sm,
+    fontWeight: '800',
+  },
+  bulkBar: {
+    borderTopWidth: 1,
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.md,
+    gap: spacing.sm,
+  },
+  files: {
+    gap: spacing.sm,
+    marginBottom: spacing.md,
+  },
+  filesTitle: {
+    fontSize: font.xs,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  file: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  fileName: {
+    flex: 1,
+    fontSize: font.sm,
+    fontWeight: '600',
+  },
+  fileHint: {
+    fontSize: font.xs,
+    fontWeight: '700',
   },
   remarks: {
     gap: 6,

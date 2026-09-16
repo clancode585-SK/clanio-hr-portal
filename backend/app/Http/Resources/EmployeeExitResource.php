@@ -5,9 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Resources;
 
 use App\Models\EmployeeExit;
+use App\Support\CompanyTime;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Carbon;
 
 class EmployeeExitResource extends JsonResource
 {
@@ -109,6 +109,6 @@ class EmployeeExitResource extends JsonResource
             return null;
         }
 
-        return (int) round(Carbon::today()->diffInDays($this->last_working_date, false));
+        return (int) round(CompanyTime::day()->diffInDays($this->last_working_date, false));
     }
 }

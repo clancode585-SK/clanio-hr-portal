@@ -11,6 +11,7 @@ use App\Http\Resources\AttendanceResource;
 use App\Models\Attendance;
 use App\Services\AttendanceService;
 use App\Support\ApiResponse;
+use App\Support\CompanyTime;
 use App\Support\TenantCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -69,7 +70,7 @@ class AttendanceController extends ApiController
         return ApiResponse::success(
             $this->attendance->calendar(
                 $request->user(),
-                $request->validated('month') ?? now()->format('Y-m'),
+                $request->validated('month') ?? CompanyTime::now()->format('Y-m'),
                 $employeeId === null ? null : (int) $employeeId
             ),
             'Attendance calendar fetched successfully'

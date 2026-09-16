@@ -17,6 +17,7 @@ import { Field } from '@/components/ui/Field'
 import { ListRow } from '@/components/ui/ListRow'
 import { Notice } from '@/components/ui/Notice'
 import { EmptyState, ErrorState, Loader } from '@/components/ui/States'
+import { today } from '@/lib/clock'
 import { api, ApiError } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useResource } from '@/lib/useResource'
@@ -366,7 +367,7 @@ function Row({ label, value }: { label: string; value: unknown }) {
 }
 
 function currentMonth(): string {
-  return new Date().toISOString().slice(0, 7)
+  return today().slice(0, 7)
 }
 
 function shiftMonth(value: string, delta: number): string {

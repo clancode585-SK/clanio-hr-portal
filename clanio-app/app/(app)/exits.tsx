@@ -1,4 +1,4 @@
-import { ApprovalList, type Action, type Detail, type Row } from '@/components/ApprovalList'
+import { ApprovalList, type Action, type Detail, type FileRef, type Row } from '@/components/ApprovalList'
 import { useAuth } from '@/lib/auth'
 
 type Item = Record<string, any>
@@ -16,6 +16,8 @@ export default function ExitsScreen() {
       emptyMessage="Exit requests will appear here."
       filters={[
         { key: 'open', label: 'Open', test: (item) => !item.is_closed },
+        { key: 'hr', label: 'With HR', test: (item) => item.status === 'manager_approved' },
+        { key: 'notice', label: 'On notice', test: (item) => item.status === 'serving_notice' },
         { key: 'closed', label: 'Closed', test: (item) => Boolean(item.is_closed) },
       ]}
       toRow={(item): Row => ({
@@ -28,6 +30,15 @@ export default function ExitsScreen() {
         meta: item.status,
         search: `${item.employee_name ?? ''} ${item.status ?? ''}`,
       })}
+      detailPath={(item) => `/exits/${item.uuid ?? item.id}`}
+      toFiles={(item): FileRef[] =>
+        (item.documents ?? []).map((doc: Record<string, any>) => ({
+          id: String(doc.uuid ?? doc.id),
+          label: doc.type_label ?? doc.original_name ?? 'Document',
+          path: `/exit-documents/${doc.uuid ?? doc.id}/download`,
+          fileName: doc.original_name ?? 'document.pdf',
+        }))
+      }
       toDetails={(item): Detail[] => [
         { label: 'Type', value: item.exit_type_label ?? item.exit_type ?? '—' },
         { label: 'Reason', value: item.reason ?? '—' },

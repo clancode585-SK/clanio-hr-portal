@@ -25,7 +25,7 @@ class CompanyController extends ApiController
             TenantCache::COMPANIES,
             $this->cacheKey($request),
             fn () => $this->applyFilters(
-                Company::query(),
+                Company::query()->with('plan'),
                 $request,
                 ['name', 'slug', 'email'],
                 ['status' => 'status']
@@ -47,7 +47,7 @@ class CompanyController extends ApiController
 
     public function show(Company $company): JsonResponse
     {
-        return ApiResponse::success(new CompanyResource($company), 'Company details fetched successfully');
+        return ApiResponse::success(new CompanyResource($company->load('plan')), 'Company details fetched successfully');
     }
 
     public function update(CompanyRequest $request, Company $company): JsonResponse

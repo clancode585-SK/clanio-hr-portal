@@ -41,4 +41,14 @@ return [
         'timeout' => (int) env('FCM_TIMEOUT', 8),
     ],
 
+    'jitsi' => [
+        'base_url' => env('JITSI_BASE_URL', 'https://meet.jit.si'),
+    ],
+
+    'bank' => [
+        'driver' => env('BANK_DRIVER', 'mock'),
+        'mock_fail_ifsc' => env('BANK_MOCK_FAIL_IFSC', 'HDFC0000999'),
+        'mock_pending' => env('BANK_MOCK_PENDING', false),
+    ],
+
 ];

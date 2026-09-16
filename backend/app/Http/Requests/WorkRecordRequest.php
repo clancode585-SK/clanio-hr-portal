@@ -4,8 +4,8 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use App\Support\CompanyTime;
 use Illuminate\Foundation\Http\FormRequest;
-use Illuminate\Support\Carbon;
 
 class WorkRecordRequest extends FormRequest
 {
@@ -24,7 +24,7 @@ class WorkRecordRequest extends FormRequest
 
     public function month(): string
     {
-        return $this->validated('month') ?? Carbon::today()->format('Y-m');
+        return $this->validated('month') ?? CompanyTime::now()->format('Y-m');
     }
 
     public function employeeId(): ?int

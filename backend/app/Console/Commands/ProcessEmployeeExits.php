@@ -7,10 +7,10 @@ namespace App\Console\Commands;
 use App\Models\Company;
 use App\Models\EmployeeExit;
 use App\Services\ExitService;
+use App\Support\CompanyTime;
 use App\Support\Scopes\CompanyScope;
 use App\Support\TenantContext;
 use Illuminate\Console\Command;
-use Illuminate\Support\Carbon;
 
 class ProcessEmployeeExits extends Command
 {
@@ -25,11 +25,11 @@ class ProcessEmployeeExits extends Command
 
     public function handle(): int
     {
-        $today = Carbon::today();
         $done = 0;
 
         foreach (Company::query()->where('status', 'active')->get(['id']) as $company) {
             app(TenantContext::class)->set($company);
+            $today = CompanyTime::day($company);
 
             $due = EmployeeExit::query()
                 ->withoutGlobalScope(CompanyScope::class)

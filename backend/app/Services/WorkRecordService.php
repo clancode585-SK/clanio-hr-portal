@@ -12,6 +12,7 @@ use App\Models\Employee;
 use App\Models\LeaveRequest;
 use App\Models\Task;
 use App\Models\User;
+use App\Support\CompanyTime;
 use App\Support\WorkCalendar;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -330,7 +331,7 @@ final class WorkRecordService
 
     private function workingDaysCount(Employee $employee, Carbon $start, Carbon $end): int
     {
-        $today = Carbon::today();
+        $today = CompanyTime::day();
         $stop = $end->greaterThan($today) ? $today : $end;
         $count = 0;
 
@@ -394,7 +395,7 @@ final class WorkRecordService
      */
     private function asOf(Carbon $end): Carbon
     {
-        $today = Carbon::today();
+        $today = CompanyTime::day();
 
         return $end->greaterThan($today) ? $today : $end->copy();
     }

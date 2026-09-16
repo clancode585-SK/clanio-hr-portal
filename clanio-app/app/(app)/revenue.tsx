@@ -1,12 +1,12 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo } from 'react'
 import { useRouter } from 'expo-router'
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Screen } from '@/components/Screen'
-import { Field } from '@/components/ui/Field'
 import { Notice } from '@/components/ui/Notice'
 import { ErrorState, Loader } from '@/components/ui/States'
 import { apiList } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { money } from '@/lib/plans'
 import { useResource } from '@/lib/useResource'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
@@ -18,8 +18,6 @@ export default function RevenueScreen() {
   const router = useRouter()
   const { isSuperAdmin } = useAuth()
 
-  const [rate, setRate] = useState('')
-
   const load = useCallback(async () => {
     const result = await apiList<Company>('/companies?per_page=200')
 
@@ -28,26 +26,32 @@ export default function RevenueScreen() {
 
   const record = useResource<Company[]>(load, [])
 
-  const rows = useMemo(() => {
-    const perSeat = Number(rate) > 0 ? Number(rate) : null
+  const rows = useMemo(
+    () =>
+      (record.data ?? [])
+        .filter((row) => (row.status ?? 'active') === 'active')
+        .map((row) => {
+          const seats = Number(row.employee_count ?? 0)
+          const cap = Number(row.max_employees ?? 0)
+          const rate = Number(row.plan?.price_per_seat ?? 0)
+          const gstPercent = Number(row.plan?.gst_percent ?? 0)
+          const subtotal = rate * seats
+          const gst = (subtotal * gstPercent) / 100
 
-    return (record.data ?? [])
-      .filter((row) => (row.status ?? 'active') === 'active')
-      .map((row) => {
-        const used = Number(row.employee_count ?? 0)
-        const cap = Number(row.max_employees ?? 0)
-
-        return {
-          id: String(row.uuid ?? row.id),
-          name: row.name,
-          slug: row.slug,
-          used,
-          cap,
-          billable: perSeat === null ? null : used * perSeat,
-        }
-      })
-      .sort((a, b) => b.used - a.used)
-  }, [record.data, rate])
+          return {
+            id: String(row.uuid ?? row.id),
+            name: row.name,
+            plan: row.plan?.name ?? null,
+            seats,
+            cap,
+            subtotal,
+            gst,
+            total: subtotal + gst,
+          }
+        })
+        .sort((a, b) => b.total - a.total || b.seats - a.seats),
+    [record.data]
+  )
 
   if (!isSuperAdmin) {
     return (
@@ -75,50 +79,42 @@ export default function RevenueScreen() {
     )
   }
 
-  const totalUsed = rows.reduce((sum, row) => sum + row.used, 0)
-  const totalCap = rows.reduce((sum, row) => sum + row.cap, 0)
-  const perSeat = Number(rate) > 0 ? Number(rate) : null
-  const monthly = perSeat === null ? null : totalUsed * perSeat
-  const widest = Math.max(1, ...rows.map((row) => row.used))
+  const billed = rows.filter((row) => row.plan !== null)
+  const unbilled = rows.filter((row) => row.plan === null)
+  const monthly = billed.reduce((sum, row) => sum + row.total, 0)
+  const seats = billed.reduce((sum, row) => sum + row.seats, 0)
+  const widest = Math.max(1, ...rows.map((row) => row.total))
 
   return (
-    <Screen title="Revenue" subtitle={`${rows.length} paying companies`}>
+    <Screen title="Revenue" subtitle={`${billed.length} on a plan`}>
       <ScrollView
         contentContainerStyle={styles.scroll}
         refreshControl={
           <RefreshControl refreshing={record.refreshing} onRefresh={record.refresh} tintColor={theme.brand} />
         }
       >
-        <Notice
-          tone="warning"
-          title="Rates are not stored yet"
-          message="Type a per-seat rate to model the numbers. Saving real plans and invoices needs the billing tables built first."
-        />
-
-        <Field
-          label="Per seat, per month"
-          value={rate}
-          onChangeText={setRate}
-          placeholder="199"
-          keyboardType="decimal-pad"
-        />
-
         <View style={styles.summary}>
           <View style={[styles.stat, { backgroundColor: theme.surface, borderColor: theme.line }]}>
-            <Text style={[styles.statValue, { color: theme.brand }]}>{totalUsed}</Text>
-            <Text style={[styles.statLabel, { color: theme.inkMuted }]}>Seats in use</Text>
+            <Text style={[styles.statValue, { color: theme.success }]}>{money(monthly)}</Text>
+            <Text style={[styles.statLabel, { color: theme.inkMuted }]}>Every month</Text>
           </View>
           <View style={[styles.stat, { backgroundColor: theme.surface, borderColor: theme.line }]}>
-            <Text style={[styles.statValue, { color: theme.ink }]}>{totalCap || '—'}</Text>
-            <Text style={[styles.statLabel, { color: theme.inkMuted }]}>Seats sold</Text>
+            <Text style={[styles.statValue, { color: theme.brand }]}>{seats}</Text>
+            <Text style={[styles.statLabel, { color: theme.inkMuted }]}>Seats billed</Text>
           </View>
           <View style={[styles.stat, { backgroundColor: theme.surface, borderColor: theme.line }]}>
-            <Text style={[styles.statValue, { color: monthly === null ? theme.inkSubtle : theme.success }]}>
-              {monthly === null ? '—' : formatMoney(monthly)}
-            </Text>
-            <Text style={[styles.statLabel, { color: theme.inkMuted }]}>Monthly</Text>
+            <Text style={[styles.statValue, { color: theme.ink }]}>{money(monthly * 12)}</Text>
+            <Text style={[styles.statLabel, { color: theme.inkMuted }]}>Run rate</Text>
           </View>
         </View>
+
+        {unbilled.length > 0 ? (
+          <Notice
+            tone="warning"
+            title={`${unbilled.length} ${unbilled.length === 1 ? 'company has' : 'companies have'} no plan`}
+            message={`${unbilled.map((row) => row.name).join(', ')} — open the company and pick a plan to start billing.`}
+          />
+        ) : null}
 
         <Text style={[styles.group, { color: theme.inkSubtle }]}>By company</Text>
 
@@ -132,32 +128,33 @@ export default function RevenueScreen() {
             ]}
           >
             <View style={styles.rowHead}>
-              <Text style={[styles.rowName, { color: theme.ink }]} numberOfLines={1}>
+              <Text numberOfLines={1} style={[styles.rowName, { color: theme.ink }]}>
                 {row.name}
               </Text>
-              <Text style={[styles.rowValue, { color: row.billable === null ? theme.inkSubtle : theme.ink }]}>
-                {row.billable === null ? `${row.used} seats` : formatMoney(row.billable)}
+              <Text style={[styles.rowValue, { color: row.plan ? theme.ink : theme.inkSubtle }]}>
+                {row.plan ? money(row.total) : 'No plan'}
               </Text>
             </View>
 
             <View style={[styles.track, { backgroundColor: theme.canvas }]}>
               <View
-                style={[styles.fill, { backgroundColor: theme.brand, width: `${(row.used / widest) * 100}%` }]}
+                style={[
+                  styles.fill,
+                  { backgroundColor: row.plan ? theme.brand : theme.line, width: `${(row.total / widest) * 100}%` },
+                ]}
               />
             </View>
 
             <Text style={[styles.rowMeta, { color: theme.inkSubtle }]}>
-              {row.used} of {row.cap || '—'} seats · {row.slug}
+              {row.plan ? `${row.plan} · ` : ''}
+              {row.seats} of {row.cap || '—'} seats
+              {row.plan ? ` · ${money(row.subtotal)} + ${money(row.gst)} GST` : ''}
             </Text>
           </Pressable>
         ))}
       </ScrollView>
     </Screen>
   )
-}
-
-function formatMoney(value: number): string {
-  return '₹' + Math.round(value).toLocaleString('en-IN')
 }
 
 const styles = StyleSheet.create({
@@ -181,7 +178,7 @@ const styles = StyleSheet.create({
     gap: 2,
   },
   statValue: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '800',
     letterSpacing: -0.5,
   },

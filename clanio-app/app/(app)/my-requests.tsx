@@ -19,6 +19,7 @@ import { ListRow } from '@/components/ui/ListRow'
 import { Notice } from '@/components/ui/Notice'
 import { Select, type Option } from '@/components/ui/Select'
 import { EmptyState, ErrorState, Loader } from '@/components/ui/States'
+import { daysBefore, today } from '@/lib/clock'
 import { api, apiList, ApiError } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { documentTypes, pickFile, toFormData, type PickedFile } from '@/lib/upload'
@@ -174,7 +175,7 @@ export default function MyRequestsScreen() {
     setEligible(null)
 
     const to = today()
-    const from = new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10)
+    const from = daysBefore(to, 30)
 
     try {
       const result = await api<{ days?: EligibleDay[] }>(`/regularizations/eligible-days?from=${from}&to=${to}`)
@@ -664,10 +665,6 @@ function Group({
       {rows.map(render)}
     </View>
   )
-}
-
-function today(): string {
-  return new Date().toISOString().slice(0, 10)
 }
 
 function isDate(value: string): boolean {

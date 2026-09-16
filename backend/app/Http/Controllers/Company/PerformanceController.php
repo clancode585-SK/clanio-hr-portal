@@ -8,6 +8,7 @@ use App\Http\Controllers\ApiController;
 use App\Http\Requests\PerformanceWeightRequest;
 use App\Services\PerformanceService;
 use App\Support\ApiResponse;
+use App\Support\CompanyTime;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -75,6 +76,6 @@ class PerformanceController extends ApiController
     {
         return $request->filled('month')
             ? $request->string('month')->toString()
-            : now()->format('Y-m');
+            : CompanyTime::now()->format('Y-m');
     }
 }

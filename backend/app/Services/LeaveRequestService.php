@@ -11,6 +11,7 @@ use App\Models\LeaveRequest;
 use App\Models\LeaveRequestDay;
 use App\Models\LeaveType;
 use App\Models\User;
+use App\Support\CompanyTime;
 use App\Support\LeaveCalendar;
 use App\Support\NotificationType;
 use App\Support\Realtime;
@@ -544,7 +545,7 @@ final class LeaveRequestService
         }
 
         if ($type->min_notice_days > 0) {
-            $earliest = Carbon::today()->addDays($type->min_notice_days);
+            $earliest = CompanyTime::day($employee->company_id)->addDays($type->min_notice_days);
 
             if ($from->lessThan($earliest)) {
                 throw new ApiException(
@@ -677,7 +678,7 @@ final class LeaveRequestService
             throw new ApiException('Rejected leave cancel nahi hoti.', 409, 'LEAVE_ALREADY_DECIDED');
         }
 
-        if ($request->isApproved() && $request->from_date->lessThan(Carbon::today())) {
+        if ($request->isApproved() && $request->from_date->lessThan(CompanyTime::day())) {
             throw new ApiException(
                 'Guzar chuki leave cancel nahi ho sakti. HR se attendance regularize karwao.',
                 409,

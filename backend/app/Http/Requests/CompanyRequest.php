@@ -40,7 +40,7 @@ class CompanyRequest extends FormRequest
             'cin_number' => ['nullable', 'string', 'max:21'],
             'industry' => ['nullable', 'string', 'max:100'],
             'max_employees' => ['nullable', 'integer', 'min:1'],
-            'timezone' => ['nullable', 'string', 'max:64'],
+            'timezone' => ['nullable', 'string', 'max:64', 'timezone'],
             'currency' => ['nullable', 'string', 'size:3'],
             'fiscal_year_start' => ['nullable', 'integer', 'between:1,12'],
             'sod_cutoff' => ['nullable', 'date_format:H:i'],

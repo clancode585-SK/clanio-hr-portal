@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'expo-router'
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Screen } from '@/components/Screen'
@@ -8,7 +8,7 @@ import { Notice } from '@/components/ui/Notice'
 import { Select, type Option } from '@/components/ui/Select'
 import { Stepper } from '@/components/ui/Stepper'
 import { api, ApiError } from '@/lib/api'
-import { money, planByCode, plans, priceOrder, gstPercent } from '@/lib/plans'
+import { loadPlans, money, priceOrder, type Plan } from '@/lib/plans'
 import { useAuth } from '@/lib/auth'
 import { useTheme } from '@/theme/useTheme'
 import { font, spacing } from '@/theme/tokens'
@@ -74,6 +74,22 @@ export default function CompanyCreateScreen() {
 
   const [step, setStep] = useState(0)
   const [paid, setPaid] = useState(false)
+  const [reference, setReference] = useState('')
+  const [plans, setPlans] = useState<Plan[]>([])
+
+  useEffect(() => {
+    let live = true
+
+    void loadPlans().then((rows) => {
+      if (live) {
+        setPlans(rows)
+      }
+    })
+
+    return () => {
+      live = false
+    }
+  }, [])
   const [values, setValues] = useState<Values>({
     country: 'India',
     currency: 'INR',
@@ -156,7 +172,7 @@ export default function CompanyCreateScreen() {
     }
 
     if (index === 3) {
-      const plan = planByCode(get('plan') || null)
+      const plan = plans.find((row) => row.code === get('plan')) ?? null
 
       if (!plan) {
         next.plan = 'Pick a plan'
@@ -166,8 +182,8 @@ export default function CompanyCreateScreen() {
 
       const seats = Number(get('seats'))
 
-      if (!Number.isInteger(seats) || seats < plan.minSeats || seats > plan.maxSeats) {
-        next.seats = `Between ${plan.minSeats} and ${plan.maxSeats} seats on ${plan.name}`
+      if (!Number.isInteger(seats) || seats < plan.min_seats || seats > plan.max_seats) {
+        next.seats = `Between ${plan.min_seats} and ${plan.max_seats} seats on ${plan.name}`
       }
     }
 
@@ -246,6 +262,18 @@ export default function CompanyCreateScreen() {
 
       const created = result?.company
 
+      if (created && chosenPlan) {
+        await api(`/companies/${created.uuid ?? created.id}/plan`, {
+          method: 'PUT',
+          body: {
+            plan_id: chosenPlan.id,
+            seats: Number(get('seats')),
+            payment_reference: reference,
+            payment_method: 'test',
+          },
+        }).catch(() => undefined)
+      }
+
       router.replace((created ? `/companies/${created.uuid ?? created.id}` : '/companies') as never)
     } catch (caught) {
       if (caught instanceof ApiError && caught.status === 422 && Object.keys(caught.fields).length > 0) {
@@ -268,7 +296,7 @@ export default function CompanyCreateScreen() {
     }
   }
 
-  const chosenPlan = planByCode(get('plan') || null)
+  const chosenPlan = plans.find((row) => row.code === get('plan')) ?? null
   const seatCount = Number(get('seats')) || 0
   const order = chosenPlan && seatCount > 0 ? priceOrder(chosenPlan, seatCount) : null
 
@@ -353,6 +381,14 @@ export default function CompanyCreateScreen() {
             <View style={styles.form}>
               <Text style={[styles.sectionTitle, { color: theme.ink }]}>Pick a plan</Text>
 
+              {plans.length === 0 ? (
+                <Notice
+                  tone="warning"
+                  title="No plans set up"
+                  message="Add at least one plan from the Plans screen before onboarding a company."
+                />
+              ) : null}
+
               {plans.map((plan) => {
                 const active = get('plan') === plan.code
 
@@ -362,8 +398,8 @@ export default function CompanyCreateScreen() {
                     onPress={() => {
                       set('plan', plan.code)
 
-                      if (!get('seats') || Number(get('seats')) < plan.minSeats || Number(get('seats')) > plan.maxSeats) {
-                        set('seats', String(plan.minSeats))
+                      if (!get('seats') || Number(get('seats')) < plan.min_seats || Number(get('seats')) > plan.max_seats) {
+                        set('seats', String(plan.min_seats))
                       }
                     }}
                     style={[
@@ -381,17 +417,17 @@ export default function CompanyCreateScreen() {
                       </View>
 
                       <View style={styles.planPrice}>
-                        <Text style={[styles.planAmount, { color: theme.brand }]}>{money(plan.pricePerSeat)}</Text>
+                        <Text style={[styles.planAmount, { color: theme.brand }]}>{money(plan.price_per_seat)}</Text>
                         <Text style={[styles.planUnit, { color: theme.inkSubtle }]}>per seat</Text>
                       </View>
                     </View>
 
-                    {plan.popular ? (
+                    {plan.is_popular ? (
                       <Text style={[styles.planBadge, { color: theme.success }]}>Most companies pick this</Text>
                     ) : null}
 
                     <Text style={[styles.planMeta, { color: theme.inkMuted }]}>
-                      {plan.minSeats} to {plan.maxSeats} seats · {plan.highlights.join(' · ')}
+                      {plan.min_seats} to {plan.max_seats} seats · {plan.highlights.join(' · ')}
                     </Text>
                   </Pressable>
                 )
@@ -404,7 +440,7 @@ export default function CompanyCreateScreen() {
                   label="How many seats"
                   value={get('seats')}
                   onChangeText={(v) => set('seats', v)}
-                  placeholder={String(chosenPlan.minSeats)}
+                  placeholder={String(chosenPlan.min_seats)}
                   keyboardType="number-pad"
                   error={errors.seats}
                   editable={!busy}
@@ -437,7 +473,7 @@ export default function CompanyCreateScreen() {
                     <Text style={[styles.rowValue, { color: theme.ink }]}>{money(order.subtotal)}</Text>
                   </View>
                   <View style={styles.row}>
-                    <Text style={[styles.rowLabel, { color: theme.inkMuted }]}>GST {gstPercent}%</Text>
+                    <Text style={[styles.rowLabel, { color: theme.inkMuted }]}>GST {order.gstPercent}%</Text>
                     <Text style={[styles.rowValue, { color: theme.ink }]}>{money(order.gst)}</Text>
                   </View>
 
@@ -452,7 +488,7 @@ export default function CompanyCreateScreen() {
                 <Notice
                   tone="success"
                   title="Payment recorded"
-                  message="Test payment accepted. Create the workspace to finish."
+                  message={`Reference ${reference}. Create the workspace and the invoice is raised as paid.`}
                 />
               ) : (
                 <Notice
@@ -473,7 +509,10 @@ export default function CompanyCreateScreen() {
             ) : (
               <Button
                 label={order ? `Pay ${money(order.total)}` : 'Pay'}
-                onPress={() => setPaid(true)}
+                onPress={() => {
+                  setReference('TEST-' + Date.now().toString(36).toUpperCase())
+                  setPaid(true)
+                }}
                 disabled={busy || !order}
                 fullWidth
               />

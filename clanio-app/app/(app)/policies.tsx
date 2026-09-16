@@ -1,4 +1,4 @@
-import { CrudList, type FieldSpec, type RowAction } from '@/components/CrudList'
+import { CrudList, type FieldSpec, type RowAction, type SheetExtra } from '@/components/CrudList'
 
 type Item = Record<string, any>
 
@@ -51,6 +51,20 @@ const rowActions: RowAction<Item>[] = [
   },
 ]
 
+const compliance: SheetExtra<Item> = {
+  title: 'Who has accepted it',
+  path: (item) => `/policies/${item.uuid ?? item.id}/compliance`,
+  permission: 'policy.manage',
+  empty: 'Nobody has been asked to accept this yet.',
+  toRows: (data: Item) =>
+    (data?.rows ?? data?.items ?? []).map((row: Item, index: number) => ({
+      key: String(row.employee_id ?? row.id ?? index),
+      title: row.name ?? row.employee_name ?? 'Employee',
+      subtitle: row.employee_code ?? row.department ?? undefined,
+      meta: row.status === 'acknowledged' ? 'Accepted' : row.overdue ? 'Overdue' : 'Pending',
+    })),
+}
+
 export default function PoliciesScreen() {
   return (
     <CrudList<Item>
@@ -60,6 +74,7 @@ export default function PoliciesScreen() {
       fields={fields}
       updateMethod="POST"
       rowActions={rowActions}
+      sheetExtra={compliance}
       permissions={{ create: 'policy.manage', edit: 'policy.manage', delete: 'policy.manage' }}
       searchPlaceholder="Search policies"
       emptyTitle="No policies"

@@ -124,6 +124,16 @@ final class NotificationType
 
     public const POLICY_REMINDER = 'policy.reminder';
 
+    public const PROFILE_INCOMPLETE = 'profile.incomplete';
+
+    public const PAYROLL_APPROVED = 'payroll.approved';
+
+    public const PAYSLIP_READY = 'payroll.payslip_ready';
+
+    public const SALARY_PAID = 'payroll.salary_paid';
+
+    public const SALARY_FAILED = 'payroll.salary_failed';
+
     public const REPORT_SUBMITTED = 'report.submitted';
 
     public const SOD_PENDING = 'report.sod_pending';
@@ -148,6 +158,32 @@ final class NotificationType
 
     public const TICKET_BREACHED = 'ticket.breached';
 
+    public const RECRUITMENT_APPLIED = 'recruitment.applied';
+
+    public const INTERVIEW_SCHEDULED = 'recruitment.interview_scheduled';
+
+    public const INTERVIEW_RESCHEDULED = 'recruitment.interview_rescheduled';
+
+    public const INTERVIEW_CANCELLED = 'recruitment.interview_cancelled';
+
+    public const INTERVIEW_FEEDBACK = 'recruitment.interview_feedback';
+
+    public const VACANCY_REQUESTED = 'recruitment.vacancy_requested';
+
+    public const VACANCY_APPROVED = 'recruitment.vacancy_approved';
+
+    public const VACANCY_DECLINED = 'recruitment.vacancy_declined';
+
+    public const OFFER_ISSUED = 'recruitment.offer_issued';
+
+    public const OFFER_ANSWERED = 'recruitment.offer_answered';
+
+    public const JOINING_DONE = 'recruitment.joining_done';
+
+    public const JOINING_WELCOME = 'account.joining_welcome';
+
+    public const RECRUITMENT_STAGE_CHANGED = 'recruitment.stage_changed';
+
     public const LOW = 'low';
 
     public const NORMAL = 'normal';
@@ -156,7 +192,7 @@ final class NotificationType
 
     public const PRIORITIES = [self::LOW, self::NORMAL, self::HIGH];
 
-    public const GROUPS = ['leave', 'attendance', 'document', 'task', 'report', 'expense', 'exit', 'performance', 'asset', 'policy', 'holiday', 'announcement', 'ticket', 'account'];
+    public const GROUPS = ['leave', 'attendance', 'document', 'task', 'report', 'expense', 'exit', 'performance', 'asset', 'policy', 'holiday', 'announcement', 'ticket', 'recruitment', 'account', 'payroll'];
 
     public static function group(string $type): string
     {
@@ -177,7 +213,11 @@ final class NotificationType
             self::APPRAISAL_LAUNCHED, self::APPRAISAL_FINALISED,
             self::ASSET_REQUEST_RAISED, self::POLICY_PUBLISHED, self::POLICY_REMINDER,
             self::TICKET_RAISED, self::TICKET_ASSIGNED, self::TICKET_INFO_NEEDED,
-            self::TICKET_RESOLVED, self::TICKET_REOPENED, self::TICKET_BREACHED => self::HIGH,
+            self::TICKET_RESOLVED, self::TICKET_REOPENED, self::TICKET_BREACHED,
+            self::RECRUITMENT_APPLIED, self::INTERVIEW_SCHEDULED, self::INTERVIEW_RESCHEDULED,
+            self::INTERVIEW_CANCELLED, self::VACANCY_REQUESTED, self::VACANCY_APPROVED,
+            self::VACANCY_DECLINED, self::OFFER_ISSUED, self::OFFER_ANSWERED,
+            self::PAYROLL_APPROVED, self::SALARY_PAID, self::SALARY_FAILED => self::HIGH,
             self::ATTENDANCE_CHECKED_IN, self::ATTENDANCE_CHECKED_OUT, self::REPORT_SUBMITTED => self::LOW,
             default => self::NORMAL,
         };

@@ -1,9 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { api, ApiError, setPolicyBlockedHandler, setUnauthenticatedHandler } from './api'
+import { setCompanyZone } from './clock'
 import { config } from './config'
 import { clearSession, loadSession, saveSession } from './session'
+import { registerPush, unregisterPush } from './push'
+import { startRealtime, stopRealtime } from './realtime'
 import { setCompanyId } from './tenant'
-import type { LoginResult, PolicyGate, Profile } from './types'
+import type { LoginResult, OnboardingState, PolicyGate, Profile } from './types'
 
 type AuthState = {
   ready: boolean
@@ -11,7 +14,7 @@ type AuthState = {
   profile: Profile | null
   policyGate: PolicyGate | null
   permissions: Set<string>
-  signIn: (email: string, password: string) => Promise<void>
+  signIn: (email: string, password: string, companySlug?: string) => Promise<void>
   signOut: () => Promise<void>
   refreshProfile: () => Promise<void>
   can: (slug: string) => boolean
@@ -19,6 +22,11 @@ type AuthState = {
   isSuperAdmin: boolean
   policyBlocked: boolean
   clearPolicyBlock: () => void
+  onboarding: OnboardingState | null
+  onboardingStep: 'policies' | 'profile' | 'tour' | null
+  refreshOnboarding: () => Promise<void>
+  finishProfileStep: () => Promise<void>
+  finishTour: () => Promise<void>
   companyId: string | null
   viewCompany: (id: string | null) => Promise<void>
 }
@@ -34,6 +42,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [token, setToken] = useState<string | null>(null)
   const [profile, setProfile] = useState<Profile | null>(null)
   const [policyGate, setPolicyGate] = useState<PolicyGate | null>(null)
+  const [onboarding, setOnboarding] = useState<OnboardingState | null>(null)
   const [companyId, setActiveCompany] = useState<string | null>(null)
   const signingOut = useRef(false)
 
@@ -49,10 +58,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(null)
     setProfile(null)
     setPolicyGate(null)
+    setOnboarding(null)
     setCompanyId(null)
     setActiveCompany(null)
     signingOut.current = false
   }, [])
+
+  useEffect(() => {
+    setCompanyZone(profile?.organisation?.timezone ?? null)
+  }, [profile])
+
+  useEffect(() => {
+    if (token) {
+      startRealtime(token)
+      void registerPush()
+
+      return () => stopRealtime()
+    }
+
+    stopRealtime()
+  }, [token])
 
   useEffect(() => {
     setUnauthenticatedHandler(() => {
@@ -109,10 +134,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
-  const signIn = useCallback(async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string, companySlug?: string) => {
     const result = await api<LoginResult>('/auth/login', {
       method: 'POST',
-      body: { email, password },
+      body: { email, password, ...(companySlug ? { company_slug: companySlug } : {}) },
       token: null,
       skipAuthHandler: true,
     })
@@ -127,10 +152,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setToken(result.token)
     setProfile(me)
     setPolicyGate(result.policy_gate)
+    setOnboarding(result.onboarding ?? null)
   }, [])
 
   const signOut = useCallback(async () => {
     const active = token
+
+    await unregisterPush()
 
     await reset()
 
@@ -175,11 +203,56 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [reset, token]
   )
 
+  const refreshOnboarding = useCallback(async () => {
+    if (!token) {
+      return
+    }
+
+    try {
+      setOnboarding(await api<OnboardingState>('/onboarding', { token }))
+    } catch {
+      setOnboarding((current) => current)
+    }
+  }, [token])
+
+  const finishProfileStep = useCallback(async () => {
+    if (!token) {
+      return
+    }
+
+    try {
+      setOnboarding(await api<OnboardingState>('/onboarding/profile-seen', { method: 'POST', token }))
+    } catch {
+      await refreshOnboarding()
+    }
+  }, [refreshOnboarding, token])
+
+  const finishTour = useCallback(async () => {
+    if (!token) {
+      return
+    }
+
+    try {
+      setOnboarding(await api<OnboardingState>('/onboarding/tour-done', { method: 'POST', token }))
+    } catch {
+      await refreshOnboarding()
+    }
+  }, [refreshOnboarding, token])
+
+  useEffect(() => {
+    if (token) {
+      void refreshOnboarding()
+    }
+  }, [refreshOnboarding, token])
+
   const clearPolicyBlock = useCallback(() => {
     setPolicyGate({ blocked: false, pending: 0 })
-  }, [])
+    void refreshOnboarding()
+  }, [refreshOnboarding])
 
   const permissions = useMemo(() => new Set(profile?.permissions ?? []), [profile])
+
+  const onboardingStep = onboarding?.step ?? null
 
   const can = useCallback((slug: string) => permissions.has(slug), [permissions])
 
@@ -202,6 +275,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       viewCompany,
       policyBlocked: policyGate?.blocked === true,
       clearPolicyBlock,
+      onboarding,
+      onboardingStep,
+      refreshOnboarding,
+      finishProfileStep,
+      finishTour,
     }),
     [
       ready,
@@ -217,6 +295,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       companyId,
       viewCompany,
       clearPolicyBlock,
+      onboarding,
+      onboardingStep,
+      refreshOnboarding,
+      finishProfileStep,
+      finishTour,
     ]
   )
 

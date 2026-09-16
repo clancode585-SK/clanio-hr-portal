@@ -10,10 +10,32 @@ export type PolicyGate = {
   pending: number
 }
 
+export type OnboardingSection = {
+  key: string
+  label: string
+  done: number
+  total: number
+  percent: number
+}
+
+export type OnboardingState = {
+  step: 'policies' | 'profile' | 'tour' | null
+  policies: { blocked: boolean; pending: number }
+  profile: {
+    needed: boolean
+    seen: boolean
+    percent: number
+    sections: OnboardingSection[]
+    pending: string[]
+  } | null
+  tour: { needed: boolean }
+}
+
 export type LoginResult = {
   token: string
   role: string | null
   policy_gate: PolicyGate
+  onboarding: OnboardingState
 }
 
 export type DataScope = 'all_company' | 'branch' | 'department' | 'team' | 'self'
@@ -83,6 +105,7 @@ export type Profile = {
   is_super_admin: boolean
   roles: Role[]
   permissions: string[]
+  organisation?: { company_id: number | null; timezone: string | null } | null
   department?: { id: number; name: string } | null
   branch?: { id: number; name: string } | null
   employee?: {
@@ -90,6 +113,19 @@ export type Profile = {
     uuid: string
     employee_code: string
     date_of_joining: string
+    date_of_birth?: string | null
+    father_name?: string | null
+    gender?: string | null
+    marital_status?: string | null
+    blood_group?: string | null
+    personal_email?: string | null
+    personal_phone?: string | null
+    current_address?: string | null
+    permanent_address?: string | null
+    emergency_contact_name?: string | null
+    emergency_contact_relation?: string | null
+    emergency_contact_phone?: string | null
+    pan_number?: string | null
     designation?: { id: number; name: string } | null
   } | null
 }
@@ -131,6 +167,16 @@ export type EmployeeUser = {
   team_id: number | null
 }
 
+export type ReportingManager = {
+  id: number
+  name: string
+  email: string
+  employee_code: string | null
+  designation: string | null
+  department: string | null
+  reports_count: number
+}
+
 export type Employee = {
   id: number
   uuid: string
@@ -143,6 +189,7 @@ export type Employee = {
   reporting_manager_id: number | null
   work_shift_id: number | null
   date_of_birth: string | null
+  father_name: string | null
   gender: string | null
   marital_status: string | null
   blood_group: string | null

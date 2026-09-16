@@ -17,24 +17,37 @@ import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { Notice } from '@/components/ui/Notice'
 import { ThemeSwitch } from '@/components/ui/ThemeSwitch'
+import { ProfileSetupScreen } from '@/components/ProfileSetupScreen'
 import { api, ApiError } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useResource } from '@/lib/useResource'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
+type Section = {
+  key: string
+  label: string
+  done: number
+  total: number
+  percent: number
+}
+
 type Completion = {
   percent?: number
   missing?: string[]
+  pending?: string[]
+  sections?: Section[]
 }
 
 export default function ProfileScreen() {
   const theme = useTheme()
   const insets = useSafeAreaInsets()
   const router = useRouter()
-  const { profile, refreshProfile, signOut } = useAuth()
+  const { profile, refreshProfile, refreshOnboarding, signOut } = useAuth()
 
   const [open, setOpen] = useState(false)
+  const [setup, setSetup] = useState(false)
+  const [tourNote, setTourNote] = useState<string | null>(null)
   const [current, setCurrent] = useState('')
   const [next, setNext] = useState('')
   const [confirm, setConfirm] = useState('')
@@ -129,7 +142,24 @@ export default function ProfileScreen() {
   }
 
   const percent = completion.data?.percent
-  const missing = completion.data?.missing ?? []
+  const missing = completion.data?.pending ?? completion.data?.missing ?? []
+  const sections = completion.data?.sections ?? []
+
+  const closeSetup = () => {
+    setSetup(false)
+    void completion.refresh()
+    void refreshProfile()
+  }
+
+  const replayTour = async () => {
+    try {
+      await api('/onboarding/tour-reset', { method: 'POST' })
+      await refreshOnboarding()
+      setTourNote('The tour will open the next time you come back to the app.')
+    } catch {
+      setTourNote(null)
+    }
+  }
 
   return (
     <Screen title="My Profile" subtitle={profile?.employee?.employee_code ?? undefined}>
@@ -172,6 +202,33 @@ export default function ProfileScreen() {
             {missing.length > 0 ? (
               <Text style={[styles.missing, { color: theme.inkSubtle }]}>Still missing: {missing.join(', ')}</Text>
             ) : null}
+
+            {sections.length > 0 ? (
+              <View style={styles.sections}>
+                {sections.map((section) => (
+                  <View key={section.key} style={styles.sectionRow}>
+                    <Text
+                      style={[
+                        styles.sectionMark,
+                        { color: section.percent === 100 ? theme.success : theme.inkSubtle },
+                      ]}
+                    >
+                      {section.percent === 100 ? '✓' : '○'}
+                    </Text>
+                    <Text style={[styles.sectionLabel, { color: theme.ink }]}>{section.label}</Text>
+                    <Text style={[styles.sectionCount, { color: theme.inkSubtle }]}>
+                      {section.done}/{section.total}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            ) : null}
+
+            {percent < 100 ? (
+              <View style={styles.finish}>
+                <Button label="Finish my profile" onPress={() => setSetup(true)} fullWidth />
+              </View>
+            ) : null}
           </View>
         ) : null}
 
@@ -189,6 +246,10 @@ export default function ProfileScreen() {
           <ThemeSwitch />
         </View>
 
+        {tourNote ? <Notice tone="info" title="Tour reset" message={tourNote} /> : null}
+
+        <Button label="Show the tour again" variant="secondary" onPress={() => void replayTour()} fullWidth />
+
         <Button
           label="Change password"
           variant="secondary"
@@ -200,6 +261,10 @@ export default function ProfileScreen() {
         />
         <Button label="Sign out" variant="secondary" onPress={leave} fullWidth />
       </ScrollView>
+
+      <Modal visible={setup} animationType="slide" onRequestClose={closeSetup}>
+        <ProfileSetupScreen onDone={closeSetup} />
+      </Modal>
 
       <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
         <Pressable style={styles.backdrop} onPress={close} />
@@ -349,6 +414,32 @@ const styles = StyleSheet.create({
   missing: {
     fontSize: font.xs,
     paddingVertical: spacing.md,
+  },
+  sections: {
+    paddingBottom: spacing.sm,
+    gap: 6,
+  },
+  sectionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  sectionMark: {
+    fontSize: font.sm,
+    fontWeight: '800',
+    width: 14,
+  },
+  sectionLabel: {
+    flex: 1,
+    fontSize: font.sm,
+    fontWeight: '600',
+  },
+  sectionCount: {
+    fontSize: font.xs,
+    fontWeight: '700',
+  },
+  finish: {
+    paddingBottom: spacing.md,
   },
   block: {
     gap: spacing.sm,

@@ -13,6 +13,7 @@ import { Screen } from '@/components/Screen'
 import { Button } from '@/components/ui/Button'
 import { Notice } from '@/components/ui/Notice'
 import { ErrorState, Loader } from '@/components/ui/States'
+import { formatShortDateTime } from '@/lib/clock'
 import { api, ApiError } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { useResource } from '@/lib/useResource'
@@ -242,11 +243,7 @@ function formatDate(value: string | null): string {
     return '—'
   }
 
-  const date = new Date(value)
-
-  return Number.isNaN(date.getTime())
-    ? value
-    : date.toLocaleString([], { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+  return formatShortDateTime(value, value)
 }
 
 function Row({ label, value }: { label: string; value: string }) {

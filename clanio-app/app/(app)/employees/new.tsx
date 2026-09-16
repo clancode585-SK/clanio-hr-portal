@@ -8,9 +8,10 @@ import { Notice } from '@/components/ui/Notice'
 import { Select, type Option } from '@/components/ui/Select'
 import { ErrorState, Loader } from '@/components/ui/States'
 import { Stepper } from '@/components/ui/Stepper'
+import { today } from '@/lib/clock'
 import { api, ApiError } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
-import { employmentTypes, loadFormOptions, type FormOptions } from '@/lib/employeeOptions'
+import { employmentTypes, loadFormOptions, managerHint, type FormOptions } from '@/lib/employeeOptions'
 import type { Employee } from '@/lib/types'
 import { useResource } from '@/lib/useResource'
 import { useTheme } from '@/theme/useTheme'
@@ -23,6 +24,8 @@ type Form = {
   email: string
   password: string
   phone: string
+  fatherName: string
+  dateOfBirth: string
   branchId: string | null
   departmentId: string | null
   teamId: string | null
@@ -35,21 +38,25 @@ type Form = {
   employeeCode: string
 }
 
-const empty: Form = {
-  name: '',
-  email: '',
-  password: '',
-  phone: '',
-  branchId: null,
-  departmentId: null,
-  teamId: null,
-  roleId: null,
-  designationId: null,
-  managerId: null,
-  shiftId: null,
-  dateOfJoining: new Date().toISOString().slice(0, 10),
-  employmentType: 'full_time',
-  employeeCode: '',
+function blank(): Form {
+  return {
+    name: '',
+    email: '',
+    password: '',
+    phone: '',
+    fatherName: '',
+    dateOfBirth: '',
+    branchId: null,
+    departmentId: null,
+    teamId: null,
+    roleId: null,
+    designationId: null,
+    managerId: null,
+    shiftId: null,
+    dateOfJoining: today(),
+    employmentType: 'full_time',
+    employeeCode: '',
+  }
 }
 
 export default function EmployeeCreateScreen() {
@@ -58,7 +65,7 @@ export default function EmployeeCreateScreen() {
   const { can } = useAuth()
 
   const [step, setStep] = useState(0)
-  const [form, setForm] = useState<Form>(empty)
+  const [form, setForm] = useState<Form>(blank)
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [problem, setProblem] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -104,7 +111,7 @@ export default function EmployeeCreateScreen() {
       designations: data.designations
         .filter((row) => departmentId === null || row.department_id === null || row.department_id === departmentId)
         .map((row) => ({ value: String(row.id), label: row.name, hint: row.department?.name ?? 'Any department' })),
-      managers: data.managers.map((row) => ({ value: String(row.id), label: row.name, hint: row.email })),
+      managers: data.managers.map((row) => ({ value: String(row.id), label: row.name, hint: managerHint(row) })),
       shifts: data.shifts.map((row) => ({
         value: String(row.id),
         label: row.name,
@@ -131,6 +138,16 @@ export default function EmployeeCreateScreen() {
         next.password = 'At least 8 characters'
       } else if (!/[a-zA-Z]/.test(form.password) || !/\d/.test(form.password)) {
         next.password = 'Must contain letters and numbers'
+      }
+
+      if (!form.fatherName.trim()) {
+        next.fatherName = "Father's name is required"
+      }
+
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(form.dateOfBirth.trim())) {
+        next.dateOfBirth = 'Date of birth is required as YYYY-MM-DD'
+      } else if (form.dateOfBirth.trim() >= today()) {
+        next.dateOfBirth = 'That date has not happened yet'
       }
     }
 
@@ -186,6 +203,8 @@ export default function EmployeeCreateScreen() {
       reporting_manager_id: form.managerId ? Number(form.managerId) : null,
       date_of_joining: form.dateOfJoining.trim(),
       employment_type: form.employmentType,
+      father_name: form.fatherName.trim(),
+      date_of_birth: form.dateOfBirth.trim(),
     }
 
     if (form.employeeCode.trim()) {
@@ -296,10 +315,27 @@ export default function EmployeeCreateScreen() {
                 error={errors.phone}
                 editable={!busy}
               />
+              <Field
+                label="Father's name"
+                value={form.fatherName}
+                onChangeText={(value) => set('fatherName', value)}
+                placeholder="Ramesh Verma"
+                autoCapitalize="words"
+                error={errors.fatherName}
+                editable={!busy}
+              />
+              <Field
+                label="Date of birth"
+                value={form.dateOfBirth}
+                onChangeText={(value) => set('dateOfBirth', value)}
+                placeholder="YYYY-MM-DD"
+                error={errors.dateOfBirth}
+                editable={!busy}
+              />
               <Notice
                 tone="info"
-                title="They set their own later"
-                message="Personal details, bank and documents are filled in by the employee from their own profile."
+                title="They fill the rest themselves"
+                message="On their first login they accept the policies, then get a form for address, bank, documents and nominee. They can skip it and finish later."
               />
             </>
           ) : null}
@@ -438,6 +474,8 @@ export default function EmployeeCreateScreen() {
               <Line label="Name" value={form.name} />
               <Line label="Email" value={form.email} />
               <Line label="Phone" value={form.phone || '—'} />
+              <Line label="Father" value={form.fatherName} />
+              <Line label="Born" value={form.dateOfBirth} />
               <Line label="Branch" value={labelOf(lists.branches, form.branchId)} />
               <Line label="Department" value={labelOf(lists.departments, form.departmentId)} />
               <Line label="Team" value={labelOf(lists.teams, form.teamId)} />

@@ -10,6 +10,7 @@ use App\Models\AppraisalCycle;
 use App\Models\Employee;
 use App\Models\PerformanceScore;
 use App\Models\User;
+use App\Support\CompanyTime;
 use App\Support\NotificationType;
 use App\Support\Recipients;
 use App\Support\TenantCache;
@@ -315,7 +316,7 @@ final class AppraisalService
     {
         $period = $cycle->period_start->copy()->startOfMonth();
         $last = $cycle->period_end->copy()->startOfMonth();
-        $today = Carbon::today()->startOfMonth();
+        $today = CompanyTime::day()->startOfMonth();
         $scores = [];
 
         while ($period->lessThanOrEqualTo($last)) {

@@ -22,6 +22,7 @@ class ProfileRequest extends FormRequest
             'phone' => ['sometimes', 'nullable', 'string', 'max:20'],
 
             'date_of_birth' => ['sometimes', 'nullable', 'date', 'before:today'],
+            'father_name' => ['sometimes', 'nullable', 'string', 'max:150'],
             'gender' => ['sometimes', 'nullable', Rule::in(['male', 'female', 'other'])],
             'marital_status' => ['sometimes', 'nullable', Rule::in(['single', 'married', 'divorced', 'widowed'])],
             'blood_group' => ['sometimes', 'nullable', Rule::in(['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'])],

@@ -1,71 +1,51 @@
+import { api } from './api'
+
 export type Plan = {
-  code: string
+  id: number
+  uuid: string
   name: string
-  tagline: string
-  pricePerSeat: number
-  minSeats: number
-  maxSeats: number
+  code: string
+  tagline: string | null
+  price_per_seat: number
+  currency: string
+  billing_cycle: string
+  min_seats: number
+  max_seats: number
+  trial_days: number
+  gst_percent: number
   highlights: string[]
-  popular?: boolean
-}
-
-export const gstPercent = 18
-
-export const currency = 'INR'
-
-export const plans: Plan[] = [
-  {
-    code: 'starter',
-    name: 'Starter',
-    tagline: 'Small teams getting off spreadsheets',
-    pricePerSeat: 99,
-    minSeats: 5,
-    maxSeats: 25,
-    highlights: ['Attendance and leave', 'Employee records', 'Helpdesk'],
-  },
-  {
-    code: 'growth',
-    name: 'Growth',
-    tagline: 'Running HR properly, with approvals',
-    pricePerSeat: 179,
-    minSeats: 10,
-    maxSeats: 100,
-    highlights: ['Everything in Starter', 'Expenses and assets', 'Goals and appraisals'],
-    popular: true,
-  },
-  {
-    code: 'scale',
-    name: 'Scale',
-    tagline: 'Multi branch, multi department',
-    pricePerSeat: 299,
-    minSeats: 25,
-    maxSeats: 500,
-    highlights: ['Everything in Growth', 'Branches and shifts', 'Exit and clearance'],
-  },
-]
-
-export function planByCode(code: string | null): Plan | null {
-  return plans.find((plan) => plan.code === code) ?? null
+  is_popular: boolean
+  company_count: number
 }
 
 export type Order = {
   seats: number
   pricePerSeat: number
   subtotal: number
+  gstPercent: number
   gst: number
   total: number
 }
 
+export async function loadPlans(): Promise<Plan[]> {
+  try {
+    return await api<Plan[]>('/plans')
+  } catch {
+    return []
+  }
+}
+
 export function priceOrder(plan: Plan, seats: number): Order {
-  const subtotal = plan.pricePerSeat * seats
-  const gst = Math.round((subtotal * gstPercent) / 100)
+  const subtotal = Math.round(plan.price_per_seat * seats * 100) / 100
+  const gst = Math.round((subtotal * plan.gst_percent) / 100 * 100) / 100
 
   return {
     seats,
-    pricePerSeat: plan.pricePerSeat,
+    pricePerSeat: plan.price_per_seat,
     subtotal,
+    gstPercent: plan.gst_percent,
     gst,
-    total: subtotal + gst,
+    total: Math.round((subtotal + gst) * 100) / 100,
   }
 }
 

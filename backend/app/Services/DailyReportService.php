@@ -10,6 +10,7 @@ use App\Models\DailyReportItem;
 use App\Models\Employee;
 use App\Models\Task;
 use App\Models\User;
+use App\Support\CompanyTime;
 use App\Support\NotificationType;
 use App\Support\Realtime;
 use App\Support\TenantCache;
@@ -318,9 +319,7 @@ final class DailyReportService
 
     private function date(array $data): Carbon
     {
-        $date = isset($data['report_date'])
-            ? Carbon::parse($data['report_date'])->startOfDay()
-            : Carbon::today();
+        $date = Carbon::parse($data['report_date'] ?? CompanyTime::date())->startOfDay();
 
         if (! $this->withinWindow($date)) {
             throw new ApiException(
@@ -335,7 +334,7 @@ final class DailyReportService
 
     private function withinWindow(Carbon $date): bool
     {
-        $today = Carbon::today();
+        $today = CompanyTime::day();
 
         return $date->lessThanOrEqualTo($today)
             && $date->greaterThanOrEqualTo($today->copy()->subDays(DailyReport::BACKFILL_DAYS));
@@ -343,17 +342,21 @@ final class DailyReportService
 
     private function isLate(Employee $employee, Carbon $date, string $column): bool
     {
-        if (! $date->isSameDay(Carbon::today())) {
+        $companyId = (int) $employee->company_id;
+
+        if ($date->toDateString() !== CompanyTime::date($companyId)) {
             return true;
         }
 
-        $cutoff = DB::table('companies')->where('id', $employee->company_id)->value($column);
+        $cutoff = DB::table('companies')->where('id', $companyId)->value($column);
 
         if ($cutoff === null) {
             return false;
         }
 
-        return Carbon::now()->greaterThan(Carbon::parse($date->toDateString() . ' ' . $cutoff));
+        return Carbon::now()->greaterThan(
+            CompanyTime::at($date->toDateString(), (string) $cutoff, $companyId)
+        );
     }
 
     private function employeeFor(User $actor): Employee

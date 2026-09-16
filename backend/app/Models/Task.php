@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Support\CompanyTime;
 use App\Support\Concerns\Auditable;
 use App\Support\Concerns\BelongsToCompany;
 use App\Support\Concerns\HasActiveState;
@@ -13,7 +14,6 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Support\Carbon;
 
 class Task extends Model
 {
@@ -99,7 +99,7 @@ class Task extends Model
 
     public function scopeOverdue(Builder $query): Builder
     {
-        return $query->open()->whereNotNull('due_date')->whereDate('due_date', '<', Carbon::today());
+        return $query->open()->whereNotNull('due_date')->whereDate('due_date', '<', CompanyTime::date());
     }
 
     public function resolveRouteBinding($value, $field = null)
@@ -158,14 +158,14 @@ class Task extends Model
 
     public function isOverdue(): bool
     {
-        return ! $this->isClosed() && $this->due_date !== null && $this->due_date->isBefore(Carbon::today());
+        return ! $this->isClosed() && $this->due_date !== null && $this->due_date->isBefore(CompanyTime::day());
     }
 
     public function daysLeft(): ?int
     {
         return $this->due_date === null
             ? null
-            : (int) round(Carbon::today()->diffInDays($this->due_date, false));
+            : (int) round(CompanyTime::day()->diffInDays($this->due_date, false));
     }
 
     public function isOwnedBy(User $actor): bool

@@ -13,6 +13,7 @@ use App\Http\Resources\ExpenseClaimResource;
 use App\Models\ExpenseClaim;
 use App\Services\ExpenseService;
 use App\Support\ApiResponse;
+use App\Support\CompanyTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -79,7 +80,7 @@ class ExpenseClaimController extends ApiController
             $this->expenses->summary(
                 $request->user(),
                 $request->filled('employee_id') ? (int) $request->input('employee_id') : null,
-                $request->filled('month') ? $request->string('month')->toString() : now()->format('Y-m')
+                $request->filled('month') ? $request->string('month')->toString() : CompanyTime::now()->format('Y-m')
             ),
             'Expense summary fetched successfully'
         );

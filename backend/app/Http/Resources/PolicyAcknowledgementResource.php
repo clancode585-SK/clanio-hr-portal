@@ -20,6 +20,10 @@ class PolicyAcknowledgementResource extends JsonResource
             'category' => $this->policy?->category,
             'version' => $this->policy?->version,
             'summary' => $this->policy?->summary,
+            'body' => $this->policy?->body,
+            'category_label' => $this->policy?->categoryLabel(),
+            'effective_from' => $this->policy?->effective_from?->format('Y-m-d'),
+            'needs_ack' => (bool) $this->policy?->needs_ack,
             'has_file' => $this->policy?->file_path !== null,
             'download_url' => $this->policy?->file_path === null
                 ? null

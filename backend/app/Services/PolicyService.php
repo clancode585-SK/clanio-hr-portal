@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\Policy;
 use App\Models\PolicyAcknowledgement;
 use App\Models\User;
+use App\Support\CompanyTime;
 use App\Support\NotificationType;
 use App\Support\Recipients;
 use App\Support\Scopes\CompanyScope;
@@ -380,7 +381,7 @@ final class PolicyService
         $ack->company_id = $policy->company_id;
         $ack->policy_id = $policy->id;
         $ack->employee_id = $employee->id;
-        $ack->due_on = Carbon::today()->addDays((int) $policy->ack_due_days)->toDateString();
+        $ack->due_on = CompanyTime::day($policy->company_id)->addDays((int) $policy->ack_due_days)->toDateString();
         $ack->created_by = $actor?->id;
         $ack->save();
     }

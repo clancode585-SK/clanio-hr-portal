@@ -7,6 +7,7 @@ namespace App\Console\Commands;
 use App\Models\Company;
 use App\Models\EmployeeDocument;
 use App\Services\NotificationService;
+use App\Support\CompanyTime;
 use App\Support\NotificationType;
 use App\Support\Recipients;
 use App\Support\Scopes\CompanyScope;
@@ -31,11 +32,11 @@ class SendDocumentExpiryAlerts extends Command
 
     public function handle(): int
     {
-        $today = Carbon::today();
         $sent = 0;
 
         foreach (Company::query()->where('status', 'active')->get(['id']) as $company) {
             app(TenantContext::class)->set($company);
+            $today = CompanyTime::day($company);
 
             $hr = Recipients::withPermission((int) $company->id, self::VERIFY_PERMISSION);
 

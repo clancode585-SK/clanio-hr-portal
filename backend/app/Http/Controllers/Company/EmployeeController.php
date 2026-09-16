@@ -96,4 +96,12 @@ class EmployeeController extends ApiController
             'Onboarding completed successfully'
         );
     }
+
+    public function reportingManagers(Request $request): JsonResponse
+    {
+        return ApiResponse::success(
+            $this->employees->reportingManagers($request->user(), $request->integer('exclude_user_id') ?: null),
+            'Reporting managers fetched successfully'
+        );
+    }
 }

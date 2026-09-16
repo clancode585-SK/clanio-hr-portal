@@ -1,7 +1,22 @@
-import { ApprovalList, type Action, type Detail, type Row } from '@/components/ApprovalList'
+import { ApprovalList, type Action, type Bulk, type Detail, type FileRef, type Row } from '@/components/ApprovalList'
 import { useAuth } from '@/lib/auth'
 
 type Item = Record<string, any>
+
+const payTogether: Bulk<Item> = {
+  label: 'Pay many',
+  title: 'Pay these together',
+  confirmLabel: 'Pay now',
+  path: '/expense-claims/pay-many',
+  listKey: 'claims',
+  permission: 'expense.pay',
+  idOf: (item) => String(item.uuid),
+  eligible: (item) => item.status === 'verified' || item.status === 'approved',
+  extra: [
+    { key: 'payment_mode', label: 'Paid by', placeholder: 'bank_transfer, upi, cash or payroll', required: true },
+    { key: 'payment_reference', label: 'Reference', placeholder: 'NEFT or UTR number' },
+  ],
+}
 
 export default function ExpenseClaimsScreen() {
   const { can } = useAuth()
@@ -29,6 +44,16 @@ export default function ExpenseClaimsScreen() {
         meta: item.status,
         search: `${item.employee_name ?? ''} ${item.purpose ?? ''} ${item.status ?? ''}`,
       })}
+      bulk={payTogether}
+      detailPath={(item) => `/expense-claims/${item.uuid ?? item.id}`}
+      toFiles={(item): FileRef[] =>
+        (item.bills ?? []).map((bill: Record<string, any>) => ({
+          id: String(bill.uuid ?? bill.id),
+          label: bill.original_name ?? 'Bill',
+          path: `/expense-bills/${bill.uuid ?? bill.id}/download`,
+          fileName: bill.original_name ?? 'bill.pdf',
+        }))
+      }
       toDetails={(item): Detail[] => [
         { label: 'Category', value: item.category_label ?? item.category ?? '—' },
         { label: 'Purpose', value: item.purpose ?? '—' },

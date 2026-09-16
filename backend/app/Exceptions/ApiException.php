@@ -11,7 +11,8 @@ class ApiException extends Exception
     public function __construct(
         string $message,
         private readonly int $status = 400,
-        private readonly ?string $errorCode = null
+        private readonly ?string $errorCode = null,
+        private readonly array $errors = []
     ) {
         parent::__construct($message);
     }
@@ -24,5 +25,10 @@ class ApiException extends Exception
     public function errorCode(): ?string
     {
         return $this->errorCode;
+    }
+
+    public function errors(): array
+    {
+        return $this->errors;
     }
 }

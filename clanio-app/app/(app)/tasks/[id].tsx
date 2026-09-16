@@ -17,6 +17,7 @@ import { Notice } from '@/components/ui/Notice'
 import { ErrorState, Loader } from '@/components/ui/States'
 import { api, apiList, ApiError } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { downloadFile } from '@/lib/download'
 import { documentTypes, pickFile, toFormData } from '@/lib/upload'
 import { useResource } from '@/lib/useResource'
 import { useTheme } from '@/theme/useTheme'
@@ -137,6 +138,26 @@ export default function TaskDetailScreen() {
     }
   }
 
+  const openAttachment = async (attachment: Attachment) => {
+    if (busy) {
+      return
+    }
+
+    setBusy('open')
+    setProblem(null)
+
+    try {
+      await downloadFile(
+        `/task-attachments/${attachment.uuid ?? attachment.id}/download`,
+        attachment.original_name ?? attachment.name ?? 'attachment'
+      )
+    } catch (caught) {
+      setProblem(caught instanceof Error ? caught.message : 'Could not open the file.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
   const detach = async (attachment: Attachment) => {
     if (busy) {
       return
@@ -249,6 +270,7 @@ export default function TaskDetailScreen() {
           {attachments.map((row) => (
             <Pressable
               key={String(row.uuid ?? row.id)}
+              onPress={() => openAttachment(row)}
               onLongPress={() => detach(row)}
               style={[styles.attachment, { backgroundColor: theme.surface, borderColor: theme.line }]}
             >
@@ -256,7 +278,7 @@ export default function TaskDetailScreen() {
                 {row.original_name ?? row.name ?? 'File'}
               </Text>
               <Text style={[styles.attachmentMeta, { color: theme.inkSubtle }]}>
-                {row.size_label ?? (row.size ? `${Math.round(row.size / 1024)} KB` : 'Hold to remove')}
+                {row.size_label ?? (row.size ? `${Math.round(row.size / 1024)} KB` : 'Tap to open')}
               </Text>
             </Pressable>
           ))}

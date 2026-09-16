@@ -1,5 +1,5 @@
-import { apiList } from './api'
-import type { Branch, Department, Designation, EmployeeUser, Role, Team, WorkShift } from './types'
+import { api, apiList } from './api'
+import type { Branch, Department, Designation, ReportingManager, Role, Team, WorkShift } from './types'
 
 export type FormOptions = {
   departments: Department[]
@@ -8,7 +8,7 @@ export type FormOptions = {
   shifts: WorkShift[]
   branches: Branch[]
   teams: Team[]
-  managers: EmployeeUser[]
+  managers: ReportingManager[]
 }
 
 type Ability = (slug: string) => boolean
@@ -23,6 +23,26 @@ async function pull<T>(path: string, allowed: boolean): Promise<T[]> {
   return result.data
 }
 
+export function managerHint(manager: ReportingManager): string {
+  const parts = [manager.designation, manager.department].filter(Boolean)
+
+  if (manager.reports_count > 0) {
+    parts.push(`${manager.reports_count} ${manager.reports_count === 1 ? 'report' : 'reports'}`)
+  }
+
+  return parts.length > 0 ? parts.join(' · ') : manager.email
+}
+
+export async function loadReportingManagers(allowed = true, excludeUserId?: number): Promise<ReportingManager[]> {
+  if (!allowed) {
+    return []
+  }
+
+  const query = excludeUserId ? `?exclude_user_id=${excludeUserId}` : ''
+
+  return api<ReportingManager[]>(`/employees/reporting-managers${query}`)
+}
+
 export async function loadFormOptions(can: Ability): Promise<FormOptions> {
   const [departments, designations, roles, shifts, branches, teams, managers] = await Promise.all([
     pull<Department>('/departments?per_page=100', can('department.view')),
@@ -31,7 +51,7 @@ export async function loadFormOptions(can: Ability): Promise<FormOptions> {
     pull<WorkShift>('/work-shifts?per_page=100', can('work_shift.view')),
     pull<Branch>('/branches?per_page=100', can('branch.view')),
     pull<Team>('/teams?per_page=100', can('team.view')),
-    pull<EmployeeUser>('/users?per_page=100', can('user.view')),
+    loadReportingManagers(can('employee.view')),
   ])
 
   return { departments, designations, roles, shifts, branches, teams, managers }

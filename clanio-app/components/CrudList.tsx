@@ -1,5 +1,5 @@
 import { useCallback, useMemo, useState } from 'react'
-import { useFocusEffect } from 'expo-router'
+import { useFocusEffect, useRouter } from 'expo-router'
 import {
   Alert,
   FlatList,
@@ -69,6 +69,7 @@ export type RowAction<T> = {
   label: string
   method: 'PUT' | 'POST' | 'DELETE'
   path: (item: T) => string
+  navigate?: (item: T) => string
   tone?: 'primary' | 'secondary' | 'danger'
   permission?: string
   visible?: (item: T) => boolean
@@ -99,6 +100,15 @@ type Props<T> = {
   allowUpdate?: boolean
   allowCreate?: boolean
   screenActions?: ScreenAction[]
+  sheetExtra?: SheetExtra<T>
+}
+
+export type SheetExtra<T> = {
+  title: string
+  path: (item: T) => string
+  permission?: string
+  empty: string
+  toRows: (data: any) => { key: string; title: string; subtitle?: string; meta?: string }[]
 }
 
 export type ScreenAction = {
@@ -306,8 +316,10 @@ export function CrudList<T extends Record<string, any>>({
   allowUpdate = true,
   allowCreate = true,
   screenActions = [],
+  sheetExtra,
 }: Props<T>) {
   const theme = useTheme()
+  const router = useRouter()
   const insets = useSafeAreaInsets()
   const { can } = useAuth()
 
@@ -325,6 +337,7 @@ export function CrudList<T extends Record<string, any>>({
   const [problem, setProblem] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [prompting, setPrompting] = useState<Pending | null>(null)
+  const [extra, setExtra] = useState<{ key: string; title: string; subtitle?: string; meta?: string }[] | null>(null)
 
   const canCreate = allowCreate && (!permissions.create || can(permissions.create))
   const openScreenActions = screenActions.filter((entry) => !entry.permission || can(entry.permission))
@@ -415,7 +428,22 @@ export function CrudList<T extends Record<string, any>>({
     setErrors({})
     setProblem(null)
     setPrompting(null)
+    setExtra(null)
     setOpen(true)
+
+    if (item && sheetExtra && (!sheetExtra.permission || can(sheetExtra.permission))) {
+      void loadExtra(item, sheetExtra)
+    }
+  }
+
+  const loadExtra = async (item: T, spec: SheetExtra<T>) => {
+    try {
+      const data = await api<unknown>(spec.path(item))
+
+      setExtra(spec.toRows(data))
+    } catch {
+      setExtra([])
+    }
   }
 
   const close = () => {
@@ -493,6 +521,15 @@ export function CrudList<T extends Record<string, any>>({
 
   const trigger = (entry: RowAction<T>) => {
     if (!editing || busy) {
+      return
+    }
+
+    if (entry.navigate) {
+      const target = entry.navigate(editing)
+
+      close()
+      setTimeout(() => router.push(target as never), 300)
+
       return
     }
 
@@ -822,6 +859,35 @@ export function CrudList<T extends Record<string, any>>({
                     />
                   ))}
 
+                  {editing && sheetExtra && (!sheetExtra.permission || can(sheetExtra.permission)) ? (
+                    <View style={styles.extra}>
+                      <Text style={[styles.extraTitle, { color: theme.inkSubtle }]}>{sheetExtra.title}</Text>
+
+                      {extra === null ? (
+                        <Text style={[styles.extraEmpty, { color: theme.inkSubtle }]}>Loading</Text>
+                      ) : extra.length === 0 ? (
+                        <Text style={[styles.extraEmpty, { color: theme.inkSubtle }]}>{sheetExtra.empty}</Text>
+                      ) : (
+                        extra.map((row) => (
+                          <View
+                            key={row.key}
+                            style={[styles.extraRow, { backgroundColor: theme.canvas, borderColor: theme.line }]}
+                          >
+                            <View style={styles.extraText}>
+                              <Text style={[styles.extraName, { color: theme.ink }]}>{row.title}</Text>
+                              {row.subtitle ? (
+                                <Text style={[styles.extraSub, { color: theme.inkSubtle }]}>{row.subtitle}</Text>
+                              ) : null}
+                            </View>
+                            {row.meta ? (
+                              <Text style={[styles.extraMeta, { color: theme.inkMuted }]}>{row.meta}</Text>
+                            ) : null}
+                          </View>
+                        ))
+                      )}
+                    </View>
+                  ) : null}
+
                   {editing && canDelete ? (
                     <Button label={`Delete ${singular}`} variant="danger" onPress={remove} disabled={busy} fullWidth />
                   ) : null}
@@ -920,6 +986,42 @@ const styles = StyleSheet.create({
   },
   error: {
     fontSize: font.sm,
+  },
+  extra: {
+    gap: spacing.sm,
+  },
+  extraTitle: {
+    fontSize: font.xs,
+    fontWeight: '800',
+    letterSpacing: 1,
+    textTransform: 'uppercase',
+  },
+  extraEmpty: {
+    fontSize: font.sm,
+  },
+  extraRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    borderWidth: 1,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+  },
+  extraText: {
+    flex: 1,
+    gap: 1,
+  },
+  extraName: {
+    fontSize: font.sm,
+    fontWeight: '600',
+  },
+  extraSub: {
+    fontSize: font.xs,
+  },
+  extraMeta: {
+    fontSize: font.xs,
+    fontWeight: '700',
   },
   screenActions: {
     flexDirection: 'row',

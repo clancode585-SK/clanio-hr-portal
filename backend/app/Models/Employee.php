@@ -47,6 +47,7 @@ class Employee extends Model
         'probation_end_date',
         'confirmation_date',
         'date_of_birth',
+        'father_name',
         'gender',
         'marital_status',
         'blood_group',
@@ -80,6 +81,8 @@ class Employee extends Model
             'date_of_birth' => 'date:Y-m-d',
             'exit_date' => 'date:Y-m-d',
             'policy_gate_cleared_at' => 'datetime',
+            'profile_setup_seen_at' => 'datetime',
+            'profile_nudged_at' => 'datetime',
             'has_pf_account' => 'boolean',
         ];
     }
@@ -146,6 +149,11 @@ class Employee extends Model
     public function hasClearedPolicyGate(): bool
     {
         return $this->policy_gate_cleared_at !== null;
+    }
+
+    public function hasSeenProfileSetup(): bool
+    {
+        return $this->profile_setup_seen_at !== null;
     }
 
     public function isOnboardingComplete(): bool

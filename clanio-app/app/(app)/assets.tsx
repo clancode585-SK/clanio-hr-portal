@@ -1,4 +1,4 @@
-import { CrudList, type FieldSpec, type RowAction } from '@/components/CrudList'
+import { CrudList, type FieldSpec, type RowAction, type SheetExtra } from '@/components/CrudList'
 import { apiList } from '@/lib/api'
 import type { Option } from '@/components/ui/Select'
 
@@ -120,6 +120,21 @@ async function loadOptions(): Promise<Record<string, Option[]>> {
   }
 }
 
+const history: SheetExtra<Item> = {
+  title: 'Who has held this',
+  path: (item) => `/assets/${item.uuid ?? item.id}/history`,
+  empty: 'It has never been given out.',
+  toRows: (rows: Item[]) =>
+    (rows ?? []).map((row) => ({
+      key: String(row.uuid ?? row.id),
+      title: row.employee_name ?? 'Someone',
+      subtitle: [row.allocated_on, row.returned_on ? `returned ${row.returned_on}` : 'still with them']
+        .filter(Boolean)
+        .join(' · '),
+      meta: row.allocation_condition ?? row.status ?? undefined,
+    })),
+}
+
 export default function AssetsScreen() {
   return (
     <CrudList<Item>
@@ -129,6 +144,7 @@ export default function AssetsScreen() {
       fields={fields}
       rowActions={rowActions}
       loadOptions={loadOptions}
+      sheetExtra={history}
       defaults={{ condition_state: 'good' }}
       permissions={{ create: 'asset.manage', edit: 'asset.manage', delete: 'asset.manage' }}
       searchPlaceholder="Search assets"

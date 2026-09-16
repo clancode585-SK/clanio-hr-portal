@@ -8,6 +8,7 @@ use App\Exceptions\ApiException;
 use App\Models\AttendanceRegularization;
 use App\Models\Employee;
 use App\Models\User;
+use App\Support\CompanyTime;
 use App\Support\NotificationType;
 use App\Support\Realtime;
 use App\Support\Recipients;
@@ -171,7 +172,7 @@ final class RegularizationService
             ->all();
 
         $windowStart = $this->windowStart($employee);
-        $today = Carbon::today();
+        $today = CompanyTime::day($employee->company_id);
         $days = [];
 
         for ($date = $start->copy(); $date->lessThanOrEqualTo($end); $date->addDay()) {
@@ -364,7 +365,7 @@ final class RegularizationService
 
     private function assertWithinWindow(Employee $employee, Carbon $date, User $actor): void
     {
-        if ($date->greaterThan(Carbon::today())) {
+        if ($date->greaterThan(CompanyTime::day($employee->company_id))) {
             throw new ApiException('Aane wale din ki regularization nahi hoti.', 422, 'REGULARIZATION_FUTURE_DATE');
         }
 
@@ -393,7 +394,7 @@ final class RegularizationService
 
     private function windowStart(Employee $employee): Carbon
     {
-        return Carbon::today()->subDays($this->windowDays($employee));
+        return CompanyTime::day($employee->company_id)->subDays($this->windowDays($employee));
     }
 
     private function blockedReason(?string $existing, Carbon $date, Carbon $windowStart): ?string

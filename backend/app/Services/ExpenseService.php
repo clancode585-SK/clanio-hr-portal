@@ -9,6 +9,7 @@ use App\Models\Employee;
 use App\Models\ExpenseBill;
 use App\Models\ExpenseClaim;
 use App\Models\User;
+use App\Support\CompanyTime;
 use App\Support\NotificationType;
 use App\Support\Realtime;
 use App\Support\Recipients;
@@ -212,9 +213,9 @@ final class ExpenseService
             );
         }
 
-        $paidOn = isset($data['paid_on']) ? Carbon::parse($data['paid_on'])->startOfDay() : Carbon::today();
+        $paidOn = isset($data['paid_on']) ? Carbon::parse($data['paid_on'])->startOfDay() : CompanyTime::day();
 
-        if ($paidOn->greaterThan(Carbon::today())) {
+        if ($paidOn->greaterThan(CompanyTime::day())) {
             throw new ApiException('Payment ki date aane wale din ki nahi ho sakti.', 422, 'EXPENSE_DATE_INVALID');
         }
 
@@ -534,13 +535,13 @@ final class ExpenseService
 
     private function assertDate(Employee $employee, Carbon $date): void
     {
-        if ($date->greaterThan(Carbon::today())) {
+        if ($date->greaterThan(CompanyTime::day())) {
             throw new ApiException('Aane wale din ka kharcha claim nahi hota.', 422, 'EXPENSE_FUTURE_DATE');
         }
 
         $days = $this->windowDays($employee);
 
-        if ($date->lessThan(Carbon::today()->subDays($days))) {
+        if ($date->lessThan(CompanyTime::day()->subDays($days))) {
             throw new ApiException(
                 'Sirf pichle ' . $days . ' din ka kharcha claim ho sakta hai.',
                 422,

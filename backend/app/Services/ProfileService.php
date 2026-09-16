@@ -18,6 +18,7 @@ final class ProfileService
 
     private const EMPLOYEE_FIELDS = [
         'date_of_birth',
+        'father_name',
         'gender',
         'marital_status',
         'blood_group',

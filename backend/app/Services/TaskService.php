@@ -11,6 +11,7 @@ use App\Models\Task;
 use App\Models\TaskAttachment;
 use App\Models\TaskComment;
 use App\Models\User;
+use App\Support\CompanyTime;
 use App\Support\NotificationType;
 use App\Support\Realtime;
 use App\Support\Scopes\CompanyScope;
@@ -303,7 +304,7 @@ final class TaskService
             'due_today' => Task::query()
                 ->where('assignee_id', $actor->id)
                 ->open()
-                ->whereDate('due_date', Carbon::today())
+                ->whereDate('due_date', CompanyTime::date())
                 ->count(),
             'by_status' => $byStatus,
         ];

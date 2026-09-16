@@ -8,15 +8,23 @@ import { Notice } from '@/components/ui/Notice'
 import { ErrorState, Loader } from '@/components/ui/States'
 import { api, apiList } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { money } from '@/lib/plans'
 import { useResource } from '@/lib/useResource'
 import { useTheme } from '@/theme/useTheme'
 import { font, palette, radius, spacing } from '@/theme/tokens'
 
 type Company = Record<string, any>
 
+type Billing = {
+  collected: number
+  awaited: number
+  pending: number
+}
+
 type Loaded = {
   companies: Company[]
   unread: number
+  billing: Billing | null
 }
 
 export function PlatformDashboard() {
@@ -25,12 +33,13 @@ export function PlatformDashboard() {
   const { profile } = useAuth()
 
   const load = useCallback(async (): Promise<Loaded> => {
-    const [companies, summary] = await Promise.all([
+    const [companies, summary, billing] = await Promise.all([
       apiList<Company>('/companies?per_page=200'),
       api<{ unread_count?: number }>('/notifications/unread-count').catch(() => ({}) as { unread_count?: number }),
+      api<Billing>('/invoices/summary').catch(() => null),
     ])
 
-    return { companies: companies.data, unread: Number(summary.unread_count ?? 0) }
+    return { companies: companies.data, unread: Number(summary.unread_count ?? 0), billing }
   }, [])
 
   const record = useResource<Loaded>(load, [])
@@ -51,7 +60,7 @@ export function PlatformDashboard() {
     )
   }
 
-  const { companies, unread } = record.data
+  const { companies, unread, billing } = record.data
   const active = companies.filter((row) => (row.status ?? 'active') === 'active')
   const suspended = companies.filter((row) => row.status === 'suspended')
   const archived = companies.filter((row) => row.status === 'archived')
@@ -73,6 +82,7 @@ export function PlatformDashboard() {
     { key: 'suspended', label: 'Suspended', hint: 'Logins blocked', value: suspended.length, tone: suspended.length > 0 ? theme.warning : theme.inkSubtle, icon: 'pause-circle-outline' as const, href: '/companies' },
     { key: 'archived', label: 'Archived', hint: 'Kept for records', value: archived.length, tone: theme.inkSubtle, icon: 'archive-outline' as const, href: '/companies' },
     { key: 'capacity', label: 'Near seat cap', hint: '80% or more used', value: nearingCap.length, tone: nearingCap.length > 0 ? theme.danger : theme.inkSubtle, icon: 'alert-circle-outline' as const, href: '/companies' },
+    { key: 'unpaid', label: 'Unpaid invoices', hint: billing ? money(billing.awaited) + ' awaited' : 'Billing', value: billing?.pending ?? 0, tone: (billing?.pending ?? 0) > 0 ? theme.warning : theme.inkSubtle, icon: 'receipt-outline' as const, href: '/billing' },
     { key: 'unread', label: 'Unread', hint: 'Notifications', value: unread, tone: unread > 0 ? theme.brand : theme.inkSubtle, icon: 'notifications-outline' as const, href: '/notifications' },
   ]
 

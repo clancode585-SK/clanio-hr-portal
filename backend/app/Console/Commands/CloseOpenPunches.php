@@ -10,6 +10,7 @@ use App\Models\Company;
 use App\Models\Employee;
 use App\Services\AttendanceService;
 use App\Services\NotificationService;
+use App\Support\CompanyTime;
 use App\Support\NotificationType;
 use App\Support\Scopes\CompanyScope;
 use App\Support\TenantContext;
@@ -35,11 +36,11 @@ class CloseOpenPunches extends Command
     public function handle(): int
     {
         $staleOnly = (bool) $this->option('stale-only');
-        $today = Carbon::today();
         $closed = 0;
 
         foreach (Company::query()->where('status', 'active')->get(['id']) as $company) {
             app(TenantContext::class)->set($company);
+            $today = CompanyTime::day($company);
 
             $details = AttendanceDetail::query()
                 ->withoutGlobalScope(CompanyScope::class)

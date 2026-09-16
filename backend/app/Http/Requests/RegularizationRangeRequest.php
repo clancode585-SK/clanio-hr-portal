@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use App\Support\CompanyTime;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
 
@@ -28,7 +29,7 @@ class RegularizationRangeRequest extends FormRequest
         $from = $this->validated('from');
 
         return $from === null
-            ? Carbon::today()->subDays(30)->toDateString()
+            ? CompanyTime::day()->subDays(30)->toDateString()
             : Carbon::parse($from)->toDateString();
     }
 
@@ -36,7 +37,7 @@ class RegularizationRangeRequest extends FormRequest
     {
         $to = $this->validated('to');
 
-        return $to === null ? Carbon::today()->toDateString() : Carbon::parse($to)->toDateString();
+        return $to === null ? CompanyTime::date() : Carbon::parse($to)->toDateString();
     }
 
     public function employeeId(): ?int

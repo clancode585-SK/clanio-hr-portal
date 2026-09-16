@@ -7,10 +7,10 @@ namespace App\Console\Commands;
 use App\Models\Company;
 use App\Models\User;
 use App\Services\LeaveBalanceService;
+use App\Support\CompanyTime;
 use App\Support\Scopes\CompanyScope;
 use App\Support\TenantContext;
 use Illuminate\Console\Command;
-use Illuminate\Support\Carbon;
 
 class RunLeaveAccrual extends Command
 {
@@ -28,10 +28,11 @@ class RunLeaveAccrual extends Command
     public function handle(): int
     {
         $carryForward = (bool) $this->option('carry-forward');
-        $year = (int) ($this->option('year') ?? Carbon::today()->year);
+        $requested = $this->option('year');
 
         foreach (Company::query()->where('status', 'active')->get(['id', 'name']) as $company) {
             app(TenantContext::class)->set($company);
+            $year = (int) ($requested ?? CompanyTime::now($company)->year);
 
             $actor = $this->systemActor($company->id);
 

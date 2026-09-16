@@ -233,6 +233,15 @@ export default function EmployeeDetailScreen() {
             fullWidth
           />
 
+          {can('salary_structure.view') ? (
+            <Button
+              label="Salary structure"
+              variant="secondary"
+              onPress={() => router.push(`/employees/${uuid}/salary` as never)}
+              fullWidth
+            />
+          ) : null}
+
           {can('employee.edit') && employee.onboarding?.status && employee.onboarding.status !== 'completed' ? (
             <Button
               label="Mark onboarding complete"

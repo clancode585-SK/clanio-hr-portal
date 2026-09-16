@@ -14,7 +14,7 @@ final class BusinessHours
 
     public static function calendarFor(int $companyId): array
     {
-        $timezone = (string) (DB::table('companies')->where('id', $companyId)->value('timezone') ?: config('app.timezone'));
+        $timezone = CompanyTime::zone($companyId);
 
         $shift = DB::table('work_shifts')
             ->where('company_id', $companyId)

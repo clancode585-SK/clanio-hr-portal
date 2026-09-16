@@ -11,8 +11,9 @@ use App\Models\Company;
 use App\Models\LoginAttempt;
 use App\Models\PasswordResetToken;
 use App\Models\User;
-use App\Support\Scopes\CompanyScope;
+use App\Services\OnboardingService;
 use App\Services\PolicyService;
+use App\Support\Scopes\CompanyScope;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
@@ -58,6 +59,7 @@ final class AuthService
                 'blocked' => $gate['blocked'],
                 'pending' => $gate['pending'],
             ],
+            'onboarding' => app(OnboardingService::class)->state($user),
         ];
     }
 
@@ -153,17 +155,46 @@ final class AuthService
 
         $users = $query->get();
 
-        if ($users->count() > 1) {
-            throw new ApiException('This email exists in multiple companies. Send company_slug.', 409, 'AUTH_COMPANY_REQUIRED');
-        }
-
         if ($users->isEmpty()) {
             $this->log($email, null, 'user_not_found', $request);
 
             throw new ApiException('These credentials do not match our records.', 401, 'AUTH_INVALID_CREDENTIALS');
         }
 
-        return $users->first();
+        if ($users->count() === 1) {
+            return $users->first();
+        }
+
+        $password = (string) $request->input('password');
+        $matched = $users->filter(fn (User $user): bool => Hash::check($password, (string) $user->password));
+
+        if ($matched->count() === 1) {
+            return $matched->first();
+        }
+
+        if ($matched->isEmpty()) {
+            foreach ($users as $user) {
+                $user->registerFailedLogin($this->config('max_login_attempts', 5), $this->config('lock_minutes', 15));
+            }
+
+            $this->log($email, $users->first(), 'invalid_password', $request);
+
+            throw new ApiException('These credentials do not match our records.', 401, 'AUTH_INVALID_CREDENTIALS');
+        }
+
+        $companies = Company::query()
+            ->withoutGlobalScopes()
+            ->whereIn('id', $matched->pluck('company_id')->filter()->all())
+            ->get(['slug', 'name'])
+            ->map(fn (Company $company): array => ['slug' => $company->slug, 'name' => $company->name])
+            ->all();
+
+        throw new ApiException(
+            'You work at more than one company here. Pick which workspace to open.',
+            409,
+            'AUTH_COMPANY_REQUIRED',
+            ['companies' => $companies]
+        );
     }
 
     private function guardCompany(User $user, string $email, Request $request): void

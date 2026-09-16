@@ -10,6 +10,7 @@ use App\Models\AssetAllocation;
 use App\Models\Employee;
 use App\Models\ExitClearance;
 use App\Models\User;
+use App\Support\CompanyTime;
 use App\Support\NotificationType;
 use App\Support\TenantCache;
 use Illuminate\Support\Carbon;
@@ -116,7 +117,7 @@ final class AssetService
 
         $allocation = DB::transaction(function () use ($asset, $employee, $data, $actor): AssetAllocation {
             $allocation = new AssetAllocation([
-                'allocated_on' => $data['allocated_on'] ?? Carbon::today()->toDateString(),
+                'allocated_on' => $data['allocated_on'] ?? CompanyTime::date(),
                 'expected_return_date' => $data['expected_return_date'] ?? null,
                 'allocation_condition' => $data['condition'] ?? $asset->condition_state,
                 'allocation_remarks' => $data['remarks'] ?? null,
@@ -174,7 +175,7 @@ final class AssetService
         return DB::transaction(function () use ($asset, $allocation, $data, $condition, $amount, $actor): AssetAllocation {
             $allocation->forceFill([
                 'status' => AssetAllocation::RETURNED,
-                'returned_on' => $data['returned_on'] ?? Carbon::today()->toDateString(),
+                'returned_on' => $data['returned_on'] ?? CompanyTime::date(),
                 'received_by' => $actor->id,
                 'return_condition' => $condition,
                 'return_remarks' => $data['remarks'] ?? null,

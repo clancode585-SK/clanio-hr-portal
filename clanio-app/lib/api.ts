@@ -10,13 +10,15 @@ export class ApiError extends Error {
   readonly code: string
   readonly fields: FieldErrors
   readonly retryAfter: number | null
+  readonly raw: Record<string, unknown>
 
   constructor(
     message: string,
     status: number,
     code: string,
     fields: FieldErrors = {},
-    retryAfter: number | null = null
+    retryAfter: number | null = null,
+    raw: Record<string, unknown> = {}
   ) {
     super(message)
     this.name = 'ApiError'
@@ -24,6 +26,7 @@ export class ApiError extends Error {
     this.code = code
     this.fields = fields
     this.retryAfter = retryAfter
+    this.raw = raw
   }
 
   get isNetwork(): boolean {
@@ -147,7 +150,8 @@ async function request<T>(path: string, options: RequestOptions): Promise<Envelo
       status,
       code,
       normaliseErrors(payload?.errors),
-      readRetryAfter(response)
+      readRetryAfter(response),
+      payload?.errors && typeof payload.errors === 'object' ? (payload.errors as Record<string, unknown>) : {}
     )
   }
 

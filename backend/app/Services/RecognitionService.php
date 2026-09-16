@@ -9,9 +9,9 @@ use App\Models\Employee;
 use App\Models\PerformanceGoal;
 use App\Models\Recognition;
 use App\Models\User;
+use App\Support\CompanyTime;
 use App\Support\NotificationType;
 use App\Support\TenantCache;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 final class RecognitionService
@@ -34,7 +34,7 @@ final class RecognitionService
             'message' => $data['message'] ?? null,
             'points' => (int) ($data['points'] ?? 0),
             'visibility' => $data['visibility'] ?? Recognition::PUBLIC,
-            'awarded_on' => $data['awarded_on'] ?? Carbon::today()->toDateString(),
+            'awarded_on' => $data['awarded_on'] ?? CompanyTime::date(),
         ]);
 
         $recognition->company_id = $employee->company_id;
@@ -76,7 +76,7 @@ final class RecognitionService
             'title' => 'Target pura kiya',
             'message' => $goal->title . ' — ' . $goal->achievement_percent . '% achievement',
             'points' => max(10, (int) $goal->weight),
-            'awarded_on' => Carbon::today()->toDateString(),
+            'awarded_on' => CompanyTime::date(),
         ]);
 
         $recognition->company_id = $goal->company_id;

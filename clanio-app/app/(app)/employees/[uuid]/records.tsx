@@ -20,6 +20,7 @@ import { Select, type Option } from '@/components/ui/Select'
 import { ErrorState, Loader } from '@/components/ui/States'
 import { api, apiList, ApiError } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { downloadFile } from '@/lib/download'
 import { imageAndPdf, pickFile, toFormData, type PickedFile } from '@/lib/upload'
 import { useResource } from '@/lib/useResource'
 import { useTheme } from '@/theme/useTheme'
@@ -292,6 +293,26 @@ export default function EmployeeRecordsScreen() {
     }
   }
 
+  const openDocument = async (document: Row) => {
+    if (busy) {
+      return
+    }
+
+    setBusy(true)
+    setProblem(null)
+
+    try {
+      await downloadFile(
+        `/documents/${document.uuid ?? document.id}/download`,
+        document.original_name ?? `${document.type ?? 'document'}.pdf`
+      )
+    } catch (caught) {
+      setProblem(caught instanceof Error ? caught.message : 'Could not open the document.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const verify = async (document: Row) => {
     try {
       await api(`/employees/${uuid}/documents/${document.uuid ?? document.id}/verify`, {
@@ -416,14 +437,19 @@ export default function EmployeeRecordsScreen() {
           ? documents.length === 0
             ? <Notice tone="info" title="No documents" message="Uploaded documents appear here for verification." />
             : documents.map((row) => (
-                <ListRow
-                  key={String(row.uuid ?? row.id)}
-                  title={row.type_label ?? row.type ?? 'Document'}
-                  subtitle={row.original_name ?? undefined}
-                  badge={row.status}
-                  meta={canVerify && row.status !== 'verified' ? 'Verify' : undefined}
-                  onPress={canVerify && row.status !== 'verified' ? () => verify(row) : undefined}
-                />
+                <View key={String(row.uuid ?? row.id)} style={styles.document}>
+                  <ListRow
+                    title={row.type_label ?? row.type ?? 'Document'}
+                    subtitle={row.original_name ?? undefined}
+                    badge={row.status}
+                    meta="Open"
+                    onPress={() => openDocument(row)}
+                  />
+
+                  {canVerify && row.status !== 'verified' ? (
+                    <Button label="Mark verified" variant="secondary" size="sm" onPress={() => verify(row)} fullWidth />
+                  ) : null}
+                </View>
               ))
           : null}
       </ScrollView>
@@ -569,6 +595,9 @@ const styles = StyleSheet.create({
   form: {
     gap: spacing.lg,
     paddingBottom: spacing.lg,
+  },
+  document: {
+    gap: spacing.sm,
   },
   picker: {
     borderWidth: 1,

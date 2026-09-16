@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use App\Support\CompanyTime;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Support\Carbon;
 
@@ -26,7 +27,7 @@ class DailyReportDateRequest extends FormRequest
         $date = $this->validated('date');
 
         return $date === null
-            ? Carbon::today()->toDateString()
+            ? CompanyTime::date()
             : Carbon::parse($date)->toDateString();
     }
 }

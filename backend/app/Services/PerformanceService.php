@@ -9,6 +9,7 @@ use App\Models\AppraisalCycle;
 use App\Models\Employee;
 use App\Models\PerformanceScore;
 use App\Models\User;
+use App\Support\CompanyTime;
 use App\Support\Scopes\CompanyScope;
 use App\Support\TenantCache;
 use Illuminate\Support\Carbon;
@@ -106,7 +107,7 @@ final class PerformanceService
 
         $period = $this->period($month);
 
-        if ($period->greaterThanOrEqualTo(Carbon::today()->startOfMonth())) {
+        if ($period->greaterThanOrEqualTo(CompanyTime::day()->startOfMonth())) {
             throw new ApiException(
                 'Chalu mahina freeze nahi hota — month khatam hone ke baad karo.',
                 422,
@@ -142,7 +143,7 @@ final class PerformanceService
         $employee = $this->employeeFor($actor, $employeeId);
         $months = max(1, min(self::MAX_TREND_MONTHS, $months));
 
-        $from = Carbon::today()->startOfMonth()->subMonths($months - 1);
+        $from = CompanyTime::day()->startOfMonth()->subMonths($months - 1);
 
         $rows = PerformanceScore::query()
             ->where('employee_id', $employee->id)
@@ -158,7 +159,7 @@ final class PerformanceService
             $key = $period->format('Y-m');
             $row = $byMonth->get($key);
 
-            if ($row === null && $period->lessThanOrEqualTo(Carbon::today())) {
+            if ($row === null && $period->lessThanOrEqualTo(CompanyTime::day())) {
                 $row = $this->snapshot($employee, $period, $actor);
             }
 

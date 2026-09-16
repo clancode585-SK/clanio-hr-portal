@@ -113,6 +113,36 @@ final class EmployeeService
         return $employee->refresh();
     }
 
+    public function reportingManagers(User $actor, ?int $excludeUserId = null): array
+    {
+        $reports = Employee::query()
+            ->whereNotNull('reporting_manager_id')
+            ->where('employment_status', '!=', Employee::EMPLOYMENT_EXITED)
+            ->selectRaw('reporting_manager_id, COUNT(*) AS total')
+            ->groupBy('reporting_manager_id')
+            ->pluck('total', 'reporting_manager_id');
+
+        return User::query()
+            ->visibleTo($actor)
+            ->where('status', 'active')
+            ->where('is_super_admin', false)
+            ->when($excludeUserId !== null, fn ($query) => $query->whereKeyNot($excludeUserId))
+            ->whereHas('employee', fn ($query) => $query->where('employment_status', '!=', Employee::EMPLOYMENT_EXITED))
+            ->with(['employee.designation', 'department'])
+            ->orderBy('name')
+            ->get()
+            ->map(fn (User $user): array => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+                'employee_code' => $user->employee?->employee_code,
+                'designation' => $user->employee?->designation?->name,
+                'department' => $user->department?->name,
+                'reports_count' => (int) ($reports[$user->id] ?? 0),
+            ])
+            ->all();
+    }
+
     private function linkExistingUser(int $userId): User
     {
         $user = User::query()->findOrFail($userId);

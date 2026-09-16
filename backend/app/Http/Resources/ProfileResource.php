@@ -6,6 +6,7 @@ namespace App\Http\Resources;
 
 use App\Models\Employee;
 use App\Models\EmployeeDocument;
+use App\Support\CompanyTime;
 use App\Support\DataScope;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Http\Request;
@@ -36,6 +37,7 @@ class ProfileResource extends JsonResource
 
             'organisation' => [
                 'company_id' => $this->company_id,
+                'timezone' => $this->company_id === null ? null : CompanyTime::zone((int) $this->company_id),
                 'branch' => new BranchResource($this->whenLoaded('branch')),
                 'department' => new DepartmentResource($this->whenLoaded('department')),
                 'team' => new TeamResource($this->whenLoaded('team')),
@@ -50,6 +52,7 @@ class ProfileResource extends JsonResource
                 'confirmation_date' => $employee->confirmation_date?->format('Y-m-d'),
 
                 'date_of_birth' => $employee->date_of_birth?->format('Y-m-d'),
+                'father_name' => $employee->father_name,
                 'gender' => $employee->gender,
                 'marital_status' => $employee->marital_status,
                 'blood_group' => $employee->blood_group,
@@ -81,7 +84,7 @@ class ProfileResource extends JsonResource
 
             'editable_fields' => [
                 'name', 'phone', 'date_of_birth', 'gender', 'marital_status', 'blood_group',
-                'personal_email', 'personal_phone', 'current_address', 'permanent_address',
+                'father_name', 'personal_email', 'personal_phone', 'current_address', 'permanent_address',
                 'emergency_contact_name', 'emergency_contact_relation', 'emergency_contact_phone', 'pan_number',
                 'has_pf_account', 'uan_number', 'aadhaar_number',
             ],

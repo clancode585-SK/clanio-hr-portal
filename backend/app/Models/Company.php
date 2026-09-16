@@ -4,10 +4,12 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use App\Support\CompanyTime;
 use App\Support\Concerns\Auditable;
 use App\Support\Concerns\HasActiveState;
 use App\Support\Concerns\HasUuid;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Company extends Model
@@ -15,6 +17,13 @@ class Company extends Model
     use Auditable;
     use HasActiveState;
     use HasUuid;
+
+    protected static function booted(): void
+    {
+        static::saved(static function (): void {
+            CompanyTime::forget();
+        });
+    }
 
     protected $fillable = [
         'name',
@@ -66,6 +75,11 @@ class Company extends Model
     public function resolveRouteBinding($value, $field = null)
     {
         return $this->resolveRouteBindingQuery($this->newQuery(), $value, $field)->firstOrFail();
+    }
+
+    public function plan(): BelongsTo
+    {
+        return $this->belongsTo(Plan::class);
     }
 
     public function users(): HasMany

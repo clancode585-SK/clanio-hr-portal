@@ -7,6 +7,11 @@ use App\Http\Controllers\Company\AppraisalController;
 use App\Http\Controllers\Company\AssetController;
 use App\Http\Controllers\Company\AssetRequestController;
 use App\Http\Controllers\Company\AttendanceController;
+use App\Http\Controllers\Company\ApplicationController;
+use App\Http\Controllers\Company\AuditLogController;
+use App\Http\Controllers\Company\CareerPageController;
+use App\Http\Controllers\Company\JobOpeningController;
+use App\Http\Controllers\Company\JoiningController;
 use App\Http\Controllers\Company\BranchController;
 use App\Http\Controllers\Company\CompanyController;
 use App\Http\Controllers\Company\ClearanceController;
@@ -24,6 +29,10 @@ use App\Http\Controllers\Company\ExitDocumentController;
 use App\Http\Controllers\Company\ExpenseBillController;
 use App\Http\Controllers\Company\ExpenseClaimController;
 use App\Http\Controllers\Company\HolidayController;
+use App\Http\Controllers\Company\ImportController;
+use App\Http\Controllers\Company\InterviewController;
+use App\Http\Controllers\Company\InvoiceController;
+use App\Http\Controllers\Company\OfferLetterController;
 use App\Http\Controllers\Company\IncentiveController;
 use App\Http\Controllers\Company\LeaveBalanceController;
 use App\Http\Controllers\Company\LeaveController;
@@ -41,13 +50,22 @@ use App\Http\Controllers\Company\TaskAttachmentController;
 use App\Http\Controllers\Company\TaskCommentController;
 use App\Http\Controllers\Company\TicketCategoryController;
 use App\Http\Controllers\Company\TicketController;
+use App\Http\Controllers\Company\PayrollController;
+use App\Http\Controllers\Company\SalaryComponentController;
+use App\Http\Controllers\Company\SalaryStructureController;
+use App\Http\Controllers\Company\SalaryTransferController;
+use App\Http\Controllers\Company\TicketSlaController;
 use App\Http\Controllers\Company\TaskController;
 use App\Http\Controllers\Company\TeamController;
 use App\Http\Controllers\Company\UserController;
 use App\Http\Controllers\Company\UserPermissionController;
 use App\Http\Controllers\Company\WorkRecordController;
 use App\Http\Controllers\Company\WorkShiftController;
+use App\Http\Controllers\Platform\PlanController;
+use App\Http\Controllers\Public\CareerController;
 use App\Http\Controllers\Permission\PermissionController;
+use App\Http\Controllers\Profile\MyDetailsController;
+use App\Http\Controllers\Profile\OnboardingController;
 use App\Http\Controllers\Profile\ProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -55,6 +73,16 @@ Route::prefix('hrms')->group(function (): void {
     Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
     Route::post('auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:sensitive');
     Route::post('auth/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:sensitive');
+
+    Route::middleware('throttle:careers')->group(function (): void {
+        Route::get('careers/{key}/openings', [CareerController::class, 'openings']);
+        Route::get('careers/{key}/openings/{slug}', [CareerController::class, 'opening']);
+    });
+
+    Route::post('careers/{key}/openings/{slug}/apply', [CareerController::class, 'apply'])
+        ->middleware('throttle:apply');
+
+    Route::post('intake/{key}', [CareerController::class, 'intake'])->middleware('throttle:apply');
 
     Route::middleware(['auth:api', 'tenant', 'company.active', 'policy.gate', 'throttle:api'])->group(function (): void {
         Route::post('auth/logout', [AuthController::class, 'logout']);
@@ -69,6 +97,21 @@ Route::prefix('hrms')->group(function (): void {
         Route::post('profile/documents', [ProfileController::class, 'uploadDocument']);
         Route::delete('profile/documents/{document}', [ProfileController::class, 'deleteDocument']);
 
+        Route::get('profile/family', [MyDetailsController::class, 'family']);
+        Route::post('profile/family', [MyDetailsController::class, 'addFamily']);
+        Route::put('profile/family/{familyMember}', [MyDetailsController::class, 'updateFamily']);
+        Route::delete('profile/family/{familyMember}', [MyDetailsController::class, 'deleteFamily']);
+
+        Route::get('profile/bank-accounts', [MyDetailsController::class, 'bankAccounts']);
+        Route::post('profile/bank-accounts', [MyDetailsController::class, 'addBankAccount']);
+        Route::put('profile/bank-accounts/{bankAccount}', [MyDetailsController::class, 'updateBankAccount']);
+        Route::delete('profile/bank-accounts/{bankAccount}', [MyDetailsController::class, 'deleteBankAccount']);
+
+        Route::get('onboarding', [OnboardingController::class, 'show']);
+        Route::post('onboarding/profile-seen', [OnboardingController::class, 'profileSeen']);
+        Route::post('onboarding/tour-done', [OnboardingController::class, 'tourDone']);
+        Route::post('onboarding/tour-reset', [OnboardingController::class, 'tourReset']);
+
         Route::get('documents/{document}/download', [EmployeeDocumentController::class, 'download'])
             ->name('documents.download');
 
@@ -81,7 +124,29 @@ Route::prefix('hrms')->group(function (): void {
             Route::get('companies/{company}/modules', [UserPermissionController::class, 'modules']);
             Route::put('companies/{company}/modules', [UserPermissionController::class, 'setModules'])
                 ->name('companies.modules');
+
+            Route::get('plans', [PlanController::class, 'index']);
+            Route::post('plans', [PlanController::class, 'store']);
+            Route::get('plans/{plan}', [PlanController::class, 'show']);
+            Route::put('plans/{plan}', [PlanController::class, 'update']);
+            Route::delete('plans/{plan}', [PlanController::class, 'destroy']);
+            Route::put('companies/{company}/plan', [PlanController::class, 'assign']);
+
+            Route::put('invoices/{invoice}/mark-paid', [InvoiceController::class, 'markPaid']);
+            Route::put('invoices/{invoice}/cancel', [InvoiceController::class, 'cancel']);
         });
+
+        Route::middleware('permission:invoice.view')->group(function (): void {
+            Route::get('invoices', [InvoiceController::class, 'index']);
+            Route::get('invoices/summary', [InvoiceController::class, 'summary']);
+            Route::get('invoices/{invoice}', [InvoiceController::class, 'show']);
+            Route::get('invoices/{invoice}/download', [InvoiceController::class, 'download'])
+                ->name('invoices.download');
+        });
+
+        Route::get('imports/modules', [ImportController::class, 'modules']);
+        Route::get('imports/{module}/sample', [ImportController::class, 'sample']);
+        Route::post('imports/{module}', [ImportController::class, 'store']);
 
         Route::get('company-settings', [CompanySettingController::class, 'show'])->middleware('permission:company.view');
         Route::put('company-settings', [CompanySettingController::class, 'update'])->middleware('permission:company.edit');
@@ -103,6 +168,77 @@ Route::prefix('hrms')->group(function (): void {
             ->middleware('permission:user.permission');
 
         Route::get('org-chart', [OrgChartController::class, 'index']);
+
+        Route::middleware('permission:recruitment.view')->group(function (): void {
+            Route::get('openings', [JobOpeningController::class, 'index']);
+            Route::get('openings/summary', [JobOpeningController::class, 'summary']);
+            Route::get('openings/{opening}', [JobOpeningController::class, 'show']);
+            Route::get('openings/{opening}/pipeline', [JobOpeningController::class, 'pipeline']);
+            Route::get('openings/{opening}/applications', [ApplicationController::class, 'openingApplications']);
+
+            Route::get('applications', [ApplicationController::class, 'index']);
+            Route::get('applications/{application}', [ApplicationController::class, 'show']);
+            Route::get('applications/{application}/interviews', [InterviewController::class, 'forApplication']);
+            Route::get('interviews', [InterviewController::class, 'index']);
+            Route::get('candidates', [ApplicationController::class, 'candidates']);
+            Route::get('offer-letters', [OfferLetterController::class, 'index']);
+            Route::get('offer-letters/summary', [OfferLetterController::class, 'summary']);
+            Route::get('offer-letters/{letter}/preview', [OfferLetterController::class, 'preview']);
+            Route::get('offer-letters/{letter}/download', [OfferLetterController::class, 'download'])
+                ->name('offers.download');
+            Route::get('applications/{application}/offer-letter', [OfferLetterController::class, 'forApplication']);
+            Route::get('joinings', [JoiningController::class, 'index']);
+            Route::get('candidates/{candidate}/resume', [ApplicationController::class, 'resume'])
+                ->name('candidates.resume');
+        });
+
+        Route::middleware('permission:recruitment.request')->group(function (): void {
+            Route::post('openings/request', [JobOpeningController::class, 'request']);
+        });
+
+        Route::middleware('permission:recruitment.offer')->group(function (): void {
+            Route::post('applications/{application}/offer-letter', [OfferLetterController::class, 'store']);
+            Route::put('offer-letters/{letter}/answer', [OfferLetterController::class, 'answer']);
+            Route::put('offer-letters/{letter}/withdraw', [OfferLetterController::class, 'withdraw']);
+        });
+
+        Route::post('applications/{application}/convert', [JoiningController::class, 'convert'])
+            ->middleware('permission:employee.create');
+
+        Route::middleware('permission:recruitment.manage')->group(function (): void {
+            Route::post('openings', [JobOpeningController::class, 'store']);
+            Route::put('openings/{opening}/decide', [JobOpeningController::class, 'decide']);
+            Route::put('openings/{opening}', [JobOpeningController::class, 'update']);
+            Route::delete('openings/{opening}', [JobOpeningController::class, 'destroy']);
+
+            Route::put('applications/bulk-move', [ApplicationController::class, 'bulkMove']);
+            Route::put('applications/{application}/move', [ApplicationController::class, 'move']);
+
+            Route::post('applications/{application}/interviews', [InterviewController::class, 'store']);
+            Route::put('interviews/{interview}', [InterviewController::class, 'update']);
+            Route::put('interviews/{interview}/cancel', [InterviewController::class, 'cancel']);
+        });
+
+        Route::middleware('permission:interview.conduct')->group(function (): void {
+            Route::get('interviews/mine', [InterviewController::class, 'mine']);
+            Route::put('interviews/{interview}/feedback', [InterviewController::class, 'feedback']);
+        });
+
+        Route::middleware('permission:recruitment.career_page')->group(function (): void {
+            Route::get('career-page', [CareerPageController::class, 'show']);
+            Route::put('career-page', [CareerPageController::class, 'update']);
+            Route::post('career-page/regenerate', [CareerPageController::class, 'regenerate']);
+        });
+
+        Route::middleware('permission:audit.view')->group(function (): void {
+            Route::get('audit-logs', [AuditLogController::class, 'index']);
+            Route::get('audit-logs/filters', [AuditLogController::class, 'filters']);
+            Route::get('audit-logs/{log}', [AuditLogController::class, 'show'])->whereNumber('log');
+        });
+
+        Route::get('ticket-slas', [TicketSlaController::class, 'index']);
+        Route::put('ticket-slas', [TicketSlaController::class, 'update'])
+            ->middleware('permission:ticket.category_manage');
 
         Route::get('ticket-categories', [TicketCategoryController::class, 'index']);
         Route::post('ticket-categories', [TicketCategoryController::class, 'store'])
@@ -151,6 +287,8 @@ Route::prefix('hrms')->group(function (): void {
         Route::delete('designations/{designation}', [DesignationController::class, 'destroy'])->middleware('permission:designation.delete');
 
         Route::get('employees', [EmployeeController::class, 'index'])->middleware('permission:employee.view');
+        Route::get('employees/reporting-managers', [EmployeeController::class, 'reportingManagers'])
+            ->middleware('permission:employee.view');
         Route::post('employees', [EmployeeController::class, 'store'])->middleware('permission:employee.create');
         Route::get('employees/{employee}', [EmployeeController::class, 'show'])->middleware('permission:employee.view');
         Route::put('employees/{employee}', [EmployeeController::class, 'update'])->middleware('permission:employee.edit');
@@ -158,7 +296,81 @@ Route::prefix('hrms')->group(function (): void {
         Route::post('employees/{employee}/complete-onboarding', [EmployeeController::class, 'completeOnboarding'])
             ->middleware('permission:employee.edit');
 
+        Route::get('salary-components', [SalaryComponentController::class, 'index'])
+            ->middleware('permission:salary_structure.view');
+        Route::post('salary-components', [SalaryComponentController::class, 'store'])
+            ->middleware('permission:salary_component.manage');
+        Route::post('salary-components/standard', [SalaryComponentController::class, 'standard'])
+            ->middleware('permission:salary_component.manage');
+        Route::put('salary-components/{salaryComponent}', [SalaryComponentController::class, 'update'])
+            ->middleware('permission:salary_component.manage');
+        Route::delete('salary-components/{salaryComponent}', [SalaryComponentController::class, 'destroy'])
+            ->middleware('permission:salary_component.manage');
+
+        Route::get('my-payslips', [PayrollController::class, 'mine']);
+        Route::get('payslips/{payrollItem}/preview', [PayrollController::class, 'previewSlip'])
+            ->name('payslips.preview');
+        Route::get('payslips/{payrollItem}/download', [PayrollController::class, 'downloadSlip'])
+            ->name('payslips.download');
+
+        Route::get('payroll-runs', [PayrollController::class, 'index'])->middleware('permission:payroll.view');
+        Route::post('payroll-runs', [PayrollController::class, 'store'])->middleware('permission:payroll.run');
+        Route::get('payroll-runs/{payrollRun}', [PayrollController::class, 'show'])
+            ->middleware('permission:payroll.view');
+        Route::get('payroll-runs/{payrollRun}/payslips', [PayrollController::class, 'items'])
+            ->middleware('permission:payroll.view');
+        Route::post('payroll-runs/{payrollRun}/calculate', [PayrollController::class, 'calculate'])
+            ->middleware('permission:payroll.run');
+        Route::post('payroll-runs/{payrollRun}/approve', [PayrollController::class, 'approve'])
+            ->middleware('permission:payroll.approve');
+        Route::post('payroll-runs/{payrollRun}/cancel', [PayrollController::class, 'cancel'])
+            ->middleware('permission:payroll.approve');
+
+        Route::get('company-bank-accounts', [SalaryTransferController::class, 'accounts'])
+            ->middleware('permission:company_bank.view');
+        Route::post('company-bank-accounts', [SalaryTransferController::class, 'storeAccount'])
+            ->middleware('permission:company_bank.manage');
+        Route::put('company-bank-accounts/{companyBankAccount}', [SalaryTransferController::class, 'updateAccount'])
+            ->middleware('permission:company_bank.manage');
+        Route::delete('company-bank-accounts/{companyBankAccount}', [SalaryTransferController::class, 'destroyAccount'])
+            ->middleware('permission:company_bank.manage');
+        Route::post('company-bank-accounts/{companyBankAccount}/top-up', [SalaryTransferController::class, 'topUp'])
+            ->middleware('permission:company_bank.manage');
+        Route::get('company-bank-accounts/{companyBankAccount}/statement', [SalaryTransferController::class, 'statement'])
+            ->middleware('permission:company_bank.view');
+
+        Route::get('payroll-runs/{payrollRun}/transfers', [SalaryTransferController::class, 'disbursements'])
+            ->middleware('permission:payroll.view');
+        Route::post('payroll-runs/{payrollRun}/transfer', [SalaryTransferController::class, 'transferRun'])
+            ->middleware('permission:salary.disburse');
+
+        Route::get('payslips/{payrollItem}/transfer-quote', [SalaryTransferController::class, 'quote'])
+            ->middleware('permission:salary.disburse');
+        Route::post('payslips/{payrollItem}/transfer', [SalaryTransferController::class, 'transferOne'])
+            ->middleware('permission:salary.disburse');
+
+        Route::get('payslips/{payrollItem}', [PayrollController::class, 'showItem'])
+            ->middleware('permission:payroll.view');
+        Route::put('payslips/{payrollItem}/lop', [PayrollController::class, 'setLop'])
+            ->middleware('permission:payroll.run');
+        Route::post('payslips/{payrollItem}/hold', [PayrollController::class, 'hold'])
+            ->middleware('permission:payroll.run');
+        Route::post('payslips/{payrollItem}/release', [PayrollController::class, 'release'])
+            ->middleware('permission:payroll.run');
+
+        Route::get('salary-structures/coverage', [SalaryStructureController::class, 'coverage'])
+            ->middleware('permission:salary_structure.view');
+        Route::post('salary-structures/preview', [SalaryStructureController::class, 'preview'])
+            ->middleware('permission:salary_structure.manage');
+
         Route::prefix('employees/{employee}')->scopeBindings()->group(function (): void {
+            Route::get('salary-structures', [SalaryStructureController::class, 'index'])
+                ->middleware('permission:salary_structure.view');
+            Route::get('salary-structures/current', [SalaryStructureController::class, 'current'])
+                ->middleware('permission:salary_structure.view');
+            Route::post('salary-structures', [SalaryStructureController::class, 'store'])
+                ->middleware('permission:salary_structure.manage');
+
             Route::get('family', [EmployeeFamilyController::class, 'index'])->middleware('permission:employee_family.view');
             Route::post('family', [EmployeeFamilyController::class, 'store'])->middleware('permission:employee_family.manage');
             Route::get('family/{familyMember}', [EmployeeFamilyController::class, 'show'])->middleware('permission:employee_family.view');

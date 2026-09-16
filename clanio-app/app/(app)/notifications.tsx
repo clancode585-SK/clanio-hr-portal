@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { useFocusEffect } from 'expo-router'
 import {
   FlatList,
@@ -21,8 +21,10 @@ import { Notice } from '@/components/ui/Notice'
 import { Select, type Option } from '@/components/ui/Select'
 import { EmptyState, ErrorState, Loader } from '@/components/ui/States'
 import { Toggle } from '@/components/ui/Toggle'
+import { formatDate } from '@/lib/clock'
 import { api, apiList, ApiError } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { onRealtime } from '@/lib/realtime'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -95,6 +97,16 @@ export default function NotificationsScreen() {
       setRefreshing(false)
     }
   }, [])
+
+  useEffect(
+    () =>
+      onRealtime((event) => {
+        if (event.name.startsWith('notification.') || event.name === 'announcement.new') {
+          void pull('refresh')
+        }
+      }),
+    [pull]
+  )
 
   useFocusEffect(
     useCallback(() => {
@@ -449,7 +461,7 @@ function relative(value: string): string {
 
   const days = Math.floor(hours / 24)
 
-  return days < 7 ? `${days}d ago` : date.toLocaleDateString()
+  return days < 7 ? `${days}d ago` : formatDate(value)
 }
 
 const styles = StyleSheet.create({

@@ -24,6 +24,7 @@ class EmployeeResource extends JsonResource
             'confirmation_date' => $this->confirmation_date?->format('Y-m-d'),
 
             'date_of_birth' => $this->date_of_birth?->format('Y-m-d'),
+            'father_name' => $this->father_name,
             'gender' => $this->gender,
             'marital_status' => $this->marital_status,
             'blood_group' => $this->blood_group,

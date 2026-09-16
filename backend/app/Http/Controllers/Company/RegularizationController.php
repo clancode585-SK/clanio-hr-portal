@@ -12,6 +12,7 @@ use App\Http\Resources\AttendanceRegularizationResource;
 use App\Models\AttendanceRegularization;
 use App\Services\RegularizationService;
 use App\Support\ApiResponse;
+use App\Support\CompanyTime;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -63,7 +64,7 @@ class RegularizationController extends ApiController
         return ApiResponse::success(
             $this->regularizations->summary(
                 $request->user(),
-                $request->filled('month') ? $request->string('month')->toString() : now()->format('Y-m')
+                $request->filled('month') ? $request->string('month')->toString() : CompanyTime::now()->format('Y-m')
             ),
             'Regularization summary fetched successfully'
         );
