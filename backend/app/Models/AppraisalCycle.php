@@ -18,16 +18,12 @@ class AppraisalCycle extends Model
     use HasActiveState;
     use HasUuid;
 
-    /** HR bana rahi hai, employees ko nahi dikha */
     public const DRAFT = 'draft';
 
-    /** Launch ho gaya — employee self review bhar raha hai */
     public const SELF_REVIEW = 'self_review';
 
-    /** Manager review kar raha hai */
     public const MANAGER_REVIEW = 'manager_review';
 
-    /** HR final rating de rahi hai */
     public const HR_REVIEW = 'hr_review';
 
     public const CLOSED = 'closed';

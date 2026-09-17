@@ -22,6 +22,7 @@ class CompanyBankAccountResource extends JsonResource
             'account_masked' => $this->masked(),
             'ifsc_code' => $this->ifsc_code,
             'branch_name' => $this->branch_name,
+            'contact_email' => $this->contact_email,
             'provider' => $this->provider,
             'is_primary' => $this->is_primary,
             'balance' => $this->balance,

@@ -20,7 +20,7 @@ class CareerPageWebController extends \App\Http\Controllers\Controller
 
     public function index(Request $request, string $key): View
     {
-        [$page, $company] = $this->resolve($key);
+        ['page' => $page, 'company' => $company] = $this->resolve($key);
 
         $openings = $this->liveQuery($company)->with(['department', 'branch'])->get();
 
@@ -36,7 +36,7 @@ class CareerPageWebController extends \App\Http\Controllers\Controller
 
     public function opening(Request $request, string $key, string $slug): View
     {
-        [$page, $company] = $this->resolve($key);
+        ['page' => $page, 'company' => $company] = $this->resolve($key);
 
         $opening = $this->liveQuery($company)->where('slug', $slug)->with(['department', 'branch'])->first();
 
@@ -55,7 +55,7 @@ class CareerPageWebController extends \App\Http\Controllers\Controller
 
     public function feed(string $key): Response
     {
-        [$page, $company] = $this->resolve($key);
+        ['page' => $page, 'company' => $company] = $this->resolve($key);
 
         $xml = view('careers.feed', [
             'company' => $company,
@@ -98,9 +98,6 @@ class CareerPageWebController extends \App\Http\Controllers\Controller
             ->orderByDesc('id');
     }
 
-    /**
-     * @return array{0: CareerPage, 1: Company}
-     */
     private function resolve(string $key): array
     {
         $page = CareerPage::query()
@@ -119,7 +116,7 @@ class CareerPageWebController extends \App\Http\Controllers\Controller
             throw new NotFoundHttpException('This career page is not available.');
         }
 
-        return [$page, $company];
+        return ['page' => $page, 'company' => $company];
     }
 
     private function jsonLd(JobOpening $opening, Company $company): string

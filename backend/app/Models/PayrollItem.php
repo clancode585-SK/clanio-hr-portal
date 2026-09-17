@@ -33,6 +33,10 @@ class PayrollItem extends Model
 
     public const PAYMENT_STATUSES = [self::PENDING, self::PROCESSING, self::PAID, self::FAILED, self::ON_HOLD];
 
+    public const APPROVED = 'approved';
+
+    public const APPROVAL_STATUSES = [self::PENDING, self::APPROVED];
+
     protected $fillable = [
         'lop_days',
         'note',
@@ -40,6 +44,7 @@ class PayrollItem extends Model
 
     protected $attributes = [
         'payment_status' => self::PENDING,
+        'approval_status' => self::PENDING,
     ];
 
     protected function casts(): array
@@ -51,6 +56,7 @@ class PayrollItem extends Model
             'paid_days' => 'float',
             'lop_suggested' => 'float',
             'lop_locked_by_hr' => 'boolean',
+            'approved_at' => 'datetime',
             'gross_earnings' => 'float',
             'total_deductions' => 'float',
             'employer_cost' => 'float',
@@ -88,10 +94,25 @@ class PayrollItem extends Model
         return $this->payment_status === self::ON_HOLD;
     }
 
+    public function isApproved(): bool
+    {
+        return $this->approval_status === self::APPROVED;
+    }
+
     public function isTransferable(): bool
     {
-        return in_array($this->payment_status, [self::PENDING, self::FAILED], true)
+        return $this->isApproved()
+            && in_array($this->payment_status, [self::PENDING, self::FAILED], true)
             && (float) $this->net_payable > 0;
+    }
+
+    public function approvalLabel(): string
+    {
+        if ($this->isOnHold()) {
+            return 'Stopped';
+        }
+
+        return $this->isApproved() ? 'Approved' : 'Waiting for approval';
     }
 
     public function paymentLabel(): string

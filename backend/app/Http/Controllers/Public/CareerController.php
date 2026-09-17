@@ -22,7 +22,7 @@ class CareerController extends Controller
 
     public function openings(Request $request, string $key): JsonResponse
     {
-        [$page, $company] = $this->resolve($key, $request);
+        ['page' => $page, 'company' => $company] = $this->resolve($key, $request);
 
         $openings = JobOpening::query()
             ->withoutGlobalScopes()
@@ -56,7 +56,7 @@ class CareerController extends Controller
 
     public function opening(Request $request, string $key, string $slug): JsonResponse
     {
-        [$page, $company] = $this->resolve($key, $request);
+        ['page' => $page, 'company' => $company] = $this->resolve($key, $request);
 
         $opening = JobOpening::query()
             ->withoutGlobalScopes()
@@ -93,7 +93,7 @@ class CareerController extends Controller
 
     public function apply(Request $request, string $key, string $slug): JsonResponse
     {
-        [$page, $company] = $this->resolve($key, $request);
+        ['page' => $page, 'company' => $company] = $this->resolve($key, $request);
         unset($page);
 
         if ($request->filled('company_website')) {
@@ -272,9 +272,6 @@ class CareerController extends Controller
         ];
     }
 
-    /**
-     * @return array{0: CareerPage, 1: Company}
-     */
     private function resolve(string $key, Request $request): array
     {
         $page = CareerPage::query()
@@ -299,7 +296,7 @@ class CareerController extends Controller
             throw new ApiException('This career page is not available.', 404, 'CAREER_PAGE_NOT_FOUND');
         }
 
-        return [$page, $company];
+        return ['page' => $page, 'company' => $company];
     }
 
     private function domain(Request $request): ?string

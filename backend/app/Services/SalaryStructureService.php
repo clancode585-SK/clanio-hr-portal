@@ -148,6 +148,29 @@ final class SalaryStructureService
             ->first();
     }
 
+    public function forMonthMany(array $employeeIds, string $month): array
+    {
+        if ($employeeIds === []) {
+            return [];
+        }
+
+        $picked = [];
+
+        SalaryStructure::query()
+            ->with('lines')
+            ->whereIn('employee_id', $employeeIds)
+            ->effectiveOn($month . '-01')
+            ->orderBy('employee_id')
+            ->orderByDesc('effective_from')
+            ->chunkById(500, function ($rows) use (&$picked): void {
+                foreach ($rows as $structure) {
+                    $picked[(int) $structure->employee_id] ??= $structure;
+                }
+            });
+
+        return $picked;
+    }
+
     public function history(Employee $employee): array
     {
         return SalaryStructure::query()

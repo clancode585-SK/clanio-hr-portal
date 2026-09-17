@@ -20,8 +20,6 @@ final class GoalService
 {
     public function __construct(private readonly NotificationService $notifications) {}
 
-    /* ----------------------------------------------------------------- CRUD */
-
     public function create(User $actor, array $data): PerformanceGoal
     {
         $employee = $this->employeeFor($actor, isset($data['employee_id']) ? (int) $data['employee_id'] : null);
@@ -163,8 +161,6 @@ final class GoalService
         return $goal->refresh()->load('employee.user', 'keyResults');
     }
 
-    /* --------------------------------------------------- OKR verification */
-
     public function submit(PerformanceGoal $goal, array $data, User $actor): PerformanceGoal
     {
         $this->assertOwner($goal, $actor);
@@ -239,9 +235,6 @@ final class GoalService
         return $goal;
     }
 
-    /**
-     * HR final karti hai — yahan achievement % lock ho jata hai, phir koi nahi badal sakta.
-     */
     public function finalise(PerformanceGoal $goal, array $data, User $actor): PerformanceGoal
     {
         $this->assertPermission($actor, PerformanceGoal::VERIFY_PERMISSION, 'OKR final karne');
@@ -416,12 +409,6 @@ final class GoalService
         });
     }
 
-    /* ------------------------------------------------------------- progress */
-
-    /**
-     * KRA / Key Result apne target ya linked tasks se, Objective apne
-     * key results ke weighted average se.
-     */
     public function refreshProgress(PerformanceGoal $goal): int
     {
         $percent = $goal->isObjective()
@@ -458,9 +445,6 @@ final class GoalService
         }
     }
 
-    /**
-     * Us period ka weighted achievement — appraisal aur monthly score dono isko use karte hain.
-     */
     public function achievement(Employee $employee, Carbon $start, Carbon $end): ?int
     {
         $goals = PerformanceGoal::query()
@@ -540,8 +524,6 @@ final class GoalService
         return (int) $goal->progress_percent;
     }
 
-    /* --------------------------------------------------------------- guards */
-
     private function parentFor(array $data, string $type, Employee $employee): ?PerformanceGoal
     {
         if (! isset($data['parent_id'])) {
@@ -594,7 +576,6 @@ final class GoalService
         }
     }
 
-    /** Ek employee ke top-level goals ka total weight 100 se zyada nahi ho sakta. */
     private function assertWeights(PerformanceGoal $goal): void
     {
         $total = (int) PerformanceGoal::query()
@@ -713,8 +694,6 @@ final class GoalService
     {
         TenantCache::flush(TenantCache::PERFORMANCE);
     }
-
-    /* -------------------------------------------------------- notifications */
 
     private function notifyApprover(PerformanceGoal $goal, User $actor): void
     {

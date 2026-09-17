@@ -10,6 +10,7 @@ use App\Http\Requests\CompanySettingRequest;
 use App\Models\Company;
 use App\Support\ApiResponse;
 use App\Support\TenantCache;
+use App\Support\TransferWindow;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -43,6 +44,85 @@ class CompanySettingController extends ApiController
         TenantCache::flush(TenantCache::COMPANIES);
 
         return ApiResponse::success($this->payload($company->refresh()), 'Company settings update ho gayi');
+    }
+
+    public function payroll(): JsonResponse
+    {
+        return ApiResponse::success($this->payrollPayload($this->company()), 'Payroll settings fetched successfully');
+    }
+
+    public function updatePayroll(Request $request): JsonResponse
+    {
+        $company = $this->company();
+
+        $data = $request->validate([
+            'salary_pay_day' => ['nullable', 'integer', 'min:1', 'max:28'],
+            'salary_pay_time' => ['nullable', 'date_format:H:i'],
+            'payroll_review_day' => ['nullable', 'integer', 'min:1', 'max:28'],
+            'transfer_otp_enabled' => ['nullable', 'boolean'],
+            'transfer_otp_to' => ['nullable', 'in:admin,account'],
+            'transfer_early_block' => ['nullable', 'boolean'],
+            'gratuity_enabled' => ['nullable', 'boolean'],
+            'encashment_enabled' => ['nullable', 'boolean'],
+            'notice_recovery_basis' => ['nullable', 'in:basic,gross'],
+        ], [
+            'salary_pay_day.max' => 'Pay day 1 se 28 ke beech rakho — mahine ke aakhir me date badal jaati hai.',
+            'salary_pay_time.date_format' => 'Time aise do — 10:00',
+        ]);
+
+        $data = array_filter($data, static fn ($value): bool => $value !== null);
+
+        if ($data === []) {
+            throw new ApiException('Badalne ke liye kuch bheja hi nahi.', 422, 'NOTHING_TO_UPDATE');
+        }
+
+        if (isset($data['salary_pay_time'])) {
+            $data['salary_pay_time'] = $data['salary_pay_time'] . ':00';
+        }
+
+        if (isset($data['payroll_review_day'], $data['salary_pay_day'])
+            && (int) $data['payroll_review_day'] > (int) $data['salary_pay_day'] + 20) {
+            throw new ApiException('Review day aur pay day ke beech itna fasla theek nahi.', 422, 'DAYS_APART');
+        }
+
+        $company->forceFill($data + ['updated_by' => $request->user()->id])->save();
+
+        TenantCache::flush(TenantCache::COMPANIES);
+        TransferWindow::forget();
+
+        return ApiResponse::success(
+            $this->payrollPayload($company->refresh()),
+            'Payroll settings update ho gayi'
+        );
+    }
+
+    private function payrollPayload(Company $company): array
+    {
+        return [
+            'company_id' => (int) $company->id,
+            'settings' => [
+                'salary_pay_day' => (int) $company->salary_pay_day,
+                'salary_pay_time' => substr((string) $company->salary_pay_time, 0, 5),
+                'payroll_review_day' => (int) $company->payroll_review_day,
+                'transfer_otp_enabled' => (bool) $company->transfer_otp_enabled,
+                'transfer_otp_to' => (string) $company->transfer_otp_to,
+                'transfer_early_block' => (bool) $company->transfer_early_block,
+                'gratuity_enabled' => (bool) $company->gratuity_enabled,
+                'encashment_enabled' => (bool) $company->encashment_enabled,
+                'notice_recovery_basis' => (string) $company->notice_recovery_basis,
+            ],
+            'meaning' => [
+                'salary_pay_day' => 'Is tarikh ko salary account se katti hai',
+                'salary_pay_time' => 'Us din is time se transfer shuru hota hai',
+                'payroll_review_day' => 'Is tarikh ke baad HR sabki salary check karke approve karti hai',
+                'transfer_otp_enabled' => 'On rakho to paisa bhejne se pehle email par aaya code daalna padega',
+                'transfer_otp_to' => 'Code kahan jaaye — admin ke email par ya bank account ke registered email par',
+                'transfer_early_block' => 'On rakho to pay date se pehle transfer nahi hoga, chahe approve ho gaya ho',
+                'gratuity_enabled' => 'Off hai to FnF me gratuity ki line nahi aayegi',
+                'encashment_enabled' => 'Off hai to FnF me bachi hui chhutti ka paisa nahi jodega',
+                'notice_recovery_basis' => 'Notice shortfall ka hisaab basic par ya poore gross par',
+            ],
+        ];
     }
 
     private function company(): Company

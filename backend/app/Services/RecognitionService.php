@@ -52,10 +52,6 @@ final class RecognitionService
         return $recognition;
     }
 
-    /**
-     * Goal achieve hote hi apne aap ek kudos ban jata hai — ek goal par ek hi baar
-     * (`recognitions.goal_key` unique isi liye hai).
-     */
     public function autoForGoal(PerformanceGoal $goal, ?User $actor = null): ?Recognition
     {
         if ((int) $goal->achievement_percent < 100) {

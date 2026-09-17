@@ -46,6 +46,8 @@ class PayrollRun extends Model
     protected $attributes = [
         'status' => self::DRAFT,
         'headcount' => 0,
+        'approved_count' => 0,
+        'stopped_count' => 0,
         'working_days' => 0,
         'total_earnings' => 0,
         'total_deductions' => 0,
@@ -67,8 +69,11 @@ class PayrollRun extends Model
             'paid_amount' => 'float',
             'headcount' => 'integer',
             'paid_count' => 'integer',
+            'approved_count' => 'integer',
+            'stopped_count' => 'integer',
             'calculated_at' => 'datetime',
             'approved_at' => 'datetime',
+            'transfer_scheduled_at' => 'datetime',
             'closed_at' => 'datetime',
         ];
     }

@@ -20,10 +20,8 @@ class IncentiveRecord extends Model
     use HasActiveState;
     use HasUuid;
 
-    /** Nikal liya, par abhi kisi ne dekha nahi */
     public const CALCULATED = 'calculated';
 
-    /** HR/admin ne approve kar diya — payroll ab isse utha sakta hai */
     public const APPROVED = 'approved';
 
     public const REJECTED = 'rejected';

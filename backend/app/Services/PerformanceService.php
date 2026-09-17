@@ -24,12 +24,6 @@ final class PerformanceService
         private readonly GoalService $goals
     ) {}
 
-    /* ---------------------------------------------------------------- score */
-
-    /**
-     * Frozen mahina DB se seedha uthta hai — dobara calculate nahi hota,
-     * isi liye purana score kabhi badalta nahi.
-     */
     public function scoreFor(User $actor, ?int $employeeId, string $month): array
     {
         $employee = $this->employeeFor($actor, $employeeId);
@@ -186,8 +180,6 @@ final class PerformanceService
         ];
     }
 
-    /* -------------------------------------------------------------- weights */
-
     public function weights(User $actor): array
     {
         return $this->workRecord->weights((int) $actor->company_id);
@@ -221,8 +213,6 @@ final class PerformanceService
 
         return $this->workRecord->weights((int) $actor->company_id);
     }
-
-    /* ------------------------------------------------------------ team view */
 
     public function leaderboard(User $actor, string $month): array
     {
@@ -266,8 +256,6 @@ final class PerformanceService
             'employees' => $rows,
         ];
     }
-
-    /* --------------------------------------------------------------- guards */
 
     private function find(Employee $employee, Carbon $period): ?PerformanceScore
     {

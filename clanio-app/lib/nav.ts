@@ -64,6 +64,13 @@ export const navSections: NavSection[] = [
         permissions: ['payroll.view'],
         description: 'Mahine ki salary calculate karo aur bhejo',
       },
+      {
+        href: '/fnf',
+        label: 'Full & Final',
+        icon: 'cash-outline',
+        permissions: ['fnf.view'],
+        description: 'Jaane wale ka aakhri hisaab',
+      },
       { href: '/exits', label: 'Resignations', icon: 'exit-outline', permissions: ['exit.approve'] },
       { href: '/clearance', label: 'Clearance', icon: 'checkmark-done-outline', permissions: ['clearance.sign'] },
       { href: '/asset-requests', label: 'Asset Requests', icon: 'construct-outline', permissions: ['asset.support', 'asset.manage'] },
@@ -118,6 +125,13 @@ export const navSections: NavSection[] = [
         icon: 'layers-outline',
         permissions: ['salary_structure.view'],
         description: 'Earning aur deduction jinse salary banti hai',
+      },
+      {
+        href: '/payroll-settings',
+        label: 'Payroll Settings',
+        icon: 'options-outline',
+        permissions: ['payroll.view'],
+        description: 'Salary kis tarikh aur time par jaati hai',
       },
       {
         href: '/company-bank',

@@ -1,6 +1,6 @@
 # Clanio HRMS — Status
 
-**Last session: 16 September 2026**
+**Last session: 17 September 2026**
 
 Ye file batati hai **abhi kahan hain aur aage kya karna hai.** Purane
 detail `../PROJECT-NOTES.md` me hain.
@@ -11,12 +11,12 @@ detail `../PROJECT-NOTES.md` me hain.
 
 | | |
 |---|---|
-| API endpoints | **421** under `/api/hrms` |
-| App me integrated | **421 / 421** |
-| Services | 51 |
-| Company controllers | 58 |
-| Schema files | 32 (raw SQL, koi migration nahi) |
-| Permissions | 104 |
+| API endpoints | **450** under `/api/hrms` |
+| App me integrated | **450 / 450** |
+| Services | 55 |
+| Company controllers | 59 |
+| Schema files | 36 (raw SQL, koi migration nahi) |
+| Permissions | 105 |
 | Mobile app | Expo SDK 57 — **poori ban chuki hai**, saare role |
 
 Do endpoint jaan-boojh kar chhode hain — `exits/pending-hr-approval` aur
@@ -38,7 +38,7 @@ Do endpoint jaan-boojh kar chhode hain — `exits/pending-hr-approval` aur
 
 Modules: departments, designations, branches, work_shifts, leave_types,
 holidays, teams, employees, leave_balances, attendance, assets.
-Payroll nahi — module hi nahi hai.
+Salary structure import me nahi hai — wo employee ke andar se set hoti hai.
 
 ### Realtime notification — Reverb websocket
 - Backend me pehle se tha, app kabhi connect hi nahi hui thi
@@ -271,11 +271,22 @@ Apne domain ka SMTP ya SendGrid / Amazon SES / Zoho ka detail do, `.env` me
 `MAIL_MAILER=smtp` + host, port, username, password. Code taiyar hai — thank-you
 email aur interview joining link dono usi waqt chalne lagenge.
 
+**Ye sabse pehle karna hai ab.** Salary transfer ka 6 digit code email par hi
+jaata hai — SMTP ke bina code `storage/logs/laravel.log` me girta hai, jahan
+sirf server wala dekh sakta hai. Live jaane se pehle SMTP chahiye, warna HR
+paisa bhej hi nahi payegi.
+
 ### B3. Timezone — ho gaya, per company
 
 DB me har timestamp UTC me hi rehta hai. Company-local rule aur display
 `companies.timezone` ke hisaab se chalta hai — teen company teen zone me ho
 sakti hain.
+
+`config/app.php` me `'timezone' => 'UTC'` **jaan-boojh kar hardcoded** hai.
+`.env` me `APP_TIMEZONE=Asia/Kolkata` padi hai par wo kaam nahi karti — usse
+hatane ki zarurat nahi, par config ko env se padhne **mat** lagao. Aisa karte
+hi Laravel har naya timestamp IST me likhne lagega aur purane UTC rows ke saath
+mila-jula data ho jaayega (attendance, payroll, transfer schedule sab galat).
 
 Backend me `App\Support\CompanyTime`:
 
@@ -502,9 +513,14 @@ ko diye, HR manager ko sirf view.
 | Salary Components | Setup | 11 standard ek click me, phir naam/percent badlo. Har row par likha hai "50% of gross", "40% of Basic", "Whatever is left" |
 | Salary structure | Employee ke andar | CTC daalo → **Show me the breakup** → poora breakup dekh kar save. Purana structure apne aap band, history dikhti hai |
 | Payroll | Approve section | Mahine ki list, status tag, paid/total ka progress bar. Jinka structure nahi hai unki warning |
-| Payroll detail | Payroll par tap | Summary + payslip list + filter chip (Everyone / Not sent / Paid / Failed / On hold). Calculate → Approve → Send salary to N employees |
-| Payslip sheet | Row par tap | Poora breakup (deduction par `−`, employer share par "(company)"), **LOP field** attendance ke sujhaav ke saath, transfer route (kis account se kis account me), hold/release, download |
-| Company Bank | Setup | Account add (IFSC validate hota hai), balance, test top-up, aur **statement** — har debit narration aur running balance ke saath |
+| Payroll detail | Payroll par tap | Summary (Approved / Waiting / Stopped bhi), transfer window ki line, **Final approval** block — Ready, Amount, On LOP, "LOP ke chalte ₹X kam ja raha hai", ek click me sabko approve, aur jinke saath kuch karna hai unki list wajah ke saath. Filter chip: Everyone / Waiting / Approved / Paid / Failed / Stopped |
+| Payslip sheet | Row par tap | Poora breakup (deduction par `−`, employer share par "(company)"), **Final approval** block (approve / approval wapas / stop ki wajah), **LOP field** attendance ke sujhaav ke saath, transfer route, stop-release, download |
+| Schedule sheet | "Transfer ka time set karo" | Date aur time pehle se bhare (pay day + 10:00), weekday likha, Sunday par chetavni, kitni salary kitne ka |
+| Code sheet | Transfer ya schedule par | Amount, kis email par code gaya, kitne minute chalega, kitni koshish bachi, "Naya code bhejo", aur "Code kisi ko mat batao" |
+| Payroll Settings | Setup | Deduction date (7), transfer ka time (10:00), HR review ka din (25), code maangna on/off, code kahan jaaye, pay date se pehle block, gratuity/encashment toggle, notice basis |
+| Full & Final | Approvals | Jinka settlement banna baaki hai unki list (tap karke ban jaata hai), sab settlement, ek click me bulk approve, pending sujhaav ka counter |
+| FnF detail | Settlement par tap | Earnings, deductions, **Sujhaav** (Apply / Apply part of it / amount badlo), apni deduction jodo, stop-release, approve, code ke saath transfer, statement download |
+| Company Bank | Setup | Account add (IFSC validate hota hai), code kis email par jaaye, balance, test top-up, aur **statement** — har debit narration aur running balance ke saath |
 | My Payslips | My Space | Employee apni payslip dekhta aur download karta hai. Employer share uski list me nahi, par ek line me bata diya jaata hai |
 
 **Teen bug pakde gaye aur theek kiye** (browser me chalane par nikle):
@@ -518,23 +534,171 @@ Saath me run detail ka call halka kiya — `items` dobara nahi bhejta, kyunki pa
 **Test:** API 248/248 · browser: components + structure + bank 72/72,
 payroll run se salary transfer tak 79/79.
 
+### Full and Final Settlement (17 Sep)
+
+Jab koi chhod ke jaata hai to uska aakhri hisaab. **Jaan-boojh kar chhota
+rakha hai** — jo private companies asal me deti hain, bas wahi.
+
+```
+fnf_settlements    ek exit ka ek settlement (identity + numbers ka snapshot)
+fnf_lines          us settlement ki har line (earning / deduction)
+```
+
+FnF me sirf **aakhri mahine ki salary** aati hai, last working day tak ke
+working days par pro-rated — bilkul normal payslip jaisi. PF/ESI/PT usi tarah
+katte hain. **Gratuity aur leave encashment default OFF hain** (company
+settings me toggle hai) kyunki aaj kal private companies ye deti hi nahi.
+
+**Deduction apne aap nahi katti.** Tool notice shortfall aur clearance recovery
+ko **sujhaav** banata hai — `source = suggested`, `is_applied = false`,
+`amount = 0`, aur `suggested_amount` me poora hisaab. HR jab tak Apply na kare,
+net me kuch farak nahi padta. HR chahe to poora amount le, chahe kam kar de —
+`suggested_amount` record ke liye bacha rehta hai, aur statement par likha
+aata hai ki HR ne kam kiya.
+
+Hisaab ka example — Amit, 6L CTC (gross 50,000 / basic 25,000), LWD 20 Sept,
+Sept me 26 working day, 17 kaam kiye:
+
+```
+Sept ki salary (17/26)   32,692.30
+PF                       −1,800.00
+Net                     ₹30,892.30
+
+Sujhaav (lagaye nahi gaye)
+  Notice shortfall 11 din    21,153.85    [Apply]
+  Laptop wapas nahi aaya     15,000.00    [Apply]
+```
+
+Stages: `draft → calculated → approved → settled` (ya `cancelled`). Calculate
+dobara chal sakta hai — HR ke Apply/amount ke faisle bach jaate hain, manual
+lines bhi. Approve hone ke baad sab lock.
+
+Net minus aa jaye (notice shortfall salary se bada ho) to `payment_status`
+**recoverable** ho jaata hai, transfer band, aur `mark-recovered` se HR paisa
+aane par band karti hai.
+
+`FnfStatementService` + `resources/views/payroll/fnf.blade.php` — payslip jaisa
+statement, jisme "Not deducted" ka alag block hai taaki jo sujhaav waive kiya
+wo bhi likha rahe. `preview` aur `download` dono hain.
+
+Paisa usi salary ledger se jaata hai — `salary_disbursements.purpose =
+settlement`, company account se debit, statement me "Full and final EMP0002"
+ke naam se.
+
+Naye permission: `fnf.view` / `fnf.manage` / `fnf.approve` — company admin aur
+HR manager dono ko.
+
+**Test:** API 115/115 (main flow) + 29/29 (recovery wala case) + 34/34
+(approval, stop, code) = **178/178**.
+
+### Salary release ka do-step control (17 Sep)
+
+Paise ka mamla hai, is liye do jagah pakka kiya — **kaun approve karta hai**
+aur **kab paisa nikal sakta hai.**
+
+**1. Har employee par alag final approval**
+
+`payroll_items.approval_status` (pending / approved) + `approved_at`,
+`approved_by`, `fingerprint`. Pehle approval poore run par thi, ab HR **ek-ek
+payslip** par approve karti hai — ya ek hi click me sabki:
+
+```
+POST /payslips/{id}/approve           ek employee
+POST /payslips/{id}/unapprove         galti se ho gayi to wapas
+POST /payroll-runs/{id}/approve-items sabki ek saath (uuids do to unhi ki)
+GET  /payroll-runs/{id}/approval-review kitne ready, kitne LOP par, kya rok raha hai
+```
+
+Approve karne se pehle teen jaanch:
+
+- **Stop wali salary approve nahi hoti.** 500 me se 4 ki rokni ho to unko stop
+  karo, baaki bulk approve me apne aap chhoot jaayenge — response me naam aur
+  wajah ke saath
+- **LOP ka faisla pehle.** Attendance LOP keh rahi hai aur HR ne kuch tay nahi
+  kiya to approval rukti hai (`LOP_UNDECIDED`) — 0 rakhna ho to bhi save karna
+  padega. LOP save karne par payslip dobara bantii hai, to approve **kati hui
+  amount** par hota hai
+- **Apni salary** approve kar sakte ho, par **LOP lagi ho to nahi** — wo dusra
+  approver hi karega (`SELF_APPROVAL_WITH_LOP`)
+
+Run approve tabhi hoga jab ek bhi employee approval ka intezaar na kar raha ho.
+Recalculate ya LOP badalne par approval apne aap hat jaati hai.
+
+**2. Deduction date se pehle paisa nahi**
+
+`companies.salary_pay_day` (7), `salary_pay_time` (10:00), `payroll_review_day`
+(25), `transfer_early_block`. `TransferWindow` in dono se transfer ka window
+banata hai; window se pehle transfer **band** — response me saaf date-time.
+Chhod ne ka haq alag permission me hai: `salary.disburse_early` (sirf company
+admin).
+
+Company ka 7 Sunday pade to HR date badal sakti hai:
+
+```
+GET    /payroll-runs/{id}/schedule   default date + time, weekday, is_sunday
+POST   /payroll-runs/{id}/schedule   date + time + note
+DELETE /payroll-runs/{id}/schedule   hata do
+```
+
+Schedule lag jaane par `salary:disburse` cron usi time ka intezaar karta hai —
+cron ab **har 15 minute** chalta hai (pehle roz 9:30) taaki 10:00 ka time sahi
+pakde.
+
+**3. Bhejne se pehle code (2-step)**
+
+`transfer_verifications` table. Transfer ya schedule ka pehla call paisa nahi
+bhejta — ek 6 digit ka code email par bhejta hai aur `202` ke saath
+verification uuid deta hai. Dusre call me `verification_uuid` + `code` jaate
+hain, tab paisa chalta hai.
+
+```
+transfer_otp_enabled   on/off
+transfer_otp_to        admin  → jiske paas salary.disburse hai, requester ke alawa
+                       account → company bank account ka contact_email
+```
+
+Code kabhi API response me nahi aata — sirf email me. Sath hi:
+
+- hash karke rakha jaata hai, 10 minute chalta hai, **ek hi baar**
+- 5 galat koshish ke baad request band
+- code maangne ke baad amount ya headcount badal jaye to code mar jaata hai
+  (`VERIFICATION_STALE`) — dobara maango
+- HR ne trigger kiya aur code admin ke paas gaya, to do log lagenge — yahi
+  "galti se trigger" ka bachaav hai
+
+**4. Amount ki seal**
+
+Approve karte waqt `SalarySeal` payslip ke numbers aur lines ka sha256 banata
+hai (`fingerprint`). Transfer se pehle dobara banake milaya jaata hai — DB me
+seedha amount badal diya jaye to transfer rukta hai: "Approval ke baad amount
+badal gaya hai — dobara approve karna padega." FnF settlement par bhi wahi.
+
+**5. Double-spend**
+
+`push()` ab transaction ke andar payslip ko `lockForUpdate` karke payment aur
+approval status dobara padhta hai. Do request ek saath aayein to doosri
+`ALREADY_IN_FLIGHT` par ruk jaati hai. Transfer routes par apna throttle hai
+(`throttle:transfer` — 30/minute, 300/hour).
+
+FnF par bhi wahi teen cheezein lagi hain — bulk approve, stop/release, aur
+transfer par code + seal. Farak sirf date ka hai: settlement ek baar ka kaam
+hai, uska koi monthly window nahi.
+
+Naya permission: `salary.disburse_early`.
+
+**Test:** API 94/94 (approval + code) + 41/41 (schedule, window, seal,
+tampering) = **135/135**.
+
 ### C. Jaan-boojh kar last ke liye
 
 ```
-Payroll + Salary Structure    LOP  (attendance → payroll)
-Statutory  (PF/ESI/PT/TDS)    Full & Final Settlement
-Dashboard / Reports           Onboarding flow
-HTML letter templates
+Dashboard / Reports           HTML letter templates
 ```
 
-Order dependency se tay hai:
-Salary Structure → LOP → Payroll run → Statutory → Salary slip → FnF → Reports.
+Baaki sab ban gaya — payroll, FnF, LOP, statutory, onboarding flow.
 
-Payroll shuru karne se pehle 3 baat tay karni hai: TDS kitna deep (HR manually
-daale / simple slab / poora regime), payroll approve HR kare ya Finance bhi,
-aur PF/ESI/PT ki rates company settings me editable hon ya code me fix.
-
-Salary slip download bhi yahi aayega — pehle payroll banega.
+TDS jaan-boojh kar chhoda hai: payslip par line hai jisme HR amount daal sakta
+hai, slab ya regime ka hisaab nahi.
 
 ### D. Hata diye — inpe kaam nahi karna
 
@@ -555,6 +719,12 @@ Insurance             Training / LMS
 | Company modules | 28, sab ON |
 | Departments, designations, shifts, branches | **kuch nahi** |
 | Clearance items | **kuch nahi** |
+| Salary components | **kuch nahi** — `POST /salary-components/standard` se 11 ek click me |
+| Deduction date / time | 7 tarikh, 10:00 (Payroll Settings me badlo) |
+| HR review ka din | 25 |
+| Transfer par code | ON, admin ke email par |
+| Pay date se pehle transfer | band (`salary.disburse_early` wale ke liye khula) |
+| Gratuity, leave encashment | dono OFF |
 
 Naye admin ko ye order follow karna padta hai — app ka **Setup checklist**
 dashboard par yahi guide karta hai:
@@ -607,6 +777,12 @@ hain. `PHP_CLI_SERVER_WORKERS=10` lagane se theek ho jaata hai.
 | App: offer letter, Google Form, joining pipeline, put on the roll | 51/51 |
 | App: ek email do company me login | 6/6 |
 | File download | 7/7 |
+| Per-company timezone | API 25/25 + 19/19 + 21/21 + 18/18 |
+| Onboarding first-login flow | API 39/39, browser 75/75 |
+| Payroll (structure, run, payslip, bank) | API 248/248, browser 72/72 + 79/79 |
+| FnF settlement | API 115/115 + 29/29 (recovery) |
+| Salary approval + 2-step code + schedule | API 94/94 + 41/41, FnF 34/34 |
+| Approval flow browser me (settings → stop → bulk approve → schedule → code → paisa) | 91/91 |
 | Saare 7 role ka scope aur permission | verified |
 | App browser me — har role login karke | 0 JS error |
 

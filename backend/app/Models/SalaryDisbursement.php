@@ -34,10 +34,19 @@ class SalaryDisbursement extends Model
 
     public const PERMISSION = 'salary.disburse';
 
+    public const EARLY_PERMISSION = 'salary.disburse_early';
+
+    public const SALARY = 'salary';
+
+    public const SETTLEMENT = 'settlement';
+
+    public const PURPOSES = [self::SALARY, self::SETTLEMENT];
+
     protected $attributes = [
         'status' => self::QUEUED,
         'mode' => self::BULK,
         'provider' => 'mock',
+        'purpose' => self::SALARY,
     ];
 
     protected function casts(): array

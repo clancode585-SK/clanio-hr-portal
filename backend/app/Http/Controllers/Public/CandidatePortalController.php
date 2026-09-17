@@ -25,7 +25,7 @@ class CandidatePortalController extends Controller
 
     public function show(string $token): View
     {
-        [$candidate, $company, $page] = $this->resolve($token);
+        ['candidate' => $candidate, 'company' => $company, 'page' => $page] = $this->resolve($token);
 
         $candidate->forceFill([
             'portal_opened_at' => $candidate->portal_opened_at ?? Carbon::now(),
@@ -120,9 +120,6 @@ class CandidatePortalController extends Controller
         );
     }
 
-    /**
-     * @return array{0: Candidate, 1: Company, 2: CareerPage|null}
-     */
     private function resolve(string $token): array
     {
         $candidate = Candidate::query()
@@ -143,7 +140,7 @@ class CandidatePortalController extends Controller
 
         $page = CareerPage::query()->withoutGlobalScopes()->where('company_id', $company->id)->first();
 
-        return [$candidate, $company, $page];
+        return ['candidate' => $candidate, 'company' => $company, 'page' => $page];
     }
 
     private function steps(): array

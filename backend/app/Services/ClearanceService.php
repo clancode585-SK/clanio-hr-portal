@@ -144,9 +144,6 @@ final class ClearanceService
         return 1;
     }
 
-    /**
-     * Saari policies accept hote hi exit ka policy wala item apne aap clear ho jata hai.
-     */
     public function clearPolicyItems(int $employeeId, User $actor): void
     {
         $rows = ExitClearance::query()

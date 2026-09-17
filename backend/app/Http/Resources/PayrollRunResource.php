@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Resources;
 
 use App\Support\Money;
+use App\Support\TransferWindow;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -36,9 +37,20 @@ class PayrollRunResource extends JsonResource
             'pending_count' => max($this->headcount - $this->paid_count, 0),
             'pending_amount' => round((float) $this->total_net - (float) $this->paid_amount, 2),
 
+            'approved_count' => $this->approved_count,
+            'stopped_count' => $this->stopped_count,
+            'waiting_approval_count' => max(
+                (int) $this->headcount - (int) $this->approved_count - (int) $this->stopped_count,
+                0
+            ),
+
             'is_editable' => $this->isEditable(),
             'is_payable' => $this->isPayable(),
             'note' => $this->note,
+
+            'transfer_window' => TransferWindow::describe($this->resource),
+            'transfer_scheduled_at' => $this->transfer_scheduled_at?->toIso8601String(),
+            'schedule_note' => $this->schedule_note,
 
             'calculated_at' => $this->calculated_at,
             'calculated_by' => $this->whenLoaded('calculatedBy', fn () => $this->calculatedBy?->name),

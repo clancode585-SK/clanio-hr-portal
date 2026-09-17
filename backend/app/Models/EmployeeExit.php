@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class EmployeeExit extends Model
 {
@@ -21,16 +22,12 @@ class EmployeeExit extends Model
     use HasActiveState;
     use HasUuid;
 
-    /** Employee ne resignation daali — manager ke paas hai */
     public const PENDING = 'pending';
 
-    /** Manager ne approve kiya — HR final approval degi */
     public const MANAGER_APPROVED = 'manager_approved';
 
-    /** HR ne last working date set kar di — notice chal raha hai */
     public const SERVING_NOTICE = 'serving_notice';
 
-    /** Last working date nikal gayi — login band ho chuka hai */
     public const EXITED = 'exited';
 
     public const REJECTED = 'rejected';
@@ -152,6 +149,11 @@ class EmployeeExit extends Model
     public function clearances(): HasMany
     {
         return $this->hasMany(ExitClearance::class);
+    }
+
+    public function settlement(): HasOne
+    {
+        return $this->hasOne(FnfSettlement::class, 'employee_exit_id');
     }
 
     public function isPending(): bool

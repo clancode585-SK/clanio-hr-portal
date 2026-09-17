@@ -20,16 +20,12 @@ class Appraisal extends Model
     use HasActiveState;
     use HasUuid;
 
-    /** Employee ne self review nahi bhara */
     public const PENDING = 'pending';
 
-    /** Self review ho gaya — manager ke paas */
     public const SELF_DONE = 'self_done';
 
-    /** Manager ne rating de di — HR ke paas */
     public const MANAGER_DONE = 'manager_done';
 
-    /** HR ne final rating de di */
     public const FINALISED = 'finalised';
 
     public const STATUSES = [

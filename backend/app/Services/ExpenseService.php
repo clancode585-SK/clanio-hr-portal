@@ -27,8 +27,6 @@ final class ExpenseService
 
     public function __construct(private readonly NotificationService $notifications) {}
 
-    /* ---------------------------------------------------------------- apply */
-
     public function apply(User $actor, array $data, array $files = []): ExpenseClaim
     {
         $employee = $this->employeeFor($actor, isset($data['employee_id']) ? (int) $data['employee_id'] : null);
@@ -108,8 +106,6 @@ final class ExpenseService
         return $claim->refresh()->load('employee.user', 'bills');
     }
 
-    /* ------------------------------------------------------- manager stage */
-
     public function approve(ExpenseClaim $claim, array $data, User $actor): ExpenseClaim
     {
         $this->assertCanApprove($claim, $actor);
@@ -139,8 +135,6 @@ final class ExpenseService
 
         return $claim;
     }
-
-    /* ------------------------------------------------------------ HR stage */
 
     public function verify(ExpenseClaim $claim, array $data, User $actor): ExpenseClaim
     {
@@ -196,8 +190,6 @@ final class ExpenseService
 
         return $claim;
     }
-
-    /* ------------------------------------------------------------- payment */
 
     public function pay(ExpenseClaim $claim, array $data, User $actor): ExpenseClaim
     {
@@ -274,8 +266,6 @@ final class ExpenseService
         ];
     }
 
-    /* -------------------------------------------------------------- reject */
-
     public function reject(ExpenseClaim $claim, array $data, User $actor): ExpenseClaim
     {
         if ($claim->isClosed()) {
@@ -331,8 +321,6 @@ final class ExpenseService
         return $claim->refresh()->load('employee.user');
     }
 
-    /* --------------------------------------------------------------- bills */
-
     public function addBill(ExpenseClaim $claim, UploadedFile $file, User $actor): ExpenseBill
     {
         $this->assertOwner($claim, $actor);
@@ -381,8 +369,6 @@ final class ExpenseService
 
         return Storage::disk(self::DISK)->download($bill->file_path, $bill->original_name);
     }
-
-    /* ------------------------------------------------------------- summary */
 
     public function summary(User $actor, ?int $employeeId, string $month): array
     {
@@ -480,8 +466,6 @@ final class ExpenseService
             ])->all(),
         ];
     }
-
-    /* --------------------------------------------------------------- guards */
 
     private function storeBill(ExpenseClaim $claim, UploadedFile $file, User $actor): ExpenseBill
     {
@@ -620,8 +604,6 @@ final class ExpenseService
 
         throw new ApiException('Aapke paas ' . $what . ' ka haq nahi hai.', 403, 'FORBIDDEN');
     }
-
-    /* -------------------------------------------------------- notifications */
 
     private function notifyManager(ExpenseClaim $claim, User $actor): void
     {

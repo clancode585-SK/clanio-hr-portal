@@ -105,6 +105,7 @@ export default function CompanyBankScreen() {
           account_number: form.account_number.trim(),
           ifsc_code: form.ifsc_code.trim().toUpperCase(),
           branch_name: form.branch_name.trim() || null,
+          contact_email: form.contact_email.trim() || null,
         },
       })
 
@@ -271,6 +272,7 @@ export default function CompanyBankScreen() {
               <Field label="Account number" value={form.account_number} onChangeText={(v) => set('account_number', v)} placeholder="Full number, no spaces" keyboardType="number-pad" error={errors.account_number} editable={!busy} />
               <Field label="IFSC code" value={form.ifsc_code} onChangeText={(v) => set('ifsc_code', v)} placeholder="ICIC0000456" autoCapitalize="characters" maxLength={11} error={errors.ifsc_code} editable={!busy} />
               <Field label="Branch" value={form.branch_name} onChangeText={(v) => set('branch_name', v)} placeholder="Optional" autoCapitalize="words" editable={!busy} />
+              <Field label="Code kis email par jaaye" value={form.contact_email} onChangeText={(v) => set('contact_email', v)} placeholder="accounts@company.com" keyboardType="email-address" autoCapitalize="none" error={errors.contact_email} editable={!busy} />
 
               <Button label="Add this account" onPress={save} loading={busy} fullWidth />
               <Button label="Cancel" variant="ghost" onPress={closeAdd} disabled={busy} fullWidth />
@@ -366,6 +368,7 @@ function blank() {
     account_number: '',
     ifsc_code: '',
     branch_name: '',
+    contact_email: '',
   }
 }
 

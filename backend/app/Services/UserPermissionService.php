@@ -109,7 +109,7 @@ final class UserPermissionService
 
         $fromRoles = $this->roleSlugs($target);
         $fromDepartment = $this->departmentSlugs($target->department_id);
-        $overrides = $this->overrides($target);
+        $overrides = $this->effectBySlug($target);
 
         $granted = array_keys(array_filter($overrides, static fn (string $e): bool => $e === self::GRANT));
         $revoked = array_keys(array_filter($overrides, static fn (string $e): bool => $e === self::REVOKE));
@@ -140,10 +140,6 @@ final class UserPermissionService
         ];
     }
 
-    /**
-     * Frontend poori effective list bhejta hai — service khud nikalti hai ki
-     * role se kya mil raha hai aur kya grant/revoke karna padega.
-     */
     public function sync(User $target, array $slugs, User $actor): array
     {
         $this->assertManageable($target, $actor);
@@ -198,8 +194,6 @@ final class UserPermissionService
 
         return $this->forUser($target->refresh(), $actor);
     }
-
-    /* ------------------------------------------------------- company modules */
 
     public function modules(Company $company, User $actor): array
     {
@@ -256,8 +250,6 @@ final class UserPermissionService
         return $this->modules($company, $actor);
     }
 
-    /* --------------------------------------------------------------- guards */
-
     private function roleSlugs(User $target): array
     {
         return DB::table('permissions')
@@ -294,8 +286,7 @@ final class UserPermissionService
         throw new ApiException('Aapke paas permission dene ka haq nahi hai.', 403, 'FORBIDDEN');
     }
 
-    /** @return array<string, string> slug => effect */
-    private function overrides(User $target): array
+    private function effectBySlug(User $target): array
     {
         return DB::table('user_permissions as up')
             ->join('permissions as p', 'p.id', '=', 'up.permission_id')
@@ -332,7 +323,6 @@ final class UserPermissionService
         }
     }
 
-    /** Jo khud ke paas nahi, wo kisi aur ko de nahi sakte. */
     private function assertAssignable(array $slugs, User $actor): void
     {
         if ($actor->isSuperAdmin()) {
@@ -390,10 +380,6 @@ final class UserPermissionService
         TenantCache::flush(TenantCache::PERMISSIONS, TenantCache::USERS);
     }
 
-    /**
-     * Super admin doosri company ka module badalta hai, isliye uske tenant scope
-     * wali cache se kaam nahi chalega — pura cache saaf karna padta hai.
-     */
     private function flushAll(): void
     {
         Cache::flush();

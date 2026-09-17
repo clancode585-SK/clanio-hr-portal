@@ -23,7 +23,11 @@ function resolveHost(url: string): string {
 }
 
 export const config = {
-  apiUrl: resolveHost(extra.apiUrl ?? 'http://localhost/clanio-hr-portal/backend/public/api/hrms'),
+  apiUrl: resolveHost(
+    process.env.EXPO_PUBLIC_API_URL
+      ?? extra.apiUrl
+      ?? 'http://localhost/clanio-hr-portal/backend/public/api/hrms'
+  ),
   companyId: extra.companyId ?? '1',
   appName: 'Clanio',
 } as const

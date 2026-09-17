@@ -174,10 +174,6 @@ class User extends Authenticatable
         });
     }
 
-    /**
-     * Super admin ne jo module company ke liye band kiya hai, uski permission
-     * effective list se apne aap nikal jati hai.
-     */
     private function withinEnabledModules(array $slugs): array
     {
         if ($slugs === [] || $this->company_id === null) {

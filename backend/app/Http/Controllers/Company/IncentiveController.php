@@ -23,8 +23,6 @@ class IncentiveController extends ApiController
 {
     public function __construct(private readonly IncentiveService $incentives) {}
 
-    /* ----------------------------------------------------------------- rules */
-
     public function rules(Request $request): JsonResponse
     {
         return ApiResponse::success(
@@ -65,8 +63,6 @@ class IncentiveController extends ApiController
 
         return ApiResponse::success(null, 'Incentive rule hata diya gaya');
     }
-
-    /* --------------------------------------------------------------- records */
 
     public function index(Request $request): JsonResponse
     {

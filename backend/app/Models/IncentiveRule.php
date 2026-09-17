@@ -58,7 +58,6 @@ class IncentiveRule extends Model
         return $this->belongsTo(Role::class);
     }
 
-    /** Achievement % kis slab me girta hai — wahi payout factor dega. */
     public function slabFor(int $achievement): ?IncentiveSlab
     {
         return $this->slabs

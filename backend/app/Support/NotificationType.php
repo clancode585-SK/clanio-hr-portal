@@ -134,6 +134,12 @@ final class NotificationType
 
     public const SALARY_FAILED = 'payroll.salary_failed';
 
+    public const FNF_APPROVED = 'payroll.fnf_approved';
+
+    public const FNF_PAID = 'payroll.fnf_paid';
+
+    public const TRANSFER_CODE = 'payroll.transfer_code';
+
     public const REPORT_SUBMITTED = 'report.submitted';
 
     public const SOD_PENDING = 'report.sod_pending';
@@ -217,7 +223,8 @@ final class NotificationType
             self::RECRUITMENT_APPLIED, self::INTERVIEW_SCHEDULED, self::INTERVIEW_RESCHEDULED,
             self::INTERVIEW_CANCELLED, self::VACANCY_REQUESTED, self::VACANCY_APPROVED,
             self::VACANCY_DECLINED, self::OFFER_ISSUED, self::OFFER_ANSWERED,
-            self::PAYROLL_APPROVED, self::SALARY_PAID, self::SALARY_FAILED => self::HIGH,
+            self::PAYROLL_APPROVED, self::SALARY_PAID, self::SALARY_FAILED,
+            self::FNF_APPROVED, self::FNF_PAID, self::TRANSFER_CODE => self::HIGH,
             self::ATTENDANCE_CHECKED_IN, self::ATTENDANCE_CHECKED_OUT, self::REPORT_SUBMITTED => self::LOW,
             default => self::NORMAL,
         };

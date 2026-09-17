@@ -2,10 +2,12 @@ import { useCallback, useState } from 'react'
 import { useLocalSearchParams } from 'expo-router'
 import { Modal, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { CodeSheet, type Verification } from '@/components/CodeSheet'
 import { Screen } from '@/components/Screen'
 import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { Notice } from '@/components/ui/Notice'
+import { Pager } from '@/components/ui/Pager'
 import { ErrorState, Loader } from '@/components/ui/States'
 import { ApiError, api, apiList } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
@@ -18,18 +20,38 @@ import { font, radius, spacing } from '@/theme/tokens'
 type Run = Record<string, any>
 type Slip = Record<string, any>
 type Quote = Record<string, any>
+type Review = Record<string, any>
+
+type PageMeta = {
+  current_page: number
+  per_page: number
+  total: number
+  last_page: number
+}
 
 type Loaded = {
   run: Run
   slips: Slip[]
+  slipPage: PageMeta | null
+  review: Review | null
+  runQuote: Quote | null
+}
+
+const PER_PAGE = 25
+
+type Waiting = {
+  path: string
+  body: Record<string, unknown>
+  verification: Verification
 }
 
 const filters = [
   { key: 'all', label: 'Everyone' },
-  { key: 'pending', label: 'Not sent' },
+  { key: 'waiting', label: 'Waiting' },
+  { key: 'approved', label: 'Approved' },
   { key: 'paid', label: 'Paid' },
   { key: 'failed', label: 'Failed' },
-  { key: 'on_hold', label: 'On hold' },
+  { key: 'on_hold', label: 'Stopped' },
 ]
 
 export default function PayrollRunScreen() {
@@ -39,6 +61,7 @@ export default function PayrollRunScreen() {
   const { can } = useAuth()
 
   const [filter, setFilter] = useState('all')
+  const [page, setPage] = useState(1)
   const [open, setOpen] = useState<Slip | null>(null)
   const [quote, setQuote] = useState<Quote | null>(null)
   const [lop, setLop] = useState('')
@@ -46,15 +69,45 @@ export default function PayrollRunScreen() {
   const [problem, setProblem] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [waiting, setWaiting] = useState<Waiting | null>(null)
+  const [codeProblem, setCodeProblem] = useState<string | null>(null)
+  const [scheduling, setScheduling] = useState<Record<string, any> | null>(null)
+  const [scheduleDate, setScheduleDate] = useState('')
+  const [scheduleTime, setScheduleTime] = useState('')
+  const [scheduleNote, setScheduleNote] = useState('')
 
   const load = useCallback(async (): Promise<Loaded> => {
     const run = await api<Run>(`/payroll-runs/${uuid}`)
-    const slips = await apiList<Slip>(`/payroll-runs/${uuid}/payslips?per_page=200`)
+    const query = `per_page=${PER_PAGE}&page=${page}`
+      + (filter === 'waiting' ? '&approval=pending' : '')
+      + (filter === 'approved' ? '&approval=approved' : '')
+      + (['paid', 'failed', 'on_hold'].includes(filter) ? `&status=${filter}` : '')
 
-    return { run, slips: slips.data }
-  }, [uuid])
+    const slips = await apiList<Slip>(`/payroll-runs/${uuid}/payslips?${query}`)
 
-  const record = useResource<Loaded>(load, [uuid])
+    let review: Review | null = null
+    let runQuote: Quote | null = null
+
+    if (run.is_editable) {
+      try {
+        review = await api<Review>(`/payroll-runs/${uuid}/approval-review`)
+      } catch {
+        review = null
+      }
+    }
+
+    if (run.is_payable) {
+      try {
+        runQuote = await api<Quote>(`/payroll-runs/${uuid}/transfer-quote`)
+      } catch {
+        runQuote = null
+      }
+    }
+
+    return { run, slips: slips.data, slipPage: (slips.meta as PageMeta) ?? null, review, runQuote }
+  }, [uuid, page, filter])
+
+  const record = useResource<Loaded>(load, [uuid, page, filter])
 
   const canRun = can('payroll.run')
   const canApprove = can('payroll.approve')
@@ -86,6 +139,12 @@ export default function PayrollRunScreen() {
     setHoldReason('')
     setProblem(null)
     setDone(null)
+
+    try {
+      setOpen(await api<Slip>(`/payslips/${slip.uuid}`))
+    } catch {
+      setProblem('Could not load the full payslip.')
+    }
 
     if (!canPay) {
       return
@@ -133,37 +192,146 @@ export default function PayrollRunScreen() {
     }
   }
 
-  const transferOne = async () => {
-    if (!open || busy) {
+  const sendMoney = async (
+    path: string,
+    body: Record<string, unknown>,
+    land: (result: Record<string, any>) => void,
+    fallback: string
+  ) => {
+    if (busy) {
       return
     }
 
     setBusy(true)
     setProblem(null)
+    setCodeProblem(null)
 
     try {
-      const result = await api<{ disbursement: Record<string, any>; payslip: Slip }>(
-        `/payslips/${open.uuid}/transfer`,
-        { method: 'POST' }
-      )
+      const answer = await api<Record<string, any>>(path, { method: 'POST', body })
 
-      if (result.disbursement.status === 'success') {
-        closeSheet()
-        setDone(`${result.payslip.employee_name} ko ${Money.rupee(result.payslip.net_payable)} bhej diya.`)
+      if (answer?.verification !== undefined) {
+        setWaiting({ path, body, verification: answer.verification as Verification })
       } else {
-        setOpen(result.payslip)
-        setProblem(result.disbursement.failure_reason ?? 'Bank ne mana kiya.')
+        setWaiting(null)
+        land(answer)
+        await record.refresh()
       }
-
-      await record.refresh()
     } catch (caught) {
-      setProblem(caught instanceof ApiError ? caught.message : 'Could not send the salary.')
+      const message = caught instanceof ApiError ? caught.message : fallback
+
+      if (waiting !== null) {
+        setCodeProblem(message)
+      } else {
+        setProblem(message)
+      }
     } finally {
       setBusy(false)
     }
   }
 
+  const transferOne = async () => {
+    if (!open) {
+      return
+    }
+
+    const slip = open
+
+    await sendMoney(
+      `/payslips/${slip.uuid}/transfer`,
+      {},
+      (result) => {
+        if (result.disbursement?.status === 'success') {
+          closeSheet()
+          setDone(`${result.payslip.employee_name} ko ${Money.rupee(result.payslip.net_payable)} bhej diya.`)
+        } else {
+          setOpen(result.payslip)
+          setProblem(result.disbursement?.failure_reason ?? 'Bank ne mana kiya.')
+        }
+      },
+      'Could not send the salary.'
+    )
+  }
+
   const payEveryone = async () => {
+    await sendMoney(
+      `/payroll-runs/${uuid}/transfer`,
+      {},
+      (result) => {
+        setDone(
+          `${result.sent} salary bhej di (${Money.rupee(result.amount_sent)})`
+          + (result.failed > 0 ? ` · ${result.failed} fail` : '')
+          + (result.skipped_on_hold > 0 ? ` · ${result.skipped_on_hold} stop par chhodi` : '')
+          + (result.skipped_unapproved > 0 ? ` · ${result.skipped_unapproved} approve nahi thi` : '')
+        )
+      },
+      'Could not send the salaries.'
+    )
+  }
+
+  const confirmCode = async (code: string) => {
+    if (!waiting) {
+      return
+    }
+
+    setBusy(true)
+    setCodeProblem(null)
+
+    try {
+      const answer = await api<Record<string, any>>(waiting.path, {
+        method: 'POST',
+        body: { ...waiting.body, verification_uuid: waiting.verification.uuid, code },
+      })
+
+      setWaiting(null)
+
+      if (answer?.sent !== undefined) {
+        setDone(
+          `${answer.sent} salary bhej di (${Money.rupee(answer.amount_sent)})`
+          + (answer.failed > 0 ? ` · ${answer.failed} fail` : '')
+          + (answer.skipped_on_hold > 0 ? ` · ${answer.skipped_on_hold} stop par chhodi` : '')
+        )
+      } else if (answer?.disbursement !== undefined) {
+        closeSheet()
+        setDone(
+          answer.disbursement.status === 'success'
+            ? `${answer.payslip.employee_name} ko ${Money.rupee(answer.payslip.net_payable)} bhej diya.`
+            : answer.disbursement.failure_reason ?? 'Bank ne mana kiya.'
+        )
+      } else {
+        setScheduling(null)
+        setDone('Transfer ka time set ho gaya.')
+      }
+
+      await record.refresh()
+    } catch (caught) {
+      setCodeProblem(caught instanceof ApiError ? caught.message : 'Code nahi chala.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const resendCode = async () => {
+    if (!waiting) {
+      return
+    }
+
+    setBusy(true)
+    setCodeProblem(null)
+
+    try {
+      const answer = await api<Record<string, any>>(waiting.path, { method: 'POST', body: waiting.body })
+
+      if (answer?.verification !== undefined) {
+        setWaiting({ ...waiting, verification: answer.verification as Verification })
+      }
+    } catch (caught) {
+      setCodeProblem(caught instanceof ApiError ? caught.message : 'Naya code nahi bheja ja saka.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const approveOne = async (slip: Slip, on: boolean) => {
     if (busy) {
       return
     }
@@ -172,17 +340,104 @@ export default function PayrollRunScreen() {
     setProblem(null)
 
     try {
-      const result = await api<Record<string, any>>(`/payroll-runs/${uuid}/transfer`, { method: 'POST' })
+      const fresh = await api<Slip>(`/payslips/${slip.uuid}/${on ? 'approve' : 'unapprove'}`, { method: 'POST' })
+
+      setOpen(fresh)
+      setDone(on ? `${fresh.employee_name} ki salary approve ho gayi.` : 'Approval wapas le li.')
+      await record.refresh()
+    } catch (caught) {
+      setProblem(caught instanceof ApiError ? caught.message : 'Could not change the approval.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const approveEveryone = async () => {
+    if (busy) {
+      return
+    }
+
+    setBusy(true)
+    setProblem(null)
+
+    try {
+      const result = await api<Record<string, any>>(`/payroll-runs/${uuid}/approve-items`, {
+        method: 'POST',
+        body: {},
+      })
+
+      const left = (result.skipped ?? []).length
 
       setDone(
-        `${result.sent} salary bhej di (${Money.rupee(result.amount_sent)})`
-        + (result.failed > 0 ? ` · ${result.failed} fail` : '')
-        + (result.skipped_on_hold > 0 ? ` · ${result.skipped_on_hold} hold par chhodi` : '')
+        `${result.approved} salary approve ho gayi`
+        + (left > 0 ? ` · ${left} chhod di` : '')
       )
 
       await record.refresh()
     } catch (caught) {
-      setProblem(caught instanceof ApiError ? caught.message : 'Could not send the salaries.')
+      setProblem(caught instanceof ApiError ? caught.message : 'Could not approve them.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const openSchedule = async () => {
+    setBusy(true)
+    setProblem(null)
+
+    try {
+      const defaults = await api<Record<string, any>>(`/payroll-runs/${uuid}/schedule`)
+
+      setScheduling(defaults)
+      setScheduleDate(String(defaults.date ?? ''))
+      setScheduleTime(String(defaults.time ?? ''))
+      setScheduleNote('')
+    } catch (caught) {
+      setProblem(caught instanceof ApiError ? caught.message : 'Could not open the schedule.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const saveSchedule = async () => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(scheduleDate.trim())) {
+      setProblem('Date aise do — 2026-09-07')
+
+      return
+    }
+
+    if (!/^\d{2}:\d{2}$/.test(scheduleTime.trim())) {
+      setProblem('Time aise do — 10:00')
+
+      return
+    }
+
+    await sendMoney(
+      `/payroll-runs/${uuid}/schedule`,
+      { date: scheduleDate.trim(), time: scheduleTime.trim(), note: scheduleNote.trim() || null },
+      () => {
+        setScheduling(null)
+        setDone('Transfer ka time set ho gaya.')
+      },
+      'Could not set the time.'
+    )
+  }
+
+  const dropSchedule = async () => {
+    if (busy) {
+      return
+    }
+
+    setBusy(true)
+    setProblem(null)
+
+    try {
+      await api(`/payroll-runs/${uuid}/schedule`, { method: 'DELETE' })
+      setScheduling(null)
+      setDone('Schedule hata diya.')
+      await record.refresh()
+    } catch (caught) {
+      setProblem(caught instanceof ApiError ? caught.message : 'Could not remove the schedule.')
     } finally {
       setBusy(false)
     }
@@ -216,10 +471,12 @@ export default function PayrollRunScreen() {
     )
   }
 
-  const { run, slips } = record.data
+  const { run, slips, slipPage, review, runQuote } = record.data
 
-  const shown = filter === 'all' ? slips : slips.filter((slip) => slip.payment_status === filter)
-  const sendable = slips.filter((slip) => slip.is_transferable).length
+  const shown = slips
+  const sendable = Number(runQuote?.headcount ?? 0)
+  const waitingCount = Number(run.waiting_approval_count ?? 0)
+  const window = run.transfer_window ?? null
 
   return (
     <Screen title={run.month_label} subtitle={run.status_label} leading="back">
@@ -245,9 +502,22 @@ export default function PayrollRunScreen() {
             <Stat label="Employer cost" value={Money.short(run.total_employer)} />
           </View>
 
-          <Text style={[styles.payDate, { color: theme.inkSubtle }]}>
-            Pay date {run.pay_date ?? '—'} · is date par salary khud chali jaayegi
-          </Text>
+          <View style={[styles.divider, { backgroundColor: theme.line }]} />
+
+          <View style={styles.summaryRow}>
+            <Stat label="Approved" value={`${run.approved_count} of ${run.headcount}`} />
+            <Stat label="Waiting" value={String(waitingCount)} />
+            <Stat label="Stopped" value={String(run.stopped_count ?? 0)} />
+          </View>
+
+          {window ? (
+            <Text style={[styles.payDate, { color: window.is_open ? theme.success : theme.inkSubtle }]}>
+              {window.is_open
+                ? `Transfer khula hai — ${window.opens_label} se`
+                : `Transfer ${window.opens_label} se khulega`}
+              {window.is_scheduled ? ' (HR ne set kiya)' : ''}
+            </Text>
+          ) : null}
         </View>
 
         {run.is_editable && canRun ? (
@@ -259,29 +529,138 @@ export default function PayrollRunScreen() {
           />
         ) : null}
 
+        {run.is_editable && canApprove && review ? (
+          <View style={[styles.summary, { backgroundColor: theme.surface, borderColor: theme.line }]}>
+            <Text style={[styles.blockTitle, { color: theme.inkMuted }]}>Final approval</Text>
+
+            <View style={styles.summaryRow}>
+              <Stat label="Ready" value={String(review.ready_to_approve ?? 0)} />
+              <Stat label="Amount" value={Money.short(review.ready_amount)} />
+              <Stat label="On LOP" value={String(review.with_lop ?? 0)} />
+            </View>
+
+            {Number(review.lop_amount_cut) > 0 ? (
+              <Text style={[styles.payDate, { color: theme.inkSubtle }]}>
+                LOP ke chalte {Money.rupee(review.lop_amount_cut)} kam ja raha hai
+              </Text>
+            ) : null}
+
+            {Number(review.ready_to_approve) > 0 ? (
+              <Button
+                label={`Approve ${review.ready_to_approve} salary in one go`}
+                onPress={() => void approveEveryone()}
+                loading={busy}
+                fullWidth
+              />
+            ) : null}
+
+            {(review.needs_attention ?? []).length > 0 ? (
+              <>
+                <Text style={[styles.blockTitle, { color: theme.inkMuted }]}>Inke saath kuch karna hai</Text>
+
+                {(review.needs_attention ?? []).map((row: Record<string, any>) => (
+                  <View key={row.uuid} style={styles.attention}>
+                    <Text style={[styles.attentionName, { color: theme.ink }]}>
+                      {row.employee_name} · {row.employee_code}
+                    </Text>
+                    <Text style={[styles.attentionWhy, { color: theme.warning }]}>{row.reason}</Text>
+                  </View>
+                ))}
+              </>
+            ) : null}
+          </View>
+        ) : null}
+
         {run.status === 'calculated' && canApprove ? (
           <Button
             label="Approve this payroll"
             onPress={() => void act(`/payroll-runs/${uuid}/approve`, undefined, 'Approve ho gaya. Ab salary bhej sakte ho.')}
             loading={busy}
+            disabled={busy || waitingCount > 0}
             fullWidth
           />
         ) : null}
 
-        {run.is_payable && canPay && sendable > 0 ? (
-          <Button
-            label={`Send salary to ${sendable} employee${sendable === 1 ? '' : 's'}`}
-            onPress={() => void payEveryone()}
-            loading={busy}
-            fullWidth
+        {run.status === 'calculated' && canApprove && waitingCount > 0 ? (
+          <Notice
+            tone="warning"
+            title={`${waitingCount} salary par final approval baaki hai`}
+            message="Sabko approve karo, ya jinki rokni hai unko stop karo. Uske baad hi payroll approve hoga."
           />
         ) : null}
 
-        {run.status === 'calculated' && canApprove ? (
+        {run.status === 'calculated' && canApprove && waitingCount === 0 ? (
           <Notice
             tone="info"
             title="Approve karne ke baad amount lock ho jaayega"
             message="LOP aur recalculate dono band ho jaate hain. Pehle sab check kar lo."
+          />
+        ) : null}
+
+        {run.is_payable && canPay ? (
+          <>
+            <Button
+              label={window?.is_scheduled ? 'Time badlo' : 'Transfer ka time set karo'}
+              variant="secondary"
+              onPress={() => void openSchedule()}
+              disabled={busy}
+              fullWidth
+            />
+
+            {window?.is_scheduled ? (
+              <>
+                <Notice
+                  tone="info"
+                  title={`Transfer ${window.opens_label} par jaayega`}
+                  message={run.schedule_note ? run.schedule_note : 'Us time par apne aap chala jaayega.'}
+                />
+                <Button
+                  label="Schedule hata do"
+                  variant="secondary"
+                  onPress={() => void dropSchedule()}
+                  disabled={busy}
+                  fullWidth
+                />
+              </>
+            ) : null}
+          </>
+        ) : null}
+
+        {run.is_payable && canPay && sendable > 0 ? (
+          <Button
+            label={
+              runQuote?.can_transfer === false
+                ? 'Abhi transfer band hai'
+                : `Send salary to ${sendable} employee${sendable === 1 ? '' : 's'}`
+            }
+            onPress={() => void payEveryone()}
+            loading={busy}
+            disabled={busy || runQuote?.can_transfer === false}
+            fullWidth
+          />
+        ) : null}
+
+        {run.is_payable && canPay && runQuote?.can_transfer === false ? (
+          <Notice
+            tone="danger"
+            title="Abhi nahi bhej sakte"
+            message={(runQuote.blockers ?? []).join(' ')}
+          />
+        ) : null}
+
+        {run.is_payable && canPay && runQuote?.sending_early && runQuote?.can_transfer ? (
+          <Notice
+            tone="warning"
+            title="Pay date se pehle ja raha hai"
+            message={`Window ${window?.opens_label} ko khulti hai. Aap fir bhi bhej sakte ho.`}
+          />
+        ) : null}
+
+        {run.is_payable && canPay && Number(runQuote?.waiting_for_approval) > 0 ? (
+          <Notice
+            tone="warning"
+            title={`${runQuote?.waiting_for_approval} salary approve nahi hui`}
+            message="Unki salary is transfer me nahi jaayegi."
           />
         ) : null}
 
@@ -295,15 +674,18 @@ export default function PayrollRunScreen() {
           />
         ) : null}
 
-        {slips.length > 0 ? (
+        {run.headcount > 0 ? (
           <View style={styles.chips}>
             {filters.map((row) => (
               <Chip
                 key={row.key}
                 label={row.label}
-                count={row.key === 'all' ? slips.length : slips.filter((s) => s.payment_status === row.key).length}
+                count={countFor(run, row.key)}
                 active={filter === row.key}
-                onPress={() => setFilter(row.key)}
+                onPress={() => {
+                  setFilter(row.key)
+                  setPage(1)
+                }}
               />
             ))}
           </View>
@@ -312,8 +694,12 @@ export default function PayrollRunScreen() {
         {slips.length === 0 ? (
           <Notice
             tone="info"
-            title="Kuch calculate nahi hua"
-            message="Calculate dabao — jiska structure set hai uski payslip ban jaayegi."
+            title={run.headcount === 0 ? 'Kuch calculate nahi hua' : 'Is filter me koi nahi'}
+            message={
+              run.headcount === 0
+                ? 'Calculate dabao — jiska structure set hai uski payslip ban jaayegi.'
+                : 'Dusra filter chuno.'
+            }
           />
         ) : null}
 
@@ -336,6 +722,17 @@ export default function PayrollRunScreen() {
                 </Text>
               </View>
             </View>
+
+            {slip.payment_status === 'pending' || slip.is_stopped ? (
+              <Text
+                style={[
+                  styles.flag,
+                  { color: slip.is_stopped ? theme.danger : slip.is_approved ? theme.success : theme.warning },
+                ]}
+              >
+                {slip.approval_label}
+              </Text>
+            ) : null}
 
             <Text style={[styles.meta, { color: theme.inkMuted }]}>
               {slip.employee_code}
@@ -361,6 +758,17 @@ export default function PayrollRunScreen() {
             ) : null}
           </Pressable>
         ))}
+
+        {slipPage ? (
+          <Pager
+            page={slipPage.current_page}
+            lastPage={slipPage.last_page}
+            total={slipPage.total}
+            perPage={slipPage.per_page}
+            busy={record.refreshing || busy}
+            onChange={setPage}
+          />
+        ) : null}
       </ScrollView>
 
       <Modal visible={open !== null} transparent animationType="slide" onRequestClose={closeSheet}>
@@ -422,6 +830,42 @@ export default function PayrollRunScreen() {
                     </Text>
                   </View>
                 </View>
+
+                {canApprove && (open.run_status === 'draft' || open.run_status === 'calculated') ? (
+                  <View style={styles.block}>
+                    <Text style={[styles.blockTitle, { color: theme.inkMuted }]}>Final approval</Text>
+
+                    {open.is_stopped ? (
+                      <Notice
+                        tone="danger"
+                        title="Ye salary stop par hai"
+                        message={`${open.hold_reason ?? 'HR ne roka hai'} — stop hatao tab approve hoga.`}
+                      />
+                    ) : open.is_approved ? (
+                      <>
+                        <Notice
+                          tone="success"
+                          title="Approve ho chuki hai"
+                          message={`${Money.rupee(open.net_payable, 2)} par approval lag gayi. Isi amount se transfer hoga.`}
+                        />
+                        <Button
+                          label="Approval wapas lo"
+                          variant="secondary"
+                          onPress={() => void approveOne(open, false)}
+                          disabled={busy}
+                          fullWidth
+                        />
+                      </>
+                    ) : (
+                      <Button
+                        label={`Approve ${Money.rupee(open.net_payable, 2)}`}
+                        onPress={() => void approveOne(open, true)}
+                        loading={busy}
+                        fullWidth
+                      />
+                    )}
+                  </View>
+                ) : null}
 
                 {open.run_status === 'draft' || open.run_status === 'calculated' ? (
                   canRun ? (
@@ -491,29 +935,29 @@ export default function PayrollRunScreen() {
                   <View style={styles.block}>
                     {open.payment_status === 'on_hold' ? (
                       <Button
-                        label="Take it off hold"
+                        label="Stop hatao"
                         variant="secondary"
-                        onPress={() => void act(`/payslips/${open.uuid}/release`, undefined, 'Hold hata diya.').then(() => closeSheet())}
+                        onPress={() => void act(`/payslips/${open.uuid}/release`, undefined, 'Stop hata diya.').then(() => closeSheet())}
                         disabled={busy}
                         fullWidth
                       />
                     ) : (
                       <>
                         <Field
-                          label="Hold this salary because"
+                          label="Salary rokni hai kyunki"
                           value={holdReason}
                           onChangeText={setHoldReason}
                           placeholder="Bank detail check karni hai"
                           editable={!busy}
                         />
                         <Button
-                          label="Put on hold"
+                          label="Stop this salary"
                           variant="secondary"
                           onPress={() =>
                             void act(
                               `/payslips/${open.uuid}/hold`,
                               { reason: holdReason.trim() || null },
-                              'Hold par daal diya.'
+                              'Salary stop kar di.'
                             ).then(() => closeSheet())
                           }
                           disabled={busy}
@@ -538,6 +982,91 @@ export default function PayrollRunScreen() {
           </ScrollView>
         </View>
       </Modal>
+
+      <Modal
+        visible={scheduling !== null}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setScheduling(null)}
+      >
+        <Pressable style={styles.backdrop} onPress={() => setScheduling(null)} />
+
+        <View style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
+          <View style={[styles.sheetHead, { borderBottomColor: theme.line }]}>
+            <Text style={[styles.sheetTitle, { color: theme.ink }]}>Transfer kab jaaye</Text>
+            <Pressable onPress={() => setScheduling(null)} hitSlop={10}>
+              <Text style={[styles.closeMark, { color: theme.inkMuted }]}>✕</Text>
+            </Pressable>
+          </View>
+
+          <ScrollView style={styles.sheetBody} keyboardShouldPersistTaps="handled">
+            {problem ? <Notice tone="danger" title="Could not do that" message={problem} /> : null}
+
+            {scheduling ? (
+              <>
+                <Text style={[styles.hint, { color: theme.inkSubtle }]}>
+                  {scheduling.headcount} employees · {Money.rupee(scheduling.amount)} ·{' '}
+                  {scheduling.weekday} ko padta hai
+                </Text>
+
+                {scheduling.is_sunday ? (
+                  <Notice
+                    tone="warning"
+                    title="Ye Sunday hai"
+                    message="Bahut companies Sunday ko transfer nahi karti. Chaho to ek din pehle ki date daal do."
+                  />
+                ) : null}
+
+                {Number(scheduling.waiting_for_approval) > 0 ? (
+                  <Notice
+                    tone="warning"
+                    title={`${scheduling.waiting_for_approval} salary approve nahi hui`}
+                    message="Us din unki salary nahi jaayegi."
+                  />
+                ) : null}
+
+                <Field
+                  label="Date"
+                  value={scheduleDate}
+                  onChangeText={setScheduleDate}
+                  placeholder="2026-09-07"
+                  editable={!busy}
+                />
+
+                <Field
+                  label="Time"
+                  value={scheduleTime}
+                  onChangeText={setScheduleTime}
+                  placeholder="10:00"
+                  editable={!busy}
+                />
+
+                <Field
+                  label="Note"
+                  value={scheduleNote}
+                  onChangeText={setScheduleNote}
+                  placeholder="7 Sunday hai"
+                  editable={!busy}
+                />
+
+                <Button label="Set this time" onPress={() => void saveSchedule()} loading={busy} fullWidth />
+              </>
+            ) : null}
+          </ScrollView>
+        </View>
+      </Modal>
+
+      <CodeSheet
+        verification={waiting?.verification ?? null}
+        busy={busy}
+        problem={codeProblem}
+        onSubmit={(code) => void confirmCode(code)}
+        onResend={() => void resendCode()}
+        onClose={() => {
+          setWaiting(null)
+          setCodeProblem(null)
+        }}
+      />
     </Screen>
   )
 }
@@ -553,6 +1082,18 @@ function Stat({ label, value, strong = false }: { label: string; value: string; 
   )
 }
 
+function countFor(run: Run, key: string): number | null {
+  const counts: Record<string, number> = {
+    all: Number(run.headcount ?? 0),
+    waiting: Number(run.waiting_approval_count ?? 0),
+    approved: Number(run.approved_count ?? 0),
+    paid: Number(run.paid_count ?? 0),
+    on_hold: Number(run.stopped_count ?? 0),
+  }
+
+  return key in counts ? counts[key] : null
+}
+
 function Chip({
   label,
   count,
@@ -560,7 +1101,7 @@ function Chip({
   onPress,
 }: {
   label: string
-  count: number
+  count: number | null
   active: boolean
   onPress: () => void
 }) {
@@ -575,7 +1116,7 @@ function Chip({
       ]}
     >
       <Text style={[styles.chipText, { color: active ? '#fff' : theme.inkMuted }]}>
-        {label} {count}
+        {count === null ? label : `${label} ${count}`}
       </Text>
     </Pressable>
   )
@@ -785,6 +1326,17 @@ const styles = StyleSheet.create({
   block: {
     gap: spacing.md,
     paddingBottom: spacing.lg,
+  },
+  attention: {
+    gap: 2,
+    paddingTop: 4,
+  },
+  attentionName: {
+    fontSize: font.sm,
+    fontWeight: '700',
+  },
+  attentionWhy: {
+    fontSize: font.xs,
   },
   blockTitle: {
     fontSize: font.xs,

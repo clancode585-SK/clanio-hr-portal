@@ -22,10 +22,8 @@ class PerformanceGoal extends Model
     use HasActiveState;
     use HasUuid;
 
-    /** Employee ne likha, manager ne approve nahi kiya */
     public const DRAFT = 'draft';
 
-    /** Manager ne approve kiya — ab count hoga */
     public const ACTIVE = 'active';
 
     public const ACHIEVED = 'achieved';
@@ -42,13 +40,10 @@ class PerformanceGoal extends Model
         self::CANCELLED,
     ];
 
-    /** Standalone target — apna weight, apna progress */
     public const TYPE_KRA = 'kra';
 
-    /** OKR ka Objective — khud ka target nahi, progress key results se banta hai */
     public const TYPE_OBJECTIVE = 'objective';
 
-    /** Objective ke andar ka measurable Key Result */
     public const TYPE_KEY_RESULT = 'key_result';
 
     public const GOAL_TYPES = [self::TYPE_KRA, self::TYPE_OBJECTIVE, self::TYPE_KEY_RESULT];
@@ -71,16 +66,12 @@ class PerformanceGoal extends Model
         self::PERIOD_ANNUAL,
     ];
 
-    /** Employee ne abhi achievement bheji hi nahi */
     public const NOT_SUBMITTED = 'not_submitted';
 
-    /** Employee ne bhej di — manager ke paas hai */
     public const SUBMITTED = 'submitted';
 
-    /** Manager verify kar chuka — HR ke paas hai */
     public const MANAGER_VERIFIED = 'manager_verified';
 
-    /** HR ne final kar diya — ab number lock hai */
     public const FINALISED = 'finalised';
 
     public const VERIFICATION_STATUSES = [
@@ -92,10 +83,8 @@ class PerformanceGoal extends Model
 
     public const VERIFY_PERMISSION = 'okr.verify';
 
-    /** Progress employee khud update karega */
     public const SOURCE_MANUAL = 'manual';
 
-    /** Progress linked tasks ke done % se apne aap banega */
     public const SOURCE_TASKS = 'tasks';
 
     public const SOURCES = [self::SOURCE_MANUAL, self::SOURCE_TASKS];

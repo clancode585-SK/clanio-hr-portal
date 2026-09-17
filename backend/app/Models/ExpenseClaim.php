@@ -21,13 +21,10 @@ class ExpenseClaim extends Model
     use HasActiveState;
     use HasUuid;
 
-    /** Employee ne bheja — manager ke paas hai */
     public const PENDING = 'pending';
 
-    /** Manager ne approve kiya — HR verify karegi */
     public const MANAGER_APPROVED = 'manager_approved';
 
-    /** HR ne verify kiya — ab payment ho sakta hai */
     public const VERIFIED = 'verified';
 
     public const PAID = 'paid';
@@ -47,7 +44,6 @@ class ExpenseClaim extends Model
 
     public const OTHER = 'other';
 
-    /** Dropdown ki list — koi amount limit nahi, employee khud daalta hai */
     public const CATEGORIES = [
         'travel' => 'Travel — cab, train, flight, hotel',
         'food' => 'Food — client meeting ya overtime meal',

@@ -344,10 +344,6 @@ final class WorkRecordService
         return $count;
     }
 
-    /**
-     * Delivery = task on-time %, discipline = SOD/EOD compliance %.
-     * Weights aur penalty company settings se aate hain.
-     */
     public function scoreBreakdown(int $companyId, array $tasks, array $reports, array $attendance): array
     {
         $weights = $this->weights($companyId);
@@ -390,9 +386,6 @@ final class WorkRecordService
         ];
     }
 
-    /**
-     * Aaj se aage ka data hota hi nahi — purane mahine ka score isi liye stable rehta hai.
-     */
     private function asOf(Carbon $end): Carbon
     {
         $today = CompanyTime::day();

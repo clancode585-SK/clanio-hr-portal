@@ -214,9 +214,6 @@ final class PolicyService
         ];
     }
 
-    /**
-     * Naya employee ban-te hi uske paas saari published policies aa jaati hain.
-     */
     public function assignPending(Employee $employee, ?User $actor = null): int
     {
         $existing = PolicyAcknowledgement::query()
@@ -303,10 +300,6 @@ final class PolicyService
         return Storage::disk(self::DISK)->download($policy->file_path, $policy->original_name);
     }
 
-    /**
-     * Gate sirf naye employee par lagta hai — jisne ek baar sab accept kar liya,
-     * uska kaam nayi policy aane par nahi rukta.
-     */
     public function gateStatus(User $actor): array
     {
         if ($actor->isSuperAdmin() || $actor->hasPermission(Policy::MANAGE_PERMISSION)) {

@@ -24,6 +24,10 @@ final class WorkCalendar
 
     private static array $leave = [];
 
+    private static array $shiftMemo = [];
+
+    private static array $holidayMemo = [];
+
     public static function day(Employee $employee, Carbon $date): array
     {
         $state = self::schedule($employee, $date);
@@ -69,6 +73,13 @@ final class WorkCalendar
         }
 
         unset(self::$leave[$employeeId]);
+    }
+
+    public static function forget(): void
+    {
+        self::$leave = [];
+        self::$shiftMemo = [];
+        self::$holidayMemo = [];
     }
 
     private static function approvedLeave(int $employeeId): array
@@ -124,6 +135,11 @@ final class WorkCalendar
 
     private static function shifts(int $companyId): array
     {
+        return self::$shiftMemo[$companyId] ??= self::shiftsFromCache($companyId);
+    }
+
+    private static function shiftsFromCache(int $companyId): array
+    {
         return TenantCache::remember(
             TenantCache::WORK_SHIFTS,
             'calendar:' . $companyId,
@@ -138,6 +154,13 @@ final class WorkCalendar
     }
 
     private static function holidays(int $companyId, ?int $branchId): array
+    {
+        $key = $companyId . ':' . ($branchId ?? 0);
+
+        return self::$holidayMemo[$key] ??= self::holidaysFromCache($companyId, $branchId);
+    }
+
+    private static function holidaysFromCache(int $companyId, ?int $branchId): array
     {
         return TenantCache::remember(
             TenantCache::HOLIDAYS,

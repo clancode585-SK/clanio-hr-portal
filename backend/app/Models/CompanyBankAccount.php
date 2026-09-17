@@ -29,6 +29,7 @@ class CompanyBankAccount extends Model
         'account_number',
         'ifsc_code',
         'branch_name',
+        'contact_email',
         'is_primary',
         'balance',
     ];

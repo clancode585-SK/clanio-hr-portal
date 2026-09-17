@@ -8,34 +8,44 @@ use App\Exceptions\ApiException;
 use App\Models\BankTransaction;
 use App\Models\CompanyBankAccount;
 use App\Models\EmployeeBankAccount;
+use App\Models\FnfSettlement;
 use App\Models\PayrollItem;
 use App\Models\PayrollRun;
 use App\Models\SalaryDisbursement;
 use App\Models\User;
 use App\Support\Bank\BankManager;
+use App\Support\CompanyTime;
 use App\Support\NotificationType;
+use App\Support\SalarySeal;
 use App\Support\Scopes\CompanyScope;
 use App\Support\TenantCache;
+use App\Support\TransferWindow;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 final class SalaryDisbursementService
 {
+    private const BULK_CHUNK = 200;
+
     public function __construct(private readonly NotificationService $notifications) {}
 
-    public function quote(PayrollItem $item, ?int $fromAccountId = null): array
+    public function quote(PayrollItem $item, ?int $fromAccountId = null, ?User $actor = null): array
     {
         $item->loadMissing('lines', 'run');
 
         $run = $item->run;
         $from = $this->sourceAccount((int) $item->company_id, $fromAccountId);
-        $payee = $this->payeeAccount($item);
+        $payee = $this->payeeAccount((int) $item->employee_id);
 
         $blockers = [];
 
         if ($run === null || ! $run->isPayable()) {
             $blockers[] = 'Payroll approve nahi hua hai.';
+        }
+
+        if (! $item->isApproved()) {
+            $blockers[] = 'Is employee ki salary par final approval nahi hui.';
         }
 
         if ($item->isPaid()) {
@@ -50,6 +60,18 @@ final class SalaryDisbursementService
             $blockers[] = 'Net amount zero hai.';
         }
 
+        if (! SalarySeal::holds($item->fingerprint, SalarySeal::forItem($item))) {
+            $blockers[] = 'Approval ke baad amount badal gaya hai — dobara approve karna padega.';
+        }
+
+        if ($run !== null && ! TransferWindow::isOpen($run)) {
+            $when = TransferWindow::opensAt($run)->format('d M Y, g:i A');
+
+            $blockers[] = $this->canSendEarly($actor, (int) $item->company_id)
+                ? null
+                : 'Transfer ' . $when . ' se pehle nahi hoga.';
+        }
+
         if ($payee === null) {
             $blockers[] = 'Employee ka bank account nahi hai. Usse profile me daalne ko bolo.';
         }
@@ -58,6 +80,8 @@ final class SalaryDisbursementService
             $blockers[] = 'Company account me paisa kam hai — balance ₹'
                 . number_format((float) $from->balance, 2) . '.';
         }
+
+        $blockers = array_values(array_filter($blockers));
 
         return [
             'payslip' => $item,
@@ -72,6 +96,8 @@ final class SalaryDisbursementService
             'amount' => (float) $item->net_payable,
             'provider' => BankManager::driver()->name(),
             'is_mock' => BankManager::isMock(),
+            'window' => $run === null ? null : TransferWindow::describe($run),
+            'sending_early' => $run !== null && ! TransferWindow::isOpen($run),
             'can_transfer' => $blockers === [],
             'blockers' => $blockers,
         ];
@@ -79,7 +105,7 @@ final class SalaryDisbursementService
 
     public function transferOne(PayrollItem $item, User $actor, ?int $fromAccountId = null): SalaryDisbursement
     {
-        $quote = $this->quote($item, $fromAccountId);
+        $quote = $this->quote($item, $fromAccountId, $actor);
 
         if (! $quote['can_transfer']) {
             throw new ApiException(implode(' ', $quote['blockers']), 422, 'TRANSFER_BLOCKED');
@@ -90,6 +116,137 @@ final class SalaryDisbursementService
         $this->retotal($item->run);
 
         return $disbursement;
+    }
+
+    public function scheduleRun(PayrollRun $run, Carbon $when, ?string $note, User $actor): PayrollRun
+    {
+        if (! $run->isApproved()) {
+            throw new ApiException(
+                'Pehle payroll approve karo, phir date set karo.',
+                409,
+                'PAYROLL_NOT_APPROVED'
+            );
+        }
+
+        $now = CompanyTime::now((int) $run->company_id);
+
+        if ($when->lessThan($now->copy()->subMinutes(5))) {
+            throw new ApiException('Guzar chuki date par schedule nahi hota.', 422, 'SCHEDULE_IN_PAST');
+        }
+
+        if ($when->greaterThan($now->copy()->addDays(60))) {
+            throw new ApiException('Itni door ki date par schedule nahi hota.', 422, 'SCHEDULE_TOO_FAR');
+        }
+
+        if ($when->lessThan(TransferWindow::payMoment($run)) && ! $this->canSendEarly($actor, (int) $run->company_id)) {
+            throw new ApiException(
+                'Pay date se pehle bhejne ka haq aapke paas nahi hai.',
+                403,
+                'EARLY_NOT_ALLOWED'
+            );
+        }
+
+        $run->forceFill([
+            'transfer_scheduled_at' => $when->copy()->utc(),
+            'transfer_scheduled_by' => $actor->id,
+            'schedule_note' => $note,
+            'updated_by' => $actor->id,
+        ])->save();
+
+        TenantCache::flush(TenantCache::EMPLOYEES);
+
+        return $run->refresh();
+    }
+
+    public function cancelSchedule(PayrollRun $run, User $actor): PayrollRun
+    {
+        $run->forceFill([
+            'transfer_scheduled_at' => null,
+            'transfer_scheduled_by' => null,
+            'schedule_note' => null,
+            'updated_by' => $actor->id,
+        ])->save();
+
+        TenantCache::flush(TenantCache::EMPLOYEES);
+
+        return $run->refresh();
+    }
+
+    public function runQuote(PayrollRun $run, ?int $fromAccountId, ?User $actor): array
+    {
+        $from = $this->sourceAccount((int) $run->company_id, $fromAccountId);
+
+        $ready = PayrollItem::query()
+            ->where('run_id', $run->id)
+            ->where('approval_status', PayrollItem::APPROVED)
+            ->whereIn('payment_status', [PayrollItem::PENDING, PayrollItem::FAILED])
+            ->where('net_payable', '>', 0)
+            ->selectRaw('COUNT(*) as headcount, SUM(net_payable) as amount')
+            ->first();
+
+        $readyCount = (int) ($ready->headcount ?? 0);
+
+        $waiting = PayrollItem::query()
+            ->where('run_id', $run->id)
+            ->where('approval_status', PayrollItem::PENDING)
+            ->where('payment_status', '!=', PayrollItem::ON_HOLD)
+            ->count();
+
+        $stopped = PayrollItem::query()
+            ->where('run_id', $run->id)
+            ->where('payment_status', PayrollItem::ON_HOLD)
+            ->count();
+
+        $amount = round((float) ($ready->amount ?? 0), 2);
+        $blockers = [];
+
+        if (! $run->isPayable()) {
+            $blockers[] = $run->isCalculated()
+                ? 'Pehle payroll approve karo, phir salary jaayegi.'
+                : 'Ye payroll ' . $run->statusLabel() . ' hai.';
+        }
+
+        if ($readyCount === 0) {
+            $blockers[] = 'Bhejne ke liye koi approved salary nahi hai.';
+        }
+
+        if ($from === null) {
+            $blockers[] = 'Pehle company ka bank account add karo — usi se salary jaayegi.';
+        } elseif ((float) $from->balance < $amount) {
+            $blockers[] = 'Company account me paisa kam hai — balance ₹'
+                . number_format((float) $from->balance, 2) . ', chahiye ₹' . number_format($amount, 2) . '.';
+        }
+
+        if (! TransferWindow::isOpen($run) && ! $this->canSendEarly($actor, (int) $run->company_id)) {
+            $blockers[] = 'Transfer ' . TransferWindow::opensAt($run)->format('d M Y, g:i A') . ' se pehle nahi hoga.';
+        }
+
+        return [
+            'from' => $from,
+            'headcount' => $readyCount,
+            'amount' => $amount,
+            'waiting_for_approval' => $waiting,
+            'stopped' => $stopped,
+            'provider' => BankManager::driver()->name(),
+            'is_mock' => BankManager::isMock(),
+            'window' => TransferWindow::describe($run),
+            'sending_early' => ! TransferWindow::isOpen($run),
+            'can_transfer' => $blockers === [],
+            'blockers' => $blockers,
+        ];
+    }
+
+    private function canSendEarly(?User $actor, int $companyId): bool
+    {
+        if (! TransferWindow::earlyBlocked($companyId)) {
+            return true;
+        }
+
+        if ($actor === null) {
+            return false;
+        }
+
+        return $actor->isSuperAdmin() || $actor->hasPermission(SalaryDisbursement::EARLY_PERMISSION);
     }
 
     public function transferRun(PayrollRun $run, User $actor, ?int $fromAccountId = null, string $mode = SalaryDisbursement::BULK): array
@@ -104,6 +261,14 @@ final class SalaryDisbursementService
             );
         }
 
+        if (! TransferWindow::isOpen($run) && ! $this->canSendEarly($actor, (int) $run->company_id)) {
+            throw new ApiException(
+                'Transfer ' . TransferWindow::opensAt($run)->format('d M Y, g:i A') . ' se pehle nahi hoga.',
+                409,
+                'TRANSFER_WINDOW_CLOSED'
+            );
+        }
+
         $from = $this->sourceAccount((int) $run->company_id, $fromAccountId);
 
         if ($from === null) {
@@ -114,39 +279,51 @@ final class SalaryDisbursementService
             );
         }
 
-        $items = PayrollItem::query()
-            ->with('lines')
-            ->where('run_id', $run->id)
-            ->whereIn('payment_status', [PayrollItem::PENDING, PayrollItem::FAILED])
-            ->where('net_payable', '>', 0)
-            ->orderBy('employee_code')
-            ->get();
-
+        $attempted = 0;
         $sent = 0;
         $failed = 0;
         $amount = 0.0;
         $reasons = [];
 
-        foreach ($items as $item) {
-            $item->setRelation('run', $run);
+        PayrollItem::query()
+            ->with('lines')
+            ->where('run_id', $run->id)
+            ->where('approval_status', PayrollItem::APPROVED)
+            ->whereIn('payment_status', [PayrollItem::PENDING, PayrollItem::FAILED])
+            ->where('net_payable', '>', 0)
+            ->orderBy('id')
+            ->chunkById(self::BULK_CHUNK, function ($items) use (
+                $run, $from, $actor, $mode, &$attempted, &$sent, &$failed, &$amount, &$reasons
+            ): void {
+                foreach ($items as $item) {
+                    $attempted++;
+                    $item->setRelation('run', $run);
 
-            try {
-                $disbursement = $this->push($item, $from->refresh(), $actor, $mode);
-            } catch (ApiException $error) {
-                $failed++;
-                $reasons[$item->employee_code] = $error->getMessage();
+                    if (! SalarySeal::holds($item->fingerprint, SalarySeal::forItem($item))) {
+                        $failed++;
+                        $reasons[$item->employee_code] = 'Approval ke baad amount badal gaya — skip kiya.';
 
-                continue;
-            }
+                        continue;
+                    }
 
-            if ($disbursement->isSuccess()) {
-                $sent++;
-                $amount += (float) $disbursement->amount;
-            } else {
-                $failed++;
-                $reasons[$item->employee_code] = $disbursement->failure_reason ?? 'Bank ne mana kiya.';
-            }
-        }
+                    try {
+                        $disbursement = $this->push($item, $from->refresh(), $actor, $mode);
+                    } catch (ApiException $error) {
+                        $failed++;
+                        $reasons[$item->employee_code] = $error->getMessage();
+
+                        continue;
+                    }
+
+                    if ($disbursement->isSuccess()) {
+                        $sent++;
+                        $amount += (float) $disbursement->amount;
+                    } else {
+                        $failed++;
+                        $reasons[$item->employee_code] = $disbursement->failure_reason ?? 'Bank ne mana kiya.';
+                    }
+                }
+            });
 
         $this->retotal($run);
 
@@ -155,12 +332,19 @@ final class SalaryDisbursementService
             ->where('payment_status', PayrollItem::ON_HOLD)
             ->count();
 
+        $waiting = PayrollItem::query()
+            ->where('run_id', $run->id)
+            ->where('approval_status', PayrollItem::PENDING)
+            ->where('payment_status', '!=', PayrollItem::ON_HOLD)
+            ->count();
+
         return [
             'run' => $run->refresh(),
-            'attempted' => $items->count(),
+            'attempted' => $attempted,
             'sent' => $sent,
             'failed' => $failed,
             'skipped_on_hold' => $skipped,
+            'skipped_unapproved' => $waiting,
             'amount_sent' => round($amount, 2),
             'failures' => $reasons,
         ];
@@ -212,13 +396,237 @@ final class SalaryDisbursementService
         });
     }
 
+    public function quoteSettlement(FnfSettlement $settlement, ?int $fromAccountId = null): array
+    {
+        $from = $this->sourceAccount((int) $settlement->company_id, $fromAccountId);
+        $payee = $this->payeeAccount((int) $settlement->employee_id);
+        $amount = round((float) $settlement->net_payable, 2);
+
+        $blockers = [];
+
+        if (! $settlement->isApproved()) {
+            $blockers[] = $settlement->status === FnfSettlement::SETTLED
+                ? 'Ye settlement already settle ho chuka hai.'
+                : 'Settlement approve nahi hua hai.';
+        }
+
+        if ($settlement->owesCompany()) {
+            $blockers[] = 'Is settlement me employee par ₹' . number_format(abs($amount), 2)
+                . ' baaki hai — paisa bhejna nahi hai, lena hai.';
+        } elseif ($amount <= 0) {
+            $blockers[] = 'Net amount zero hai.';
+        }
+
+        if ($settlement->payment_status === FnfSettlement::PAID) {
+            $blockers[] = 'Paisa already ja chuka hai.';
+        }
+
+        if ($settlement->payment_status === FnfSettlement::ON_HOLD) {
+            $blockers[] = 'Ye settlement stop par hai'
+                . ($settlement->hold_reason ? ' — ' . $settlement->hold_reason : '') . '.';
+        }
+
+        if (! SalarySeal::holds($settlement->fingerprint, SalarySeal::forSettlement($settlement->loadMissing('lines')))) {
+            $blockers[] = 'Approval ke baad amount badal gaya hai — dobara approve karna padega.';
+        }
+
+        if ($payee === null) {
+            $blockers[] = $settlement->employee_name . ' ka bank account nahi hai.';
+        }
+
+        if ($from !== null && (float) $from->balance < $amount) {
+            $blockers[] = 'Company account me paisa kam hai — balance ₹'
+                . number_format((float) $from->balance, 2) . '.';
+        }
+
+        return [
+            'settlement' => $settlement,
+            'from' => $from,
+            'to' => $payee === null ? null : [
+                'account_holder_name' => $payee->account_holder_name,
+                'bank_name' => $payee->bank_name,
+                'account_number' => $payee->account_number,
+                'masked' => $this->mask((string) $payee->account_number),
+                'ifsc_code' => $payee->ifsc_code,
+            ],
+            'amount' => $amount,
+            'provider' => BankManager::driver()->name(),
+            'is_mock' => BankManager::isMock(),
+            'can_transfer' => $blockers === [],
+            'blockers' => $blockers,
+        ];
+    }
+
+    public function transferSettlement(FnfSettlement $settlement, User $actor, ?int $fromAccountId = null): SalaryDisbursement
+    {
+        $quote = $this->quoteSettlement($settlement, $fromAccountId);
+
+        if (! $quote['can_transfer']) {
+            throw new ApiException(implode(' ', $quote['blockers']), 422, 'TRANSFER_BLOCKED');
+        }
+
+        return $this->pushSettlement($settlement, $quote['from'], $actor);
+    }
+
+    private function pushSettlement(FnfSettlement $settlement, ?CompanyBankAccount $from, User $actor): SalaryDisbursement
+    {
+        if ($from === null) {
+            throw new ApiException('Company ka bank account nahi mila.', 422, 'COMPANY_ACCOUNT_MISSING');
+        }
+
+        $payee = $this->payeeAccount((int) $settlement->employee_id);
+
+        if ($payee === null) {
+            throw new ApiException(
+                $settlement->employee_name . ' ka bank account nahi hai.',
+                422,
+                'EMPLOYEE_ACCOUNT_MISSING'
+            );
+        }
+
+        $amount = round((float) $settlement->net_payable, 2);
+        $reference = 'FNF-' . $settlement->employee_code . '-' . Str::upper(Str::random(5));
+        $narration = 'Full and final ' . $settlement->employee_code;
+        $gateway = BankManager::driver();
+
+        $disbursement = DB::transaction(function () use ($settlement, $from, $payee, $amount, $reference, $actor, $gateway): SalaryDisbursement {
+            $row = new SalaryDisbursement();
+            $row->company_id = $settlement->company_id;
+            $row->settlement_id = $settlement->id;
+            $row->employee_id = $settlement->employee_id;
+            $row->from_account_id = $from->id;
+            $row->created_by = $actor->id;
+
+            $row->forceFill([
+                'purpose' => SalaryDisbursement::SETTLEMENT,
+                'employee_code' => $settlement->employee_code,
+                'employee_name' => $settlement->employee_name,
+                'to_account_holder' => $payee->account_holder_name,
+                'to_bank_name' => $payee->bank_name,
+                'to_account_number' => $payee->account_number,
+                'to_ifsc_code' => $payee->ifsc_code,
+                'amount' => $amount,
+                'provider' => $gateway->name(),
+                'mode' => SalaryDisbursement::MANUAL,
+                'reference' => $reference,
+                'status' => SalaryDisbursement::PROCESSING,
+                'initiated_at' => Carbon::now(),
+                'initiated_by' => $actor->id,
+            ])->save();
+
+            $settlement->forceFill([
+                'payment_status' => FnfSettlement::PROCESSING,
+                'updated_by' => $actor->id,
+            ])->save();
+
+            return $row;
+        });
+
+        $result = $gateway->transfer(
+            [
+                'account_number' => $from->account_number,
+                'ifsc_code' => $from->ifsc_code,
+                'balance' => $from->balance,
+            ],
+            [
+                'account_holder_name' => $payee->account_holder_name,
+                'account_number' => $payee->account_number,
+                'ifsc_code' => $payee->ifsc_code,
+            ],
+            $amount,
+            $reference,
+            $narration
+        );
+
+        return DB::transaction(function () use ($disbursement, $settlement, $from, $result, $amount, $reference, $narration, $actor): SalaryDisbursement {
+            if (! $result->ok) {
+                $disbursement->forceFill([
+                    'status' => SalaryDisbursement::FAILED,
+                    'failure_reason' => $result->reason,
+                    'completed_at' => Carbon::now(),
+                    'updated_by' => $actor->id,
+                ])->save();
+
+                $settlement->forceFill([
+                    'payment_status' => FnfSettlement::FAILED,
+                    'updated_by' => $actor->id,
+                ])->save();
+
+                $this->tellSettled($settlement, false, $result->reason, $actor);
+
+                return $disbursement->refresh();
+            }
+
+            $balance = round((float) $from->balance - $amount, 2);
+
+            $from->forceFill([
+                'balance' => $balance,
+                'balance_synced_at' => Carbon::now(),
+                'updated_by' => $actor->id,
+            ])->save();
+
+            $this->ledger(
+                $from,
+                $disbursement,
+                BankTransaction::DEBIT,
+                $amount,
+                $balance,
+                $narration . ' — ' . $settlement->employee_name,
+                $reference,
+                $actor
+            );
+
+            $disbursement->forceFill([
+                'status' => $result->pending ? SalaryDisbursement::PROCESSING : SalaryDisbursement::SUCCESS,
+                'utr' => $result->utr,
+                'completed_at' => $result->pending ? null : Carbon::now(),
+                'updated_by' => $actor->id,
+            ])->save();
+
+            $settlement->forceFill([
+                'payment_status' => $result->pending ? FnfSettlement::PROCESSING : FnfSettlement::PAID,
+                'status' => $result->pending ? $settlement->status : FnfSettlement::SETTLED,
+                'settled_at' => $result->pending ? null : Carbon::now(),
+                'updated_by' => $actor->id,
+            ])->save();
+
+            if (! $result->pending) {
+                $this->tellSettled($settlement, true, null, $actor);
+            }
+
+            return $disbursement->refresh();
+        });
+    }
+
+    private function tellSettled(FnfSettlement $settlement, bool $ok, ?string $reason, User $actor): void
+    {
+        $userId = DB::table('employees')->where('id', $settlement->employee_id)->value('user_id');
+
+        if ($userId === null) {
+            return;
+        }
+
+        $this->notifications->send((int) $userId, [
+            'type' => $ok ? NotificationType::FNF_PAID : NotificationType::SALARY_FAILED,
+            'title' => $ok
+                ? 'Full and final settle ho gaya'
+                : 'Full and final transfer nahi ho paya',
+            'body' => $ok
+                ? '₹' . number_format((float) $settlement->net_payable, 2) . ' aapke bank account me bhej diya gaya.'
+                : ($reason ?? 'Bank ne mana kiya.') . ' HR dekh raha hai.',
+            'action_url' => '/my-payslips',
+            'entity_type' => 'fnf_settlement',
+            'entity_id' => $settlement->id,
+        ], $actor);
+    }
+
     private function push(PayrollItem $item, ?CompanyBankAccount $from, User $actor, string $mode): SalaryDisbursement
     {
         if ($from === null) {
             throw new ApiException('Company ka bank account nahi mila.', 422, 'COMPANY_ACCOUNT_MISSING');
         }
 
-        $payee = $this->payeeAccount($item);
+        $payee = $this->payeeAccount((int) $item->employee_id);
 
         if ($payee === null) {
             throw new ApiException(
@@ -233,6 +641,28 @@ final class SalaryDisbursementService
         $gateway = BankManager::driver();
 
         $disbursement = DB::transaction(function () use ($item, $from, $payee, $amount, $reference, $actor, $mode, $gateway): SalaryDisbursement {
+            $current = PayrollItem::query()
+                ->withoutGlobalScopes()
+                ->whereKey($item->id)
+                ->lockForUpdate()
+                ->first(['id', 'payment_status', 'approval_status', 'net_payable']);
+
+            if ($current === null || $current->payment_status !== PayrollItem::PENDING && $current->payment_status !== PayrollItem::FAILED) {
+                throw new ApiException(
+                    $item->employee_name . ' ki salary abhi ' . ($current?->paymentLabel() ?? 'unknown') . ' hai.',
+                    409,
+                    'ALREADY_IN_FLIGHT'
+                );
+            }
+
+            if ($current->approval_status !== PayrollItem::APPROVED) {
+                throw new ApiException(
+                    $item->employee_name . ' ki salary approve nahi hui.',
+                    409,
+                    'ITEM_NOT_APPROVED'
+                );
+            }
+
             $row = new SalaryDisbursement();
             $row->company_id = $item->company_id;
             $row->run_id = $item->run_id;
@@ -382,11 +812,11 @@ final class SalaryDisbursementService
             ->first();
     }
 
-    private function payeeAccount(PayrollItem $item): ?EmployeeBankAccount
+    private function payeeAccount(int $employeeId): ?EmployeeBankAccount
     {
         return EmployeeBankAccount::query()
             ->withoutGlobalScope(CompanyScope::class)
-            ->where('employee_id', $item->employee_id)
+            ->where('employee_id', $employeeId)
             ->where('is_active', 1)
             ->orderByDesc('is_primary')
             ->orderBy('id')

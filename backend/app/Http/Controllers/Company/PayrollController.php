@@ -67,6 +67,50 @@ class PayrollController extends ApiController
         );
     }
 
+    public function approvalReview(Request $request, PayrollRun $payrollRun): JsonResponse
+    {
+        return ApiResponse::success(
+            $this->payroll->approvalReview($payrollRun, $request->user()),
+            'Approval review fetched successfully'
+        );
+    }
+
+    public function approveItem(Request $request, PayrollItem $payrollItem): JsonResponse
+    {
+        return ApiResponse::success(
+            new PayrollItemResource($this->payroll->approveItem($payrollItem, $request->user())),
+            $payrollItem->employee_name . ' ki salary approve ho gayi'
+        );
+    }
+
+    public function unapproveItem(Request $request, PayrollItem $payrollItem): JsonResponse
+    {
+        return ApiResponse::success(
+            new PayrollItemResource($this->payroll->unapproveItem($payrollItem, $request->user())),
+            'Approval wapas le li'
+        );
+    }
+
+    public function approveItems(Request $request, PayrollRun $payrollRun): JsonResponse
+    {
+        $data = $request->validate([
+            'uuids' => ['nullable', 'array', 'max:2000'],
+            'uuids.*' => ['string', 'max:40'],
+        ]);
+
+        $result = $this->payroll->approveItems($payrollRun, $request->user(), $data['uuids'] ?? null);
+
+        return ApiResponse::success([
+            'run' => new PayrollRunResource($result['run']),
+            'looked_at' => $result['looked_at'],
+            'approved' => $result['approved'],
+            'already_approved' => $result['already_approved'],
+            'approved_amount' => $result['approved_amount'],
+            'skipped' => $result['skipped'],
+        ], $result['approved'] . ' salary approve ho gayi'
+            . (count($result['skipped']) > 0 ? ', ' . count($result['skipped']) . ' chhod di' : ''));
+    }
+
     public function approve(Request $request, PayrollRun $payrollRun): JsonResponse
     {
         return ApiResponse::success(
@@ -86,8 +130,9 @@ class PayrollController extends ApiController
     public function items(Request $request, PayrollRun $payrollRun): JsonResponse
     {
         $items = $payrollRun->items()
-            ->with('lines', 'run')
+            ->with('run')
             ->when($request->filled('status'), fn ($query) => $query->where('payment_status', $request->string('status')))
+            ->when($request->filled('approval'), fn ($query) => $query->where('approval_status', $request->string('approval')))
             ->when($request->filled('search'), fn ($query) => $query->where(fn ($inner) => $inner
                 ->where('employee_name', 'like', '%' . $request->string('search') . '%')
                 ->orWhere('employee_code', 'like', '%' . $request->string('search') . '%')))

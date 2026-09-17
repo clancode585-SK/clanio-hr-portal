@@ -25,8 +25,6 @@ final class AppraisalService
         private readonly GoalService $goals
     ) {}
 
-    /* ---------------------------------------------------------------- cycle */
-
     public function createCycle(User $actor, array $data): AppraisalCycle
     {
         $this->assertPermission($actor, AppraisalCycle::MANAGE_PERMISSION, 'appraisal cycle banane');
@@ -73,10 +71,6 @@ final class AppraisalService
         return $cycle->refresh();
     }
 
-    /**
-     * Launch par har active employee ka appraisal ban jata hai aur us period ka
-     * score + goal achievement usmein bhar diya jata hai.
-     */
     public function launch(AppraisalCycle $cycle, User $actor): AppraisalCycle
     {
         $this->assertPermission($actor, AppraisalCycle::MANAGE_PERMISSION, 'cycle launch karne');
@@ -159,8 +153,6 @@ final class AppraisalService
 
         return $cycle->refresh();
     }
-
-    /* ------------------------------------------------------------ appraisal */
 
     public function selfReview(Appraisal $appraisal, array $data, User $actor): Appraisal
     {
@@ -253,8 +245,6 @@ final class AppraisalService
         return $appraisal;
     }
 
-    /* -------------------------------------------------------------- summary */
-
     public function cycleSummary(AppraisalCycle $cycle, User $actor): array
     {
         $this->assertPermission($actor, AppraisalCycle::MANAGE_PERMISSION, 'cycle summary dekhne');
@@ -309,9 +299,6 @@ final class AppraisalService
         ];
     }
 
-    /* --------------------------------------------------------------- guards */
-
-    /** Cycle ke poore period ka average monthly score. */
     private function periodScore(Employee $employee, AppraisalCycle $cycle): ?int
     {
         $period = $cycle->period_start->copy()->startOfMonth();
@@ -407,8 +394,6 @@ final class AppraisalService
     {
         TenantCache::flush(TenantCache::PERFORMANCE);
     }
-
-    /* -------------------------------------------------------- notifications */
 
     private function notifyLaunched(AppraisalCycle $cycle, int $created, User $actor): void
     {

@@ -29,8 +29,6 @@ final class ExitService
         private readonly ClearanceService $clearance
     ) {}
 
-    /* ----------------------------------------------------------- resignation */
-
     public function apply(User $actor, array $data): EmployeeExit
     {
         $employee = $this->employeeFor($actor, isset($data['employee_id']) ? (int) $data['employee_id'] : null);
@@ -111,8 +109,6 @@ final class ExitService
         return $exit;
     }
 
-    /* -------------------------------------------------------- manager stage */
-
     public function managerApprove(EmployeeExit $exit, array $data, User $actor): EmployeeExit
     {
         $this->assertCanApproveAsManager($exit, $actor);
@@ -143,8 +139,6 @@ final class ExitService
 
         return $exit;
     }
-
-    /* ------------------------------------------------------------- HR stage */
 
     public function hrApprove(EmployeeExit $exit, array $data, User $actor): EmployeeExit
     {
@@ -280,8 +274,6 @@ final class ExitService
         return $exit;
     }
 
-    /* ---------------------------------------------------------------- exit */
-
     public function complete(EmployeeExit $exit, array $data, User $actor): EmployeeExit
     {
         $this->assertPermission($actor, EmployeeExit::APPROVE_PERMISSION, 'exit complete karne');
@@ -299,10 +291,6 @@ final class ExitService
         return $this->finalise($exit, $actor);
     }
 
-    /**
-     * Login band, employment_status exited. Scheduled command aur manual complete
-     * dono yahi se guzarte hain.
-     */
     public function finalise(EmployeeExit $exit, ?User $actor = null): EmployeeExit
     {
         $exit = DB::transaction(function () use ($exit, $actor): EmployeeExit {
@@ -336,8 +324,6 @@ final class ExitService
 
         return $exit;
     }
-
-    /* ------------------------------------------------------------ documents */
 
     public function addDocument(EmployeeExit $exit, array $data, UploadedFile $file, User $actor): ExitDocument
     {
@@ -408,8 +394,6 @@ final class ExitService
         return Storage::disk(self::DISK)->download($document->file_path, $document->original_name);
     }
 
-    /* -------------------------------------------------------------- summary */
-
     public function summary(User $actor): array
     {
         $this->assertPermission($actor, EmployeeExit::APPROVE_PERMISSION, 'exit summary dekhne');
@@ -466,8 +450,6 @@ final class ExitService
             'upcoming_exits' => $upcoming,
         ];
     }
-
-    /* --------------------------------------------------------------- guards */
 
     public function noticeDaysFor(Employee $employee): int
     {
@@ -599,8 +581,6 @@ final class ExitService
     {
         TenantCache::flush(TenantCache::EXITS, TenantCache::EMPLOYEES, TenantCache::USERS);
     }
-
-    /* -------------------------------------------------------- notifications */
 
     private function notifyManager(EmployeeExit $exit, User $actor): void
     {

@@ -49,6 +49,12 @@ class PayrollItemResource extends JsonResource
             'hold_reason' => $this->hold_reason,
             'note' => $this->note,
 
+            'approval_status' => $this->approval_status,
+            'approval_label' => $this->approvalLabel(),
+            'is_approved' => $this->isApproved(),
+            'is_stopped' => $this->isOnHold(),
+            'approved_at' => $this->approved_at?->toIso8601String(),
+
             'lines' => $this->whenLoaded('lines', fn (): array => $this->lines
                 ->map(fn (PayrollItemLine $line): array => [
                     'code' => $line->code,

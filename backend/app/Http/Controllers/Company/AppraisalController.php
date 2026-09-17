@@ -20,8 +20,6 @@ class AppraisalController extends ApiController
 {
     public function __construct(private readonly AppraisalService $appraisals) {}
 
-    /* --------------------------------------------------------------- cycles */
-
     public function cycles(Request $request): JsonResponse
     {
         $cycles = $this->applyFilters(
@@ -83,8 +81,6 @@ class AppraisalController extends ApiController
             'Cycle summary fetched successfully'
         );
     }
-
-    /* ----------------------------------------------------------- appraisals */
 
     public function index(Request $request): JsonResponse
     {

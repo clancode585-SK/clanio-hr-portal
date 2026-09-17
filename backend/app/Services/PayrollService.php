@@ -15,6 +15,8 @@ use App\Models\SalaryStructure;
 use App\Models\User;
 use App\Support\CompanyTime;
 use App\Support\NotificationType;
+use App\Support\PermissionLookup;
+use App\Support\SalarySeal;
 use App\Support\Scopes\CompanyScope;
 use App\Support\TenantCache;
 use App\Support\WorkCalendar;
@@ -23,6 +25,16 @@ use Illuminate\Support\Facades\DB;
 
 final class PayrollService
 {
+    private const ATTENTION_LIMIT = 50;
+
+    private const BULK_CHUNK = 200;
+
+    private array $ownEmployee = [];
+
+    private array $workingDayMemo = [];
+
+    private array $lopMemo = [];
+
     public function __construct(
         private readonly SalaryStructureService $structures,
         private readonly NotificationService $notifications
@@ -78,7 +90,12 @@ final class PayrollService
             );
         }
 
-        return DB::transaction(function () use ($run, $companyId, $employees, $actor): PayrollRun {
+        $ids = $employees->pluck('id')->map(fn ($id): int => (int) $id)->all();
+
+        $this->prefetchLop($companyId, $run->month, $ids);
+        $structures = $this->structures->forMonthMany($ids, $run->month);
+
+        return DB::transaction(function () use ($run, $employees, $structures, $actor): PayrollRun {
             $held = $this->keepHeldLop($run);
 
             PayrollItemLine::query()
@@ -91,7 +108,7 @@ final class PayrollService
             $monthDays = Carbon::parse($run->month . '-01')->daysInMonth;
 
             foreach ($employees as $employee) {
-                $structure = $this->structures->forMonth($employee, $run->month);
+                $structure = $structures[(int) $employee->id] ?? null;
 
                 if ($structure === null) {
                     continue;
@@ -213,6 +230,245 @@ final class PayrollService
         return $item->refresh();
     }
 
+    public function approveItem(PayrollItem $item, User $actor): PayrollItem
+    {
+        $run = $item->run;
+
+        if ($run === null || ! $run->isEditable()) {
+            throw new ApiException(
+                'Ye payroll ' . ($run?->statusLabel() ?? 'band') . ' hai — ab approval nahi badalti.',
+                409,
+                'PAYROLL_LOCKED'
+            );
+        }
+
+        $blocker = $this->approvalBlocker($item, $actor);
+
+        if ($blocker !== null) {
+            throw new ApiException($blocker['message'], 409, $blocker['code']);
+        }
+
+        $item->forceFill([
+            'approval_status' => PayrollItem::APPROVED,
+            'approved_at' => Carbon::now(),
+            'approved_by' => $actor->id,
+            'fingerprint' => SalarySeal::forItem($item),
+            'updated_by' => $actor->id,
+        ])->save();
+
+        $this->countApprovals($run);
+        $this->flush();
+
+        return $item->refresh()->load('lines', 'run');
+    }
+
+    public function unapproveItem(PayrollItem $item, User $actor): PayrollItem
+    {
+        $run = $item->run;
+
+        if ($run === null || ! $run->isEditable()) {
+            throw new ApiException(
+                'Payroll approve ho chuka hai — ab approval wapas nahi hoti.',
+                409,
+                'PAYROLL_LOCKED'
+            );
+        }
+
+        $item->forceFill([
+            'approval_status' => PayrollItem::PENDING,
+            'approved_at' => null,
+            'approved_by' => null,
+            'fingerprint' => null,
+            'updated_by' => $actor->id,
+        ])->save();
+
+        $this->countApprovals($run);
+        $this->flush();
+
+        return $item->refresh()->load('lines', 'run');
+    }
+
+    public function approveItems(PayrollRun $run, User $actor, ?array $uuids = null): array
+    {
+        if (! $run->isEditable()) {
+            throw new ApiException(
+                'Ye payroll ' . $run->statusLabel() . ' hai — ab approval nahi badalti.',
+                409,
+                'PAYROLL_LOCKED'
+            );
+        }
+
+        $mine = $this->ownEmployeeId($actor);
+        $now = Carbon::now();
+
+        $lookedAt = 0;
+        $approved = 0;
+        $already = 0;
+        $amount = 0.0;
+        $skipped = [];
+
+        PayrollItem::query()
+            ->with('lines')
+            ->where('run_id', $run->id)
+            ->when($uuids !== null, fn ($query) => $query->whereIn('uuid', $uuids))
+            ->orderBy('id')
+            ->chunkById(self::BULK_CHUNK, function ($items) use (
+                $actor, $mine, $now, &$lookedAt, &$approved, &$already, &$amount, &$skipped
+            ): void {
+                foreach ($items as $item) {
+                    $lookedAt++;
+
+                    if ($item->isApproved()) {
+                        $already++;
+                        $amount += (float) $item->net_payable;
+
+                        continue;
+                    }
+
+                    $blocker = $this->blockerFor($item, $mine);
+
+                    if ($blocker !== null) {
+                        if (count($skipped) < self::ATTENTION_LIMIT) {
+                            $skipped[] = [
+                                'uuid' => $item->uuid,
+                                'employee_code' => $item->employee_code,
+                                'employee_name' => $item->employee_name,
+                                'reason' => $blocker['message'],
+                                'code' => $blocker['code'],
+                            ];
+                        }
+
+                        continue;
+                    }
+
+                    $item->forceFill([
+                        'approval_status' => PayrollItem::APPROVED,
+                        'approved_at' => $now,
+                        'approved_by' => $actor->id,
+                        'fingerprint' => SalarySeal::forItem($item),
+                        'updated_by' => $actor->id,
+                    ])->save();
+
+                    $approved++;
+                    $amount += (float) $item->net_payable;
+                }
+            });
+
+        $this->countApprovals($run);
+        $this->flush();
+
+        $blocked = PayrollItem::query()
+            ->where('run_id', $run->id)
+            ->where('approval_status', PayrollItem::PENDING)
+            ->when($uuids !== null, fn ($query) => $query->whereIn('uuid', $uuids))
+            ->count();
+
+        return [
+            'run' => $run->refresh(),
+            'looked_at' => $lookedAt,
+            'approved' => $approved,
+            'already_approved' => $already,
+            'skipped' => $skipped,
+            'skipped_count' => $blocked,
+            'approved_amount' => round($amount, 2),
+        ];
+    }
+
+    public function approvalReview(PayrollRun $run, User $actor): array
+    {
+        $mine = $this->ownEmployeeId($actor);
+        $ready = $this->readyFilter($run, $mine);
+
+        $counts = PayrollItem::query()
+            ->where('run_id', $run->id)
+            ->selectRaw('COUNT(*) as headcount')
+            ->selectRaw('SUM(approval_status = ?) as approved', [PayrollItem::APPROVED])
+            ->selectRaw('SUM(payment_status = ?) as stopped', [PayrollItem::ON_HOLD])
+            ->selectRaw('SUM(lop_days > 0) as with_lop')
+            ->first();
+
+        $readyTotals = (clone $ready)
+            ->selectRaw('COUNT(*) as headcount, SUM(net_payable) as amount')
+            ->first();
+
+        $cut = PayrollItem::query()
+            ->join('payroll_item_lines as l', 'l.item_id', '=', 'payroll_items.id')
+            ->where('payroll_items.run_id', $run->id)
+            ->where('payroll_items.lop_days', '>', 0)
+            ->where('l.kind', SalaryComponent::EARNING)
+            ->selectRaw('SUM(l.full_amount - l.amount) as cut')
+            ->value('cut');
+
+        return [
+            'headcount' => (int) ($counts->headcount ?? 0),
+            'approved' => (int) ($counts->approved ?? 0),
+            'stopped' => (int) ($counts->stopped ?? 0),
+            'ready_to_approve' => (int) ($readyTotals->headcount ?? 0),
+            'ready_amount' => round((float) ($readyTotals->amount ?? 0), 2),
+            'with_lop' => (int) ($counts->with_lop ?? 0),
+            'lop_amount_cut' => round((float) ($cut ?? 0), 2),
+            'needs_attention' => $this->needsAttention($run, $mine),
+        ];
+    }
+
+    private function readyFilter(PayrollRun $run, ?int $mine)
+    {
+        return PayrollItem::query()
+            ->where('run_id', $run->id)
+            ->where('approval_status', PayrollItem::PENDING)
+            ->where('payment_status', '!=', PayrollItem::ON_HOLD)
+            ->where('net_payable', '>', 0)
+            ->where(fn ($query) => $query
+                ->where('lop_suggested', '<=', 0)
+                ->orWhere('lop_locked_by_hr', 1))
+            ->when($mine !== null, fn ($query) => $query
+                ->where(fn ($inner) => $inner
+                    ->where('employee_id', '!=', $mine)
+                    ->orWhere('lop_days', '<=', 0)));
+    }
+
+    private function needsAttention(PayrollRun $run, ?int $mine): array
+    {
+        $rows = PayrollItem::query()
+            ->where('run_id', $run->id)
+            ->where('approval_status', PayrollItem::PENDING)
+            ->where(function ($query) use ($mine): void {
+                $query->where('payment_status', PayrollItem::ON_HOLD)
+                    ->orWhere('net_payable', '<=', 0)
+                    ->orWhere(fn ($inner) => $inner
+                        ->where('lop_suggested', '>', 0)
+                        ->where('lop_locked_by_hr', 0));
+
+                if ($mine !== null) {
+                    $query->orWhere(fn ($inner) => $inner
+                        ->where('employee_id', $mine)
+                        ->where('lop_days', '>', 0));
+                }
+            })
+            ->orderBy('employee_code')
+            ->limit(self::ATTENTION_LIMIT)
+            ->get([
+                'uuid', 'employee_code', 'employee_name', 'net_payable', 'payment_status',
+                'hold_reason', 'lop_days', 'lop_suggested', 'lop_locked_by_hr', 'employee_id',
+                'approval_status',
+            ]);
+
+        return $rows
+            ->map(function (PayrollItem $item) use ($mine): array {
+                $blocker = $this->blockerFor($item, $mine);
+
+                return [
+                    'uuid' => $item->uuid,
+                    'employee_code' => $item->employee_code,
+                    'employee_name' => $item->employee_name,
+                    'net_payable' => (float) $item->net_payable,
+                    'reason' => $blocker['message'] ?? 'Dekhna padega.',
+                    'code' => $blocker['code'] ?? 'UNKNOWN',
+                ];
+            })
+            ->all();
+    }
+
     public function approve(PayrollRun $run, User $actor): PayrollRun
     {
         if (! $run->isCalculated()) {
@@ -227,6 +483,20 @@ final class PayrollService
 
         if ($run->headcount === 0) {
             throw new ApiException('Khaali payroll approve nahi hota.', 422, 'PAYROLL_EMPTY');
+        }
+
+        $waiting = PayrollItem::query()
+            ->where('run_id', $run->id)
+            ->where('approval_status', PayrollItem::PENDING)
+            ->where('payment_status', '!=', PayrollItem::ON_HOLD)
+            ->count();
+
+        if ($waiting > 0) {
+            throw new ApiException(
+                $waiting . ' employee ki salary abhi approve nahi hui. Sabko approve karo ya unko stop karo.',
+                409,
+                'ITEMS_NOT_APPROVED'
+            );
         }
 
         $run->forceFill([
@@ -316,6 +586,10 @@ final class PayrollService
             'paid_days' => $paidDays,
             'lop_suggested' => $this->suggestLop($employee, $run->month, $working),
             'lop_locked_by_hr' => array_key_exists($employee->id, $held),
+            'approval_status' => PayrollItem::PENDING,
+            'approved_at' => null,
+            'approved_by' => null,
+            'fingerprint' => null,
             'updated_by' => $actor->id,
         ]);
 
@@ -328,6 +602,8 @@ final class PayrollService
         $earnings = 0.0;
         $deductions = 0.0;
         $employer = 0.0;
+        $rows = [];
+        $stamp = Carbon::now();
 
         foreach ($structure->lines as $line) {
             $full = (float) $line->monthly_amount;
@@ -344,19 +620,23 @@ final class PayrollService
                 $employer += $amount;
             }
 
-            $row = new PayrollItemLine([
+            $rows[] = [
+                'company_id' => $run->company_id,
+                'item_id' => $item->id,
                 'code' => $line->code,
                 'name' => $line->name,
                 'kind' => $line->kind,
                 'full_amount' => $full,
                 'amount' => $amount,
-                'is_statutory' => $line->is_statutory,
+                'is_statutory' => $line->is_statutory ? 1 : 0,
                 'sequence' => $line->sequence,
-            ]);
+                'created_at' => $stamp,
+                'updated_at' => $stamp,
+            ];
+        }
 
-            $row->company_id = $run->company_id;
-            $row->item_id = $item->id;
-            $row->save();
+        if ($rows !== []) {
+            DB::table('payroll_item_lines')->insert($rows);
         }
 
         $item->forceFill([
@@ -367,6 +647,74 @@ final class PayrollService
         ])->save();
 
         return $item;
+    }
+
+    private function approvalBlocker(PayrollItem $item, User $actor): ?array
+    {
+        return $this->blockerFor($item, $this->ownEmployeeId($actor));
+    }
+
+    private function blockerFor(PayrollItem $item, ?int $mine): ?array
+    {
+        if ($item->isOnHold()) {
+            return [
+                'code' => 'ITEM_STOPPED',
+                'message' => 'Salary stop par hai'
+                    . ($item->hold_reason ? ' — ' . $item->hold_reason : '') . '.',
+            ];
+        }
+
+        if ((float) $item->net_payable <= 0) {
+            return ['code' => 'ITEM_ZERO', 'message' => 'Net amount zero hai.'];
+        }
+
+        if ((float) $item->lop_suggested > 0 && ! (bool) $item->lop_locked_by_hr) {
+            return [
+                'code' => 'LOP_UNDECIDED',
+                'message' => 'Attendance ' . rtrim(rtrim(number_format((float) $item->lop_suggested, 1, '.', ''), '0'), '.')
+                    . ' din LOP keh rahi hai. Pehle LOP set karo — 0 rakhna ho to bhi save karo.',
+            ];
+        }
+
+        if ($mine !== null && $mine === (int) $item->employee_id && (float) $item->lop_days > 0) {
+            return [
+                'code' => 'SELF_APPROVAL_WITH_LOP',
+                'message' => 'Apni salary par LOP lagi hai — isko dusra approver hi approve karega.',
+            ];
+        }
+
+        return null;
+    }
+
+    private function ownEmployeeId(User $actor): ?int
+    {
+        $key = (int) $actor->id;
+
+        if (! array_key_exists($key, $this->ownEmployee)) {
+            $found = Employee::query()
+                ->withoutGlobalScope(CompanyScope::class)
+                ->where('company_id', $actor->company_id)
+                ->where('user_id', $actor->id)
+                ->value('id');
+
+            $this->ownEmployee[$key] = $found === null ? null : (int) $found;
+        }
+
+        return $this->ownEmployee[$key];
+    }
+
+    private function countApprovals(PayrollRun $run): void
+    {
+        $run->forceFill([
+            'approved_count' => PayrollItem::query()
+                ->where('run_id', $run->id)
+                ->where('approval_status', PayrollItem::APPROVED)
+                ->count(),
+            'stopped_count' => PayrollItem::query()
+                ->where('run_id', $run->id)
+                ->where('payment_status', PayrollItem::ON_HOLD)
+                ->count(),
+        ])->save();
     }
 
     private function retotal(PayrollRun $run, User $actor): void
@@ -384,6 +732,8 @@ final class PayrollService
             'total_employer' => round((float) ($sums->employer ?? 0), 2),
             'updated_by' => $actor->id,
         ])->save();
+
+        $this->countApprovals($run);
     }
 
     private function keepHeldLop(PayrollRun $run): array
@@ -402,7 +752,7 @@ final class PayrollService
 
         return Employee::query()
             ->withoutGlobalScope(CompanyScope::class)
-            ->with('user:id,name', 'designation:id,name', 'workShift')
+            ->with('user:id,name,branch_id', 'designation:id,name', 'workShift')
             ->where('company_id', $companyId)
             ->where('is_active', 1)
             ->where('date_of_joining', '<=', $end)
@@ -416,6 +766,12 @@ final class PayrollService
 
     private function workingDays(Employee $employee, string $month): float
     {
+        $key = $month . ':' . ($employee->work_shift_id ?? 0) . ':' . ($employee->user?->branch_id ?? 0);
+
+        if (array_key_exists($key, $this->workingDayMemo)) {
+            return $this->workingDayMemo[$key];
+        }
+
         $start = Carbon::parse($month . '-01')->startOfMonth();
         $end = $start->copy()->endOfMonth();
         $days = 0;
@@ -426,7 +782,7 @@ final class PayrollService
             }
         }
 
-        return (float) $days;
+        return $this->workingDayMemo[$key] = (float) $days;
     }
 
     private function suggestLop(Employee $employee, string $month, float $working): float
@@ -435,19 +791,56 @@ final class PayrollService
             return 0.0;
         }
 
+        $days = $this->lopMemo[$month][$employee->id] ?? null;
+
+        if ($days === null) {
+            $start = Carbon::parse($month . '-01')->startOfMonth()->toDateString();
+            $end = Carbon::parse($month . '-01')->endOfMonth()->toDateString();
+
+            $rows = Attendance::query()
+                ->withoutGlobalScope(CompanyScope::class)
+                ->where('employee_id', $employee->id)
+                ->whereBetween('attendance_date', [$start, $end])
+                ->get(['status']);
+
+            $days = $rows->where('status', Attendance::ABSENT)->count()
+                + ($rows->where('status', Attendance::HALF_DAY)->count() * 0.5);
+        }
+
+        return (float) min($working, $days);
+    }
+
+    private function prefetchLop(int $companyId, string $month, array $employeeIds): void
+    {
+        if ($employeeIds === []) {
+            return;
+        }
+
         $start = Carbon::parse($month . '-01')->startOfMonth()->toDateString();
         $end = Carbon::parse($month . '-01')->endOfMonth()->toDateString();
 
         $rows = Attendance::query()
             ->withoutGlobalScope(CompanyScope::class)
-            ->where('employee_id', $employee->id)
+            ->where('company_id', $companyId)
+            ->whereIn('employee_id', $employeeIds)
             ->whereBetween('attendance_date', [$start, $end])
-            ->get(['status']);
+            ->whereIn('status', [Attendance::ABSENT, Attendance::HALF_DAY])
+            ->selectRaw('employee_id')
+            ->selectRaw('SUM(status = ?) as absent', [Attendance::ABSENT])
+            ->selectRaw('SUM(status = ?) as half_day', [Attendance::HALF_DAY])
+            ->groupBy('employee_id')
+            ->get();
 
-        $absent = $rows->where('status', Attendance::ABSENT)->count();
-        $half = $rows->where('status', Attendance::HALF_DAY)->count();
+        $this->lopMemo[$month] = [];
 
-        return (float) min($working, $absent + ($half * 0.5));
+        foreach ($employeeIds as $id) {
+            $this->lopMemo[$month][$id] = 0.0;
+        }
+
+        foreach ($rows as $row) {
+            $this->lopMemo[$month][(int) $row->employee_id] =
+                (float) $row->absent + ((float) $row->half_day * 0.5);
+        }
     }
 
     private function defaultPayDate(int $companyId, string $month): string
@@ -479,14 +872,7 @@ final class PayrollService
 
     private function announce(PayrollRun $run, User $actor): void
     {
-        $hr = User::query()
-            ->withoutGlobalScope(CompanyScope::class)
-            ->where('company_id', $run->company_id)
-            ->where('is_active', 1)
-            ->get()
-            ->filter(fn (User $user): bool => $user->hasPermission(PayrollRun::APPROVE_PERMISSION))
-            ->pluck('id')
-            ->all();
+        $hr = PermissionLookup::userIdsWith(PayrollRun::APPROVE_PERMISSION, (int) $run->company_id);
 
         foreach ($hr as $userId) {
             if ((int) $userId === (int) $actor->id) {

@@ -6,13 +6,15 @@ namespace App\Console\Commands;
 
 use App\Exceptions\ApiException;
 use App\Models\Company;
+use App\Models\PayrollItem;
 use App\Models\PayrollRun;
 use App\Models\SalaryDisbursement;
 use App\Models\User;
 use App\Services\SalaryDisbursementService;
-use App\Support\CompanyTime;
+use App\Services\TransferVerificationService;
 use App\Support\Scopes\CompanyScope;
 use App\Support\TenantContext;
+use App\Support\TransferWindow;
 use Illuminate\Console\Command;
 
 class DisburseSalaries extends Command
@@ -22,29 +24,33 @@ class DisburseSalaries extends Command
 
     protected $description = 'Salary date par approved payroll ki salary employees ke account me bhejta hai';
 
-    public function __construct(private readonly SalaryDisbursementService $transfers)
-    {
+    public function __construct(
+        private readonly SalaryDisbursementService $transfers,
+        private readonly TransferVerificationService $verifications
+    ) {
         parent::__construct();
     }
 
     public function handle(): int
     {
         $dryRun = (bool) $this->option('dry-run');
+
+        if (! $dryRun) {
+            $this->verifications->sweep();
+        }
         $totalSent = 0;
         $totalFailed = 0;
 
         foreach (Company::query()->where('status', 'active')->get(['id', 'name']) as $company) {
             app(TenantContext::class)->set($company);
 
-            $today = CompanyTime::day($company)->toDateString();
-
             $runs = PayrollRun::query()
                 ->withoutGlobalScope(CompanyScope::class)
                 ->where('company_id', $company->id)
                 ->where('status', PayrollRun::APPROVED)
-                ->whereDate('pay_date', '<=', $today)
                 ->orderBy('pay_date')
-                ->get();
+                ->get()
+                ->filter(fn (PayrollRun $run): bool => TransferWindow::isOpen($run));
 
             foreach ($runs as $run) {
                 $actor = $this->systemActor((int) $company->id);
@@ -57,16 +63,23 @@ class DisburseSalaries extends Command
 
                 if ($dryRun) {
                     $waiting = $run->items()
-                        ->whereIn('payment_status', ['pending', 'failed'])
+                        ->where('approval_status', PayrollItem::APPROVED)
+                        ->whereIn('payment_status', [PayrollItem::PENDING, PayrollItem::FAILED])
                         ->where('net_payable', '>', 0)
                         ->count();
 
+                    $unapproved = $run->items()
+                        ->where('approval_status', PayrollItem::PENDING)
+                        ->where('payment_status', '!=', PayrollItem::ON_HOLD)
+                        ->count();
+
                     $this->line(sprintf(
-                        '%s — %s: %d salary jaane ko taiyar (pay date %s)',
+                        '%s — %s: %d approved salary taiyar, %d approval ka intezaar (window %s)',
                         $company->name,
                         $run->monthLabel(),
                         $waiting,
-                        $run->pay_date?->format('d M Y') ?? '?'
+                        $unapproved,
+                        TransferWindow::opensAt($run)->format('d M Y, g:i A')
                     ));
 
                     continue;

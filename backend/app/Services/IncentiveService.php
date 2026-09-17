@@ -20,8 +20,6 @@ final class IncentiveService
 {
     public function __construct(private readonly NotificationService $notifications) {}
 
-    /* ----------------------------------------------------------------- rules */
-
     public function rules(User $actor): array
     {
         return IncentiveRule::query()
@@ -80,15 +78,9 @@ final class IncentiveService
         $this->flush();
     }
 
-    /* ----------------------------------------------------------- calculation */
-
-    /**
-     * Us period ke saare finalised OKR ka weighted achievement nikalta hai,
-     * phir slab dekhkar incentive % bana deta hai. Rupaye payroll banayega.
-     */
     public function calculate(Employee $employee, string $periodType, string $periodLabel, ?User $actor = null): IncentiveRecord
     {
-        [$start, $end] = $this->periodRange($periodType, $periodLabel);
+        ['start' => $start, 'end' => $end] = $this->periodRange($periodType, $periodLabel);
 
         $goals = PerformanceGoal::query()
             ->where('employee_id', $employee->id)
@@ -255,8 +247,6 @@ final class IncentiveService
         ];
     }
 
-    /* --------------------------------------------------------------- helpers */
-
     private function weightedAchievement($goals): int
     {
         if ($goals->isEmpty()) {
@@ -278,7 +268,6 @@ final class IncentiveService
         return $this->clamp((int) round($weighted / $totalWeight));
     }
 
-    /** Role ka apna rule ho to wahi, warna company ka default (role_id NULL). */
     private function ruleFor(Employee $employee, string $periodType): ?IncentiveRule
     {
         $roleIds = DB::table('user_roles')->where('user_id', $employee->user_id)->pluck('role_id')->all();
@@ -298,19 +287,18 @@ final class IncentiveService
             ->first();
     }
 
-    /** @return array{0: Carbon, 1: Carbon} */
     public function periodRange(string $periodType, string $label): array
     {
         try {
             return match ($periodType) {
                 PerformanceGoal::PERIOD_MONTH => [
-                    Carbon::createFromFormat('Y-m-d', $label . '-01')->startOfMonth(),
-                    Carbon::createFromFormat('Y-m-d', $label . '-01')->endOfMonth(),
+                    'start' => Carbon::createFromFormat('Y-m-d', $label . '-01')->startOfMonth(),
+                    'end' => Carbon::createFromFormat('Y-m-d', $label . '-01')->endOfMonth(),
                 ],
                 PerformanceGoal::PERIOD_QUARTER, PerformanceGoal::PERIOD_ANNUAL,
                 PerformanceGoal::PERIOD_WEEK, PerformanceGoal::PERIOD_FORTNIGHT => [
-                    Carbon::parse(explode('..', $label)[0]),
-                    Carbon::parse(explode('..', $label)[1] ?? explode('..', $label)[0]),
+                    'start' => Carbon::parse(explode('..', $label)[0]),
+                    'end' => Carbon::parse(explode('..', $label)[1] ?? explode('..', $label)[0]),
                 ],
                 default => throw new ApiException('Period type galat hai.', 422, 'PERIOD_INVALID'),
             };
