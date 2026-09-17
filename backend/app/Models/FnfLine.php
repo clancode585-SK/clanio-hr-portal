@@ -44,6 +44,8 @@ class FnfLine extends Model
 
     public const CLEARANCE_RECOVERY = 'CLEARANCE';
 
+    public const ADVANCE_RECOVERY = 'ADVANCE';
+
     protected $fillable = [
         'code',
         'name',

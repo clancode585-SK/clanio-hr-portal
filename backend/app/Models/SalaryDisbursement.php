@@ -40,7 +40,9 @@ class SalaryDisbursement extends Model
 
     public const SETTLEMENT = 'settlement';
 
-    public const PURPOSES = [self::SALARY, self::SETTLEMENT];
+    public const ADVANCE = 'advance';
+
+    public const PURPOSES = [self::SALARY, self::SETTLEMENT, self::ADVANCE];
 
     protected $attributes = [
         'status' => self::QUEUED,

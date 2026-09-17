@@ -6,10 +6,12 @@ namespace App\Services;
 
 use App\Exceptions\ApiException;
 use App\Models\Attendance;
+use App\Models\Company;
 use App\Models\Employee;
 use App\Models\PayrollItem;
 use App\Models\PayrollItemLine;
 use App\Models\PayrollRun;
+use App\Models\SalaryAdvance;
 use App\Models\SalaryComponent;
 use App\Models\SalaryStructure;
 use App\Models\User;
@@ -18,6 +20,7 @@ use App\Support\NotificationType;
 use App\Support\PermissionLookup;
 use App\Support\SalarySeal;
 use App\Support\Scopes\CompanyScope;
+use App\Support\TaxMath;
 use App\Support\TenantCache;
 use App\Support\WorkCalendar;
 use Illuminate\Support\Carbon;
@@ -35,9 +38,16 @@ final class PayrollService
 
     private array $lopMemo = [];
 
+    private array $companyMemo = [];
+
+    private array $advanceMemo = [];
+
+    private array $touchedAdvances = [];
+
     public function __construct(
         private readonly SalaryStructureService $structures,
-        private readonly NotificationService $notifications
+        private readonly NotificationService $notifications,
+        private readonly SalaryAdvanceService $advances
     ) {}
 
     public function open(int $companyId, array $data, User $actor): PayrollRun
@@ -95,8 +105,13 @@ final class PayrollService
         $this->prefetchLop($companyId, $run->month, $ids);
         $structures = $this->structures->forMonthMany($ids, $run->month);
 
-        return DB::transaction(function () use ($run, $employees, $structures, $actor): PayrollRun {
+        return DB::transaction(function () use ($run, $employees, $structures, $actor, $companyId, $ids): PayrollRun {
             $held = $this->keepHeldLop($run);
+
+            // Purani EMI rows hata kar dobara likhte hain, warna recalculate par do baar gin jaati
+            $this->touchedAdvances = $this->advances->clearRun((int) $run->id);
+            $this->advances->resync($this->touchedAdvances);
+            $this->advanceMemo = $this->advances->recoveringFor($companyId, $ids, $run->month);
 
             PayrollItemLine::query()
                 ->whereIn('item_id', PayrollItem::query()->where('run_id', $run->id)->select('id'))
@@ -125,6 +140,9 @@ final class PayrollService
                 $totals['net'] += $item->net_payable;
                 $totals['employer'] += $item->employer_cost;
             }
+
+            $this->advances->resync($this->touchedAdvances);
+            $this->advanceMemo = [];
 
             $run->forceFill([
                 'status' => PayrollRun::CALCULATED,
@@ -175,6 +193,15 @@ final class PayrollService
         return DB::transaction(function () use ($item, $run, $employee, $structure, $days, $actor): PayrollItem {
             PayrollItemLine::query()->where('item_id', $item->id)->delete();
 
+            // Is payslip ki EMI row hata kar dobara likhi jaati hai
+            $this->touchedAdvances = $this->advances->clearItem((int) $item->id);
+            $this->advances->resync($this->touchedAdvances);
+            $this->advanceMemo = $this->advances->recoveringFor(
+                (int) $run->company_id,
+                [(int) $employee->id],
+                $run->month
+            );
+
             $paidDays = round(max((float) $item->working_days - $days, 0), 2);
 
             $fresh = $this->writeItem(
@@ -188,6 +215,9 @@ final class PayrollService
                 $actor,
                 $item
             );
+
+            $this->advances->resync($this->touchedAdvances);
+            $this->advanceMemo = [];
 
             $this->retotal($run, $actor);
             $this->flush();
@@ -522,6 +552,9 @@ final class PayrollService
             );
         }
 
+        // Run cancel hui to EMI bhi wapas, warna employee ka advance kam dikhega
+        $this->advances->resync($this->advances->clearRun((int) $run->id));
+
         $run->forceFill([
             'status' => PayrollRun::CANCELLED,
             'closed_at' => Carbon::now(),
@@ -635,6 +668,20 @@ final class PayrollService
             ];
         }
 
+        $tds = $this->tdsFor($employee, $structure, $run->month);
+
+        if ($tds > 0) {
+            $rows = $this->putLine($rows, $run, $item, SalaryComponent::TDS, 'TDS', $tds, 900, true, $stamp);
+            $deductions += $tds;
+        }
+
+        $emi = $this->advanceEmiFor($employee, $run, $item, $actor);
+
+        if ($emi > 0) {
+            $rows = $this->putLine($rows, $run, $item, 'ADVANCE', 'Advance Salary Recovery', $emi, 950, false, $stamp);
+            $deductions += $emi;
+        }
+
         if ($rows !== []) {
             DB::table('payroll_item_lines')->insert($rows);
         }
@@ -647,6 +694,122 @@ final class PayrollService
         ])->save();
 
         return $item;
+    }
+
+    // TDS ya advance ki line pehle se ho to usi ko badal dete hain, warna nayi jodte hain
+    private function putLine(
+        array $rows,
+        PayrollRun $run,
+        PayrollItem $item,
+        string $code,
+        string $name,
+        float $amount,
+        int $sequence,
+        bool $statutory,
+        Carbon $stamp
+    ): array {
+        foreach ($rows as $index => $row) {
+            if ($row['code'] === $code) {
+                $rows[$index]['amount'] = $amount;
+                $rows[$index]['full_amount'] = $amount;
+
+                return $rows;
+            }
+        }
+
+        $rows[] = [
+            'company_id' => $run->company_id,
+            'item_id' => $item->id,
+            'code' => $code,
+            'name' => $name,
+            'kind' => SalaryComponent::DEDUCTION,
+            'full_amount' => $amount,
+            'amount' => $amount,
+            'is_statutory' => $statutory ? 1 : 0,
+            'sequence' => $sequence,
+            'created_at' => $stamp,
+            'updated_at' => $stamp,
+        ];
+
+        return $rows;
+    }
+
+    private function tdsFor(Employee $employee, SalaryStructure $structure, string $month): float
+    {
+        $companyId = (int) $employee->company_id;
+
+        if (! array_key_exists($companyId, $this->companyMemo)) {
+            $this->companyMemo[$companyId] = Company::query()->find($companyId);
+        }
+
+        $company = $this->companyMemo[$companyId];
+
+        if ($company === null || ! $company->tds_enabled) {
+            return 0.0;
+        }
+
+        $annual = 0.0;
+
+        foreach ($structure->lines as $line) {
+            if ($line->kind === SalaryComponent::EARNING && $line->is_taxable) {
+                $annual += (float) $line->monthly_amount * 12;
+            }
+        }
+
+        if ($annual <= 0) {
+            return 0.0;
+        }
+
+        $on = Carbon::parse($month . '-01');
+        $deducted = $this->tdsPaidInFy((int) $employee->id, $on);
+
+        return TaxMath::project($annual, $deducted, $on)['monthly_tds'];
+    }
+
+    // Isi financial year me jitna TDS approve/paid ho chuka hai
+    private function tdsPaidInFy(int $employeeId, Carbon $on): float
+    {
+        $fyStart = ($on->month >= 4 ? $on->year : $on->year - 1) . '-04';
+
+        return (float) DB::table('payroll_item_lines as l')
+            ->join('payroll_items as i', 'i.id', '=', 'l.item_id')
+            ->join('payroll_runs as r', 'r.id', '=', 'i.run_id')
+            ->where('i.employee_id', $employeeId)
+            ->where('l.code', SalaryComponent::TDS)
+            ->where('r.month', '>=', $fyStart)
+            ->where('r.month', '<', $on->format('Y-m'))
+            ->whereIn('r.status', [PayrollRun::APPROVED, PayrollRun::PAID])
+            ->sum('l.amount');
+    }
+
+    private function advanceEmiFor(Employee $employee, PayrollRun $run, PayrollItem $item, User $actor): float
+    {
+        $advance = $this->advanceMemo[(int) $employee->id] ?? null;
+
+        if (! $advance instanceof SalaryAdvance) {
+            return 0.0;
+        }
+
+        $due = $advance->dueFor($run->month);
+
+        if ($due <= 0) {
+            return 0.0;
+        }
+
+        $this->advances->recordRecovery(
+            $advance,
+            $run->month,
+            $due,
+            'payroll',
+            (int) $run->id,
+            (int) $item->id,
+            null,
+            $actor
+        );
+
+        $this->touchedAdvances[] = (int) $advance->id;
+
+        return $due;
     }
 
     private function approvalBlocker(PayrollItem $item, User $actor): ?array

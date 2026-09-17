@@ -61,6 +61,11 @@ class EmployeeRequest extends FormRequest
                     Rule::unique('employees', 'aadhaar_number')->where('company_id', $companyId)->where('is_active', 1)->ignore($employeeId)],
                 'esic_number' => ['nullable', 'string', 'digits:17'],
                 'pt_state' => ['nullable', 'string', 'max:50'],
+
+                'insurer_name' => ['nullable', 'string', 'max:150'],
+                'insurance_number' => ['nullable', 'string', 'max:60'],
+                'insurance_valid_till' => ['nullable', 'date'],
+                'tax_regime' => ['nullable', 'string', 'in:new'],
             ]
         );
     }

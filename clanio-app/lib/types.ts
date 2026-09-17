@@ -202,6 +202,12 @@ export type Employee = {
   emergency_contact_phone: string | null
   pan_number: string | null
   aadhaar_number: string | null
+  has_pf_account?: boolean
+  uan_number?: string | null
+  insurer_name: string | null
+  insurance_number: string | null
+  insurance_valid_till: string | null
+  tax_regime?: string | null
   user: EmployeeUser | null
   designation: Designation | null
   onboarding: {

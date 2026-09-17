@@ -22,6 +22,7 @@ class EmployeeFamilyMemberResource extends JsonResource
             'phone' => $this->phone,
             'is_dependent' => $this->is_dependent,
             'is_nominee' => $this->is_nominee,
+            'is_insured' => (bool) $this->is_insured,
             'nominee_share' => $this->nominee_share,
             'created_at' => $this->created_at,
         ];

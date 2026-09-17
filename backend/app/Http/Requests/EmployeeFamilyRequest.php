@@ -27,6 +27,7 @@ class EmployeeFamilyRequest extends FormRequest
             'phone' => ['nullable', 'string', 'max:20'],
             'is_dependent' => ['nullable', 'boolean'],
             'is_nominee' => ['nullable', 'boolean'],
+            'is_insured' => ['nullable', 'boolean'],
             'nominee_share' => ['nullable', 'numeric', 'between:0.01,100', 'required_if:is_nominee,true'],
         ];
     }

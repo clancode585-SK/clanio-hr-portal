@@ -44,6 +44,11 @@ class EmployeeResource extends JsonResource
             'esic_number' => $this->esic_number,
             'pt_state' => $this->pt_state,
 
+            'insurer_name' => $this->insurer_name,
+            'insurance_number' => $this->insurance_number,
+            'insurance_valid_till' => $this->insurance_valid_till,
+            'tax_regime' => $this->tax_regime,
+
             'designation_id' => $this->designation_id,
             'work_shift_id' => $this->work_shift_id,
             'reporting_manager_id' => $this->reporting_manager_id,

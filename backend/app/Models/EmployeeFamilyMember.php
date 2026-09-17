@@ -28,12 +28,14 @@ class EmployeeFamilyMember extends Model
         'phone',
         'is_dependent',
         'is_nominee',
+        'is_insured',
         'nominee_share',
     ];
 
     protected $attributes = [
         'is_dependent' => false,
         'is_nominee' => false,
+        'is_insured' => false,
     ];
 
     protected function casts(): array
@@ -42,6 +44,7 @@ class EmployeeFamilyMember extends Model
             'date_of_birth' => 'date:Y-m-d',
             'is_dependent' => 'boolean',
             'is_nominee' => 'boolean',
+            'is_insured' => 'boolean',
             'nominee_share' => 'float',
         ];
     }

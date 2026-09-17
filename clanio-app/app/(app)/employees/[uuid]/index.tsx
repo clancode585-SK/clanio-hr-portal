@@ -242,6 +242,15 @@ export default function EmployeeDetailScreen() {
             />
           ) : null}
 
+          {can('payroll.view') ? (
+            <Button
+              label="Payroll — month wise salary aur PF"
+              variant="secondary"
+              onPress={() => router.push(`/employees/${uuid}/payroll` as never)}
+              fullWidth
+            />
+          ) : null}
+
           {can('employee.edit') && employee.onboarding?.status && employee.onboarding.status !== 'completed' ? (
             <Button
               label="Mark onboarding complete"

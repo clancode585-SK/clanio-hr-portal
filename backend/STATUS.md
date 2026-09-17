@@ -11,12 +11,12 @@ detail `../PROJECT-NOTES.md` me hain.
 
 | | |
 |---|---|
-| API endpoints | **450** under `/api/hrms` |
-| App me integrated | **450 / 450** |
-| Services | 55 |
-| Company controllers | 59 |
-| Schema files | 36 (raw SQL, koi migration nahi) |
-| Permissions | 105 |
+| API endpoints | **463** under `/api/hrms` |
+| App me integrated | **463 / 463** |
+| Services | 56 |
+| Company controllers | 60 |
+| Schema files | 37 (raw SQL, koi migration nahi) |
+| Permissions | 108 |
 | Mobile app | Expo SDK 57 — **poori ban chuki hai**, saare role |
 
 Do endpoint jaan-boojh kar chhode hain — `exits/pending-hr-approval` aur
@@ -689,23 +689,111 @@ Naya permission: `salary.disburse_early`.
 **Test:** API 94/94 (approval + code) + 41/41 (schedule, window, seal,
 tampering) = **135/135**.
 
+### Salary Advance (17 Sep)
+
+Employee paisa maange, HR de, aur payroll khud kaat le — bina kisi ko yaad
+rakhe.
+
+```
+salary_advances             ek employee ka ek chalta hua advance
+salary_advance_recoveries   har mahine ki EMI ka record
+```
+
+```
+Employee request  →  HR approve  →  HR "Transfer" dabaye  →  paisa account me
+                                        ↓
+                          har mahine payslip par EMI katti hai
+                                        ↓
+                          outstanding 0 hote hi apne aap CLOSED
+```
+
+Transfer **apne aap nahi hota** — HR ko button dabana padta hai, aur usi 6 digit
+code + seal se guzarna padta hai jo salary aur FnF par lagta hai. Paisa usi
+salary ledger se jaata hai (`purpose = advance`), company statement me dikhta hai.
+
+**EMI HR ke haath me hai.** Employee kitne mahine chahta hai wo bata deta hai,
+par asli EMI HR set karti hai — transfer se pehle bhi, beech me bhi. EMI badlo
+to tenure apne aap recalculate hota hai. Outstanding se badi EMI refuse hoti hai.
+
+Hisaab — 50,000 gross, 50,000 advance, 10,000 EMI:
+
+```
+Gross                50,000.00
+PF                   −1,800.00
+Advance recovery    −10,000.00
+                    -----------
+Net                 ₹38,200.00      (baaki 40,000 · 4 kist)
+```
+
+**PF advance se nahi badalta** — wo basic par lagta hai. Gross → saari deduction
+(PF + PT + TDS + advance) → net. Isliye paanchon mahine PF wahi rehta hai.
+
+Guards: ek waqt me ek hi advance · max 2x monthly gross (company setting) ·
+max 12 mahine · structure na ho to limit nikal hi nahi sakte · byaaj nahi ·
+EMI kat chuki ho to cancel nahi hota · **recalculate par EMI do baar nahi katti**
+(run ki rows delete karke dobara likhi jaati hain) · run cancel ho to EMI wapas.
+
+**Exit par** — outstanding FnF me `suggested` line ban jaati hai, bilkul notice
+shortfall jaisi. HR Apply kare tabhi katti hai, chahe kam kare, chahe waive.
+
+Naye permission: `advance.view` / `advance.approve` / `advance.manage` —
+admin aur HR ko, `advance.view` finance ko bhi.
+
+**Test:** API 22/22 + end-to-end 22/22 (code, galat code, transfer, payslip,
+double-deduct guard) = **44/44**.
+
+### TDS — new regime ka hisaab (17 Sep)
+
+Pehle TDS ki line khaali thi, HR khud amount daalti thi. Ab `TaxMath` hisaab
+karta hai:
+
+```
+Taxable earning × 12
+  − standard deduction 75,000
+  = net taxable
+  → slab (0/5/10/15/20/25/30)
+  − 87A rebate (12L tak pura maaf, marginal relief ke saath)
+  + 4% cess
+  = saal ka tax
+
+monthly TDS = (saal ka tax − ab tak kata) ÷ FY me bache mahine
+```
+
+Sirf `is_taxable` earning ginte hain, isliye exempt component (jaise medical
+insurance) bahar rehta hai. Pichhle mahinon ka kata hua wahi ginte hain jo
+approve ya paid ho chuke hain — isliye October me structure badle to baaki saal
+me apne aap adjust ho jaata hai.
+
+Checked: 6L → 0 · 12L → 0 · 16L → 1,13,100 · 25L → 3,19,800.
+
+**Old regime nahi hai** — 80C/80D/HRA exemption, investment declaration, proof
+upload, Form 16, 24Q kuch nahi. Chahiye to HR payslip par amount overwrite kare.
+
+### Employee ke andar month-wise payroll (17 Sep)
+
+`GET /employees/{employee}/payroll?month=` — mahine ki chip chuno aur us mahine
+ka net, gross, paid days, **PF (employee + employer), ESI, PT, TDS, advance EMI**
+aur poori line list ek screen me. HR ko payroll run kholne ki zarurat nahi.
+
 ### C. Jaan-boojh kar last ke liye
 
 ```
 Dashboard / Reports           HTML letter templates
 ```
 
-Baaki sab ban gaya — payroll, FnF, LOP, statutory, onboarding flow.
-
-TDS jaan-boojh kar chhoda hai: payslip par line hai jisme HR amount daal sakta
-hai, slab ya regime ka hisaab nahi.
+Baaki sab ban gaya — payroll, FnF, LOP, statutory, onboarding flow, advance, TDS.
 
 ### D. Hata diye — inpe kaam nahi karna
 
 ```
-Travel & Advance      Timesheet / Project
-Insurance             Training / LMS
+Travel                Timesheet / Project
+Insurance claim       Training / LMS
+Loan (byaaj wala)     Old tax regime
 ```
+
+Insurance ka sirf **record** rakha hai — insurer, policy number, validity
+employee par; `is_insured` flag har family member par. Claim humare yahan se
+nahi hota.
 
 ---
 
@@ -783,6 +871,8 @@ hain. `PHP_CLI_SERVER_WORKERS=10` lagane se theek ho jaata hai.
 | FnF settlement | API 115/115 + 29/29 (recovery) |
 | Salary approval + 2-step code + schedule | API 94/94 + 41/41, FnF 34/34 |
 | Approval flow browser me (settings → stop → bulk approve → schedule → code → paisa) | 91/91 |
+| Salary advance (request → approve → code → transfer → EMI → close) | API 22/22 + e2e 22/22 |
+| TDS new regime (6L, 12L, 16L, 25L) | verified |
 | Saare 7 role ka scope aur permission | verified |
 | App browser me — har role login karke | 0 JS error |
 

@@ -52,6 +52,9 @@ export default function EmployeeEditScreen() {
   const [emergencyPhone, setEmergencyPhone] = useState('')
   const [panNumber, setPanNumber] = useState('')
   const [aadhaarNumber, setAadhaarNumber] = useState('')
+  const [insurerName, setInsurerName] = useState('')
+  const [insuranceNumber, setInsuranceNumber] = useState('')
+  const [insuranceTill, setInsuranceTill] = useState('')
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [problem, setProblem] = useState<string | null>(null)
   const [saved, setSaved] = useState(false)
@@ -90,6 +93,9 @@ export default function EmployeeEditScreen() {
     setEmergencyPhone(employee.emergency_contact_phone ?? '')
     setPanNumber(employee.pan_number ?? '')
     setAadhaarNumber(employee.aadhaar_number ?? '')
+    setInsurerName(employee.insurer_name ?? '')
+    setInsuranceNumber(employee.insurance_number ?? '')
+    setInsuranceTill(employee.insurance_valid_till ?? '')
   }, [record.data])
 
   const lists = useMemo(() => {
@@ -148,6 +154,9 @@ export default function EmployeeEditScreen() {
       emergency_contact_phone: emergencyPhone.trim() || null,
       pan_number: panNumber.trim().toUpperCase() || null,
       aadhaar_number: aadhaarNumber.trim() || null,
+      insurer_name: insurerName.trim() || null,
+      insurance_number: insuranceNumber.trim() || null,
+      insurance_valid_till: insuranceTill.trim() || null,
     }
 
     try {
@@ -420,6 +429,38 @@ export default function EmployeeEditScreen() {
             editable={canEdit && !busy}
           />
 
+          <Text style={[styles.group, { color: theme.inkSubtle }]}>Insurance</Text>
+
+          <Field
+            label="Insurance company"
+            value={insurerName}
+            onChangeText={setInsurerName}
+            placeholder="Star Health"
+            error={errors.insurer_name}
+            editable={canEdit && !busy}
+          />
+          <Field
+            label="Policy / insurance ID"
+            value={insuranceNumber}
+            onChangeText={setInsuranceNumber}
+            placeholder="P/1234/56/78"
+            error={errors.insurance_number}
+            editable={canEdit && !busy}
+          />
+          <Field
+            label="Valid till"
+            value={insuranceTill}
+            onChangeText={setInsuranceTill}
+            placeholder="2027-03-31"
+            error={errors.insurance_valid_till}
+            editable={canEdit && !busy}
+          />
+
+          <Text style={[styles.hint, { color: theme.inkSubtle }]}>
+            Sirf record ke liye. Claim humare yahan se nahi hota — family me kaun cover hai wo Records me
+            har member par mark karo.
+          </Text>
+
           <View style={styles.actions}>
             {canEdit ? <Button label="Save changes" onPress={save} loading={busy} fullWidth /> : null}
             {canDelete ? (
@@ -443,6 +484,11 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     textTransform: 'uppercase',
     marginTop: spacing.sm,
+  },
+  hint: {
+    fontSize: font.xs,
+    lineHeight: 17,
+    marginTop: -spacing.xs,
   },
   actions: {
     gap: spacing.md,

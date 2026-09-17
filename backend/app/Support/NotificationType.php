@@ -140,6 +140,16 @@ final class NotificationType
 
     public const TRANSFER_CODE = 'payroll.transfer_code';
 
+    public const ADVANCE_REQUESTED = 'payroll.advance_requested';
+
+    public const ADVANCE_APPROVED = 'payroll.advance_approved';
+
+    public const ADVANCE_REJECTED = 'payroll.advance_rejected';
+
+    public const ADVANCE_PAID = 'payroll.advance_paid';
+
+    public const ADVANCE_CLOSED = 'payroll.advance_closed';
+
     public const REPORT_SUBMITTED = 'report.submitted';
 
     public const SOD_PENDING = 'report.sod_pending';
@@ -224,7 +234,9 @@ final class NotificationType
             self::INTERVIEW_CANCELLED, self::VACANCY_REQUESTED, self::VACANCY_APPROVED,
             self::VACANCY_DECLINED, self::OFFER_ISSUED, self::OFFER_ANSWERED,
             self::PAYROLL_APPROVED, self::SALARY_PAID, self::SALARY_FAILED,
-            self::FNF_APPROVED, self::FNF_PAID, self::TRANSFER_CODE => self::HIGH,
+            self::FNF_APPROVED, self::FNF_PAID, self::TRANSFER_CODE,
+            self::ADVANCE_REQUESTED, self::ADVANCE_APPROVED, self::ADVANCE_REJECTED,
+            self::ADVANCE_PAID, self::ADVANCE_CLOSED => self::HIGH,
             self::ATTENDANCE_CHECKED_IN, self::ATTENDANCE_CHECKED_OUT, self::REPORT_SUBMITTED => self::LOW,
             default => self::NORMAL,
         };

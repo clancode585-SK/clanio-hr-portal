@@ -413,7 +413,7 @@ export default function EmployeeRecordsScreen() {
                   key={String(row.uuid ?? row.id)}
                   title={row.name}
                   subtitle={[row.relation, row.occupation].filter(Boolean).join(' · ')}
-                  badge={row.is_nominee ? 'Nominee' : undefined}
+                  badge={badgeFor(row)}
                   meta={row.phone ?? undefined}
                 />
               ))
@@ -543,6 +543,21 @@ export default function EmployeeRecordsScreen() {
       </Modal>
     </Screen>
   )
+}
+
+// Nominee aur insurance dono ek hi badge me
+function badgeFor(row: Record<string, any>): string | undefined {
+  const tags: string[] = []
+
+  if (row.is_nominee) {
+    tags.push('Nominee')
+  }
+
+  if (row.is_insured) {
+    tags.push('Insured')
+  }
+
+  return tags.length === 0 ? undefined : tags.join(' · ')
 }
 
 const styles = StyleSheet.create({

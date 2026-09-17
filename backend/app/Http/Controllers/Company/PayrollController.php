@@ -8,8 +8,10 @@ use App\Exceptions\ApiException;
 use App\Http\Controllers\ApiController;
 use App\Http\Resources\PayrollItemResource;
 use App\Http\Resources\PayrollRunResource;
+use App\Models\Employee;
 use App\Models\PayrollItem;
 use App\Models\PayrollRun;
+use App\Models\SalaryComponent;
 use App\Services\PayrollService;
 use App\Services\PayslipService;
 use App\Support\ApiResponse;
@@ -216,6 +218,77 @@ class PayrollController extends ApiController
             PayrollItemResource::collection($this->payroll->payslipsFor($request->user())),
             'Your payslips fetched successfully'
         );
+    }
+
+    // Employee ke andar month chuno — us mahine ki salary, PF, TDS aur advance ek jagah
+    public function employeeMonths(Request $request, Employee $employee): JsonResponse
+    {
+        $items = PayrollItem::query()
+            ->where('employee_id', $employee->id)
+            ->whereHas('run', fn ($q) => $q->whereIn('status', [PayrollRun::CALCULATED, PayrollRun::APPROVED, PayrollRun::PAID]))
+            ->with('run')
+            ->get()
+            ->sortByDesc(fn (PayrollItem $item): string => (string) $item->run?->month)
+            ->values();
+
+        $months = $items->map(fn (PayrollItem $item): array => [
+            'month' => $item->run?->month,
+            'label' => $item->run?->monthLabel(),
+            'status' => $item->run?->status,
+            'gross' => (float) $item->gross_earnings,
+            'net' => (float) $item->net_payable,
+        ])->all();
+
+        $picked = $request->filled('month')
+            ? $items->firstWhere(fn (PayrollItem $item): bool => $item->run?->month === $request->string('month')->value())
+            : $items->first();
+
+        return ApiResponse::success([
+            'employee' => [
+                'uuid' => $employee->uuid,
+                'employee_code' => $employee->employee_code,
+                'name' => $employee->user?->name,
+                'has_pf_account' => (bool) $employee->has_pf_account,
+                'uan_number' => $employee->uan_number,
+                'tax_regime' => $employee->tax_regime,
+            ],
+            'months' => $months,
+            'selected' => $picked === null ? null : $this->monthDetail($picked),
+        ], 'Employee payroll fetched successfully');
+    }
+
+    private function monthDetail(PayrollItem $item): array
+    {
+        $lines = $item->lines()->get();
+        $pick = fn (string $code): float => (float) ($lines->firstWhere('code', $code)?->amount ?? 0);
+
+        return [
+            'month' => $item->run?->month,
+            'label' => $item->run?->monthLabel(),
+            'status' => $item->run?->status,
+            'working_days' => (float) $item->working_days,
+            'lop_days' => (float) $item->lop_days,
+            'paid_days' => (float) $item->paid_days,
+            'gross_earnings' => (float) $item->gross_earnings,
+            'total_deductions' => (float) $item->total_deductions,
+            'employer_cost' => (float) $item->employer_cost,
+            'net_payable' => (float) $item->net_payable,
+            'pf_employee' => $pick(SalaryComponent::PF_EMPLOYEE),
+            'pf_employer' => $pick(SalaryComponent::PF_EMPLOYER),
+            'esi_employee' => $pick(SalaryComponent::ESI_EMPLOYEE),
+            'esi_employer' => $pick(SalaryComponent::ESI_EMPLOYER),
+            'professional_tax' => $pick(SalaryComponent::PROFESSIONAL_TAX),
+            'tds' => $pick(SalaryComponent::TDS),
+            'advance_emi' => $pick('ADVANCE'),
+            'lines' => $lines->map(fn ($line): array => [
+                'code' => $line->code,
+                'name' => $line->name,
+                'kind' => $line->kind,
+                'full_amount' => (float) $line->full_amount,
+                'amount' => (float) $line->amount,
+                'is_statutory' => (bool) $line->is_statutory,
+            ])->values()->all(),
+        ];
     }
 
     private function companyId(): int

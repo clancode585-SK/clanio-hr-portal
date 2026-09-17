@@ -52,6 +52,7 @@ use App\Http\Controllers\Company\TaskCommentController;
 use App\Http\Controllers\Company\TicketCategoryController;
 use App\Http\Controllers\Company\TicketController;
 use App\Http\Controllers\Company\PayrollController;
+use App\Http\Controllers\Company\SalaryAdvanceController;
 use App\Http\Controllers\Company\SalaryComponentController;
 use App\Http\Controllers\Company\SalaryStructureController;
 use App\Http\Controllers\Company\SalaryTransferController;
@@ -314,6 +315,8 @@ Route::prefix('hrms')->group(function (): void {
 
         Route::get('my-payslips', [PayrollController::class, 'mine']);
         Route::get('my-settlement', [FnfController::class, 'mine']);
+        Route::get('my-advances', [SalaryAdvanceController::class, 'mine']);
+        Route::post('my-advances', [SalaryAdvanceController::class, 'store']);
         Route::get('payslips/{payrollItem}/preview', [PayrollController::class, 'previewSlip'])
             ->name('payslips.preview');
         Route::get('payslips/{payrollItem}/download', [PayrollController::class, 'downloadSlip'])
@@ -321,6 +324,8 @@ Route::prefix('hrms')->group(function (): void {
 
         Route::get('payroll-runs', [PayrollController::class, 'index'])->middleware('permission:payroll.view');
         Route::post('payroll-runs', [PayrollController::class, 'store'])->middleware('permission:payroll.run');
+        Route::get('employees/{employee}/payroll', [PayrollController::class, 'employeeMonths'])
+            ->middleware('permission:payroll.view');
         Route::get('payroll-runs/{payrollRun}', [PayrollController::class, 'show'])
             ->middleware('permission:payroll.view');
         Route::get('payroll-runs/{payrollRun}/payslips', [PayrollController::class, 'items'])
@@ -379,6 +384,27 @@ Route::prefix('hrms')->group(function (): void {
             ->middleware('permission:payroll.run');
         Route::post('payslips/{payrollItem}/release', [PayrollController::class, 'release'])
             ->middleware('permission:payroll.run');
+
+        Route::get('advances/summary', [SalaryAdvanceController::class, 'summary'])
+            ->middleware('permission:advance.view');
+        Route::get('advances', [SalaryAdvanceController::class, 'index'])
+            ->middleware('permission:advance.view');
+        Route::get('advances/{salaryAdvance}', [SalaryAdvanceController::class, 'show'])
+            ->middleware('permission:advance.view');
+        Route::post('advances/{salaryAdvance}/decide', [SalaryAdvanceController::class, 'decide'])
+            ->middleware('permission:advance.approve');
+        Route::put('advances/{salaryAdvance}/plan', [SalaryAdvanceController::class, 'updatePlan'])
+            ->middleware('permission:advance.manage');
+        Route::post('advances/{salaryAdvance}/hold', [SalaryAdvanceController::class, 'hold'])
+            ->middleware('permission:advance.manage');
+        Route::post('advances/{salaryAdvance}/release', [SalaryAdvanceController::class, 'release'])
+            ->middleware('permission:advance.manage');
+        Route::post('advances/{salaryAdvance}/cancel', [SalaryAdvanceController::class, 'cancel'])
+            ->middleware('permission:advance.manage');
+        Route::get('advances/{salaryAdvance}/transfer-quote', [SalaryAdvanceController::class, 'quote'])
+            ->middleware('permission:advance.manage');
+        Route::post('advances/{salaryAdvance}/transfer', [SalaryAdvanceController::class, 'transfer'])
+            ->middleware(['permission:advance.manage', 'permission:salary.disburse', 'throttle:transfer']);
 
         Route::get('fnf-settlements/pending-exits', [FnfController::class, 'pending'])
             ->middleware('permission:fnf.view');

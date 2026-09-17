@@ -11,6 +11,7 @@ use App\Models\EmployeeBankAccount;
 use App\Models\FnfSettlement;
 use App\Models\PayrollItem;
 use App\Models\PayrollRun;
+use App\Models\SalaryAdvance;
 use App\Models\SalaryDisbursement;
 use App\Models\User;
 use App\Support\Bank\BankManager;
@@ -799,6 +800,182 @@ final class SalaryDisbursementService
         ])->save();
 
         TenantCache::flush(TenantCache::EMPLOYEES);
+    }
+
+    public function quoteAdvance(SalaryAdvance $advance, ?int $fromAccountId = null): array
+    {
+        $from = $this->sourceAccount((int) $advance->company_id, $fromAccountId);
+        $payee = $this->payeeAccount((int) $advance->employee_id);
+        $amount = round((float) $advance->amount, 2);
+
+        $blockers = [];
+
+        if (! $advance->isApproved()) {
+            $blockers[] = $advance->isDisbursed()
+                ? 'Ye advance already transfer ho chuka hai.'
+                : 'Advance approve nahi hua hai.';
+        }
+
+        if ($amount <= 0) {
+            $blockers[] = 'Amount zero hai.';
+        }
+
+        if ($advance->payment_status === SalaryAdvance::PAY_PAID) {
+            $blockers[] = 'Paisa already ja chuka hai.';
+        }
+
+        if ($advance->payment_status === SalaryAdvance::ON_HOLD) {
+            $blockers[] = 'Ye advance stop par hai'
+                . ($advance->hold_reason ? ' — ' . $advance->hold_reason : '') . '.';
+        }
+
+        if ($payee === null) {
+            $blockers[] = $advance->employee_name . ' ka bank account nahi hai.';
+        }
+
+        if ($from !== null && (float) $from->balance < $amount) {
+            $blockers[] = 'Company account me paisa kam hai — balance ₹'
+                . number_format((float) $from->balance, 2) . '.';
+        }
+
+        return [
+            'advance' => $advance,
+            'from' => $from,
+            'to' => $payee === null ? null : [
+                'account_holder_name' => $payee->account_holder_name,
+                'bank_name' => $payee->bank_name,
+                'account_number' => $payee->account_number,
+                'masked' => $this->mask((string) $payee->account_number),
+                'ifsc_code' => $payee->ifsc_code,
+            ],
+            'amount' => $amount,
+            'provider' => BankManager::driver()->name(),
+            'is_mock' => BankManager::isMock(),
+            'can_transfer' => $blockers === [],
+            'blockers' => $blockers,
+        ];
+    }
+
+    public function transferAdvance(SalaryAdvance $advance, User $actor, ?int $fromAccountId = null): SalaryDisbursement
+    {
+        $quote = $this->quoteAdvance($advance, $fromAccountId);
+
+        if (! $quote['can_transfer']) {
+            throw new ApiException(implode(' ', $quote['blockers']), 422, 'TRANSFER_BLOCKED');
+        }
+
+        $from = $quote['from'];
+
+        if ($from === null) {
+            throw new ApiException('Company ka bank account nahi mila.', 422, 'COMPANY_ACCOUNT_MISSING');
+        }
+
+        $payee = $this->payeeAccount((int) $advance->employee_id);
+        $amount = round((float) $advance->amount, 2);
+        $reference = 'ADV-' . $advance->employee_code . '-' . Str::upper(Str::random(5));
+        $narration = 'Salary advance ' . $advance->reference;
+        $gateway = BankManager::driver();
+
+        $disbursement = DB::transaction(function () use ($advance, $from, $payee, $amount, $reference, $actor, $gateway): SalaryDisbursement {
+            $row = new SalaryDisbursement();
+            $row->company_id = $advance->company_id;
+            $row->employee_id = $advance->employee_id;
+            $row->from_account_id = $from->id;
+            $row->created_by = $actor->id;
+
+            $row->forceFill([
+                'advance_id' => $advance->id,
+                'purpose' => SalaryDisbursement::ADVANCE,
+                'employee_code' => $advance->employee_code,
+                'employee_name' => $advance->employee_name,
+                'to_account_holder' => $payee->account_holder_name,
+                'to_bank_name' => $payee->bank_name,
+                'to_account_number' => $payee->account_number,
+                'to_ifsc_code' => $payee->ifsc_code,
+                'amount' => $amount,
+                'provider' => $gateway->name(),
+                'mode' => SalaryDisbursement::MANUAL,
+                'reference' => $reference,
+                'status' => SalaryDisbursement::PROCESSING,
+                'initiated_at' => Carbon::now(),
+                'initiated_by' => $actor->id,
+            ])->save();
+
+            $advance->forceFill([
+                'payment_status' => SalaryAdvance::PAY_PROCESSING,
+                'updated_by' => $actor->id,
+            ])->save();
+
+            return $row;
+        });
+
+        $result = $gateway->transfer(
+            [
+                'account_number' => $from->account_number,
+                'ifsc_code' => $from->ifsc_code,
+                'balance' => $from->balance,
+            ],
+            [
+                'account_holder_name' => $payee->account_holder_name,
+                'account_number' => $payee->account_number,
+                'ifsc_code' => $payee->ifsc_code,
+            ],
+            $amount,
+            $reference,
+            $narration
+        );
+
+        return DB::transaction(function () use ($disbursement, $advance, $from, $result, $amount, $reference, $narration, $actor): SalaryDisbursement {
+            if (! $result->ok) {
+                $disbursement->forceFill([
+                    'status' => SalaryDisbursement::FAILED,
+                    'failure_reason' => $result->reason,
+                    'completed_at' => Carbon::now(),
+                    'updated_by' => $actor->id,
+                ])->save();
+
+                $advance->forceFill([
+                    'payment_status' => SalaryAdvance::PAY_FAILED,
+                    'updated_by' => $actor->id,
+                ])->save();
+
+                return $disbursement->refresh();
+            }
+
+            $balance = round((float) $from->balance - $amount, 2);
+
+            $from->forceFill([
+                'balance' => $balance,
+                'balance_synced_at' => Carbon::now(),
+                'updated_by' => $actor->id,
+            ])->save();
+
+            $this->ledger(
+                $from,
+                $disbursement,
+                BankTransaction::DEBIT,
+                $amount,
+                $balance,
+                $narration . ' — ' . $advance->employee_name,
+                $reference,
+                $actor
+            );
+
+            $disbursement->forceFill([
+                'status' => $result->pending ? SalaryDisbursement::PROCESSING : SalaryDisbursement::SUCCESS,
+                'utr' => $result->utr,
+                'completed_at' => $result->pending ? null : Carbon::now(),
+                'updated_by' => $actor->id,
+            ])->save();
+
+            if ($result->pending) {
+                $advance->forceFill(['payment_status' => SalaryAdvance::PAY_PROCESSING])->save();
+            } else {
+                app(SalaryAdvanceService::class)->markDisbursed($advance, $actor);
+            }
+
+            return $disbursement->refresh();
+        });
     }
 
     private function sourceAccount(int $companyId, ?int $accountId): ?CompanyBankAccount

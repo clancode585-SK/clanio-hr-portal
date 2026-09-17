@@ -24,7 +24,9 @@ class TransferVerification extends Model
 
     public const SETTLEMENT = 'settlement';
 
-    public const PURPOSES = [self::SALARY_RUN, self::SALARY_ITEM, self::SETTLEMENT];
+    public const ADVANCE = 'advance';
+
+    public const PURPOSES = [self::SALARY_RUN, self::SALARY_ITEM, self::SETTLEMENT, self::ADVANCE];
 
     public const TRANSFER = 'transfer';
 

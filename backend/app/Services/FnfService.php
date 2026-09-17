@@ -256,10 +256,39 @@ final class FnfService
             'updated_by' => $actor->id,
         ])->save();
 
+        $this->settleAdvance($settlement, $actor);
+
         $this->flush();
         $this->tellEmployee($settlement, $actor);
 
         return $settlement->refresh();
+    }
+
+    // FnF me jitna advance kaata gaya, utna hi advance ledger me bhi jaana chahiye
+    private function settleAdvance(FnfSettlement $settlement, User $actor): void
+    {
+        $advances = app(SalaryAdvanceService::class);
+        $touched = $advances->clearSettlement((int) $settlement->id);
+
+        $line = $settlement->lines->firstWhere('code', FnfLine::ADVANCE_RECOVERY);
+        $advance = $advances->openFor((int) $settlement->employee_id);
+
+        if ($line !== null && $line->is_applied && $advance !== null && (float) $line->amount > 0) {
+            $advances->recordRecovery(
+                $advance,
+                Carbon::parse($settlement->last_working_date)->format('Y-m'),
+                (float) $line->amount,
+                'fnf',
+                null,
+                null,
+                (int) $settlement->id,
+                $actor
+            );
+
+            $touched[] = (int) $advance->id;
+        }
+
+        $advances->resync($touched);
     }
 
     public function approveMany(array $uuids, User $actor): array
@@ -555,6 +584,21 @@ final class FnfService
                 'suggested_amount' => $recovery,
                 'basis' => 'Clearance checklist me jo wapas nahi aaya',
                 'sequence' => 220,
+            ];
+        }
+
+        $advance = app(SalaryAdvanceService::class)->openFor((int) $settlement->employee_id);
+
+        if ($advance !== null && (float) $advance->outstanding > 0) {
+            $lines[] = [
+                'code' => FnfLine::ADVANCE_RECOVERY,
+                'name' => 'Salary advance baaki (' . $advance->reference . ')',
+                'kind' => FnfLine::DEDUCTION,
+                'source' => FnfLine::SUGGESTED,
+                'suggested_amount' => round((float) $advance->outstanding, 2),
+                'basis' => '₹' . number_format((float) $advance->amount, 2) . ' me se ₹'
+                    . number_format((float) $advance->recovered, 2) . ' EMI se kat chuka hai',
+                'sequence' => 230,
             ];
         }
 

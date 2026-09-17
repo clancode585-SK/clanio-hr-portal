@@ -64,6 +64,10 @@ class Employee extends Model
         'aadhaar_number',
         'esic_number',
         'pt_state',
+        'insurer_name',
+        'insurance_number',
+        'insurance_valid_till',
+        'tax_regime',
     ];
 
     protected $attributes = [
