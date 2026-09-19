@@ -1,6 +1,6 @@
 # Clanio HRMS — Status
 
-**Last session: 17 September 2026**
+**Last session: 18 September 2026**
 
 Ye file batati hai **abhi kahan hain aur aage kya karna hai.** Purane
 detail `../PROJECT-NOTES.md` me hain.
@@ -11,12 +11,12 @@ detail `../PROJECT-NOTES.md` me hain.
 
 | | |
 |---|---|
-| API endpoints | **463** under `/api/hrms` |
-| App me integrated | **463 / 463** |
-| Services | 56 |
-| Company controllers | 60 |
-| Schema files | 37 (raw SQL, koi migration nahi) |
-| Permissions | 108 |
+| API endpoints | **478** under `/api/hrms` |
+| App me integrated | **478 / 478** |
+| Services | 61 |
+| Company controllers | 63 |
+| Schema files | 42 (raw SQL, koi migration nahi) |
+| Permissions | 110 |
 | Mobile app | Expo SDK 57 — **poori ban chuki hai**, saare role |
 
 Do endpoint jaan-boojh kar chhode hain — `exits/pending-hr-approval` aur
@@ -775,13 +775,213 @@ upload, Form 16, 24Q kuch nahi. Chahiye to HR payslip par amount overwrite kare.
 ka net, gross, paid days, **PF (employee + employer), ESI, PT, TDS, advance EMI**
 aur poori line list ek screen me. HR ko payroll run kholne ki zarurat nahi.
 
-### C. Jaan-boojh kar last ke liye
+### Reports & Export (18 Sep) — sirf admin ko
+
+8 report, sab CSV me download hoti hain:
+
+| Report | Param |
+|---|---|
+| Attendance Register (muster roll — P/A/HD/L grid) | month |
+| Payroll Register (component-wise) | month |
+| Bank Transfer Sheet (account + IFSC + amount) | month |
+| PF / ESI Statement (UAN, wages, dono contribution) | month |
+| Advance Register (kitna kata, kitna baaki) | — |
+| Leave Balance (opening, accrued, used, available) | year |
+| Employee Master (poori directory) | — |
+| Expense Payout (claimed, approved, paid) | date range |
+
+**Access jaan-boojh kar tang rakhi hai.** Naye permission `report.view` aur
+`report.export` — sirf **Company Admin** ko, HR ko bhi nahi. Aur module
+`report` har company me **OFF** hai; super admin on karega tabhi dikhega.
+
+Personal download (payslip, settlement, invoice, document) ko haath nahi lagaya
+— wo pehle jaise hi chalte hain.
+
+CSV me UTF-8 BOM daala hai warna Excel me Hindi/₹ toot jaate hain. Screen par
+sirf pehli 100 row dikhti hain, file me poora data.
+
+**Import pehle se safe tha** — har module apni `create` permission maangta hai
+(`employees` ke liye `employee.create`), isliye usme kuch nahi badla.
+
+### Exit letters ab system se bante hain (18 Sep)
+
+Pehle HR khud Word me letter banati thi aur upload karti thi. Ab 4 letter
+system se bante hain — Experience, Relieving, Letter of Recommendation,
+No Dues Certificate.
+
+`exit_documents` me hi rehte hain, bas `source` column aa gaya:
+`uploaded` (purana tarika, chalta rahega) ya `generated`.
+
+- Har letter ka apna number — `EXP-2026-0001`, `REL-`, `LOR-`, `NDC-`
+- **Dobara generate karo to number wahi rehta hai**, naya nahi banta
+- Signatory ka naam/designation company settings se aata hai, HR override kar sakti hai
+- HR chaahe to ek extra paragraph jod sakti hai
+- Letterhead, joining date, last working day aur service period apne aap bhar jaate hain
+- Preview aur download dono — offer letter jaisa hi
+
+**Relieving letter ka gate waisa hi hai** — clearance me koi item pending ho to
+letter banta hi nahi (409). Experience, LOR aur NDC pe rok nahi.
+
+### Dashboard API (18 Sep)
+
+`GET /dashboard` — 27 tile ke count **ek hi call me**. Pehle har tile apni API
+maarti thi, ek screen khulne par 6-10 request jaati thi.
+
+Har count model ke apne `visibleTo` scope se banta hai, permission ke peeche —
+logic copy nahi kiya, wahi scope reuse hua. Ek count fail ho to log me jaata hai
+aur baaki dikhte rehte hain, poora dashboard nahi girta.
+
+App me **fallback** rakha hai — naya endpoint fail ho to purana per-tile tarika
+chal jaata hai.
+
+Speed: admin 311ms, HR 146ms, member 89ms.
+
+### Bulk attendance (18 Sep)
+
+`POST /attendance/bulk` — ek din, ek status (present / half day / absent), 500
+employee tak.
+
+Shift se time bharta hai (present = shift ka poora window, half day =
+`half_day_minutes`). **Weekly off, holiday aur approved leave wale apne aap
+chhoot jaate hain** — naam aur wajah ke saath wapas aate hain. Future date block.
+
+**Ek bug pakda:** `applyRegularization` punch **jodta** hai, replace nahi karta.
+Isliye dobara mark karne par minutes jud jaate the aur half day → present dikhne
+lagta tha. Bulk ab pehle din saaf karta hai, phir likhta hai — idempotent.
+
+### Geo-fence (18 Sep)
+
+Pehle punch ka lat/long sirf save hota tha, check kuch nahi hota tha.
+
+| Mode | Kya hota hai |
+|---|---|
+| `off` (default) | Kuch nahi badla |
+| `flag` | Doori naapi jaati hai, bahar ka punch mark hota hai, **rokta nahi** |
+| `block` | Bahar se punch hi nahi hoga |
+
+Branch par `latitude`, `longitude`, `geo_radius_metres` (default 200). Doori
+Haversine se. Check-in aur check-out dono par distance + outside flag save hota hai.
+
+Do chhoot jaan-boojh kar: **location na mile to block nahi karte** (phone
+permission mana kar sakta hai), aur `employees.geo_fence_exempt` — sales/WFH
+walon ke liye.
+
+### Final testing (18 Sep) — ek asli bug pakda
+
+**API 64/64 pass**, **browser 25/25 pass** (admin / HR / member, 0 JS error).
+
+Testing me ek regression pakda jo isi din aaya tha: app boot par `/auth/refresh`
+purana token **turant revoke** kar deta tha. Jo request usi waqt chal rahi hoti
+thi (dashboard ke counts, profile) wo 401 khaati thi, app session clear kar deta
+tha aur **login screen par wapas phenk deta tha**. Member login har baar toot
+raha tha, admin/HR kabhi-kabhi.
+
+Fix: refresh ab purana token maarta nahi, uski `expires_at` 2 minute aage kar
+deta hai (`REFRESH_GRACE_MINUTES`). Chalti hui request poori ho jaati hai,
+purana token thodi der me khud mar jaata hai.
+
+Testing ke do aur sabak:
+- Browser test pehle "pass" de raha tha jabki screen par **login page** tha —
+  ab test `location.pathname` bhi check karta hai, sirf text length nahi
+- Login throttle 5/min hai; API aur browser suite ek saath chalane par jhooti
+  failure aati hai. Browser suite ab har role ke beech 30 second rukti hai
+
+### Session — refresh aur logout all (18 Sep)
+
+- `POST /auth/refresh` — naya token, purana turant revoke (rolling session).
+  App khulte hi chalta hai, isliye 7 din baad achanak logout nahi hota
+- `POST /auth/logout-all` — baaki device se nikaal do, current chalu rahe
+- `GET /auth/sessions` — kaun se device signed in hain
+- Login par `user_agent` save hota hai — Android / iPhone / Windows / Mac pehchanta hai
+
+### Form 16 Part B (18 Sep)
+
+`GET /employees/{employee}/form16` — saal bhar ki approved payroll se banta hai:
+component-wise gross, standard deduction, professional tax, slab-wise tax,
+87A rebate, cess, aur mahine-wise TDS ki table.
+
+**Part A nahi hai** — wo TRACES se download hota hai, koi payroll tool nahi bana
+sakta. Letter par ye saaf likha hai.
+
+### Statutory returns (18 Sep) — sirf admin ko
+
+3 return, Reports jaisi hi admin-only gate par (`report.view` / `report.export`):
+
+| Return | Format | Param |
+|---|---|---|
+| **PF ECR** (EPFO) | `.txt`, 11 field `#~#` se alag | month |
+| **ESI Monthly Contribution** | CSV (IP number, days, wages) | month |
+| **Form 24Q Annexure I** | CSV, RPU me import karne layak | quarter + year |
+
+**Payroll approve hone se pehle return nahi banta** (409). Draft numbers sarkar
+ko nahi jaane chahiye.
+
+ECR ke liye PF ko todna pada — pehle employer ka 12% ek hi figure tha, par ECR
+ko EPS aur EPF alag chahiye. `companies.eps_percent` (8.33) aur
+`eps_wage_ceiling` (15000) add kiye. Hisaab:
 
 ```
-Dashboard / Reports           HTML letter templates
+EPF wages   = min(basic, 15000)
+EPF employee= 12% → 1800
+EPS         = 8.33% of EPS wages → 1250
+EPF employer= employer total − EPS → 550
 ```
 
-Baaki sab ban gaya — payroll, FnF, LOP, statutory, onboarding flow, advance, TDS.
+Naye field: `pf_establishment_code`, `esi_establishment_code` (file name me
+jaate hain). ECR me naam se special character hata dete hain, warna portal
+reject karta hai. Jiska UAN ya ESIC number nahi hai wo **skip** hota hai aur
+uska naam response me `skipped` me aata hai — chupke se chhodta nahi.
+
+**Kya nahi hai:** 24Q ka asli `.fvu` (wo NSDL ke RPU se banta hai, humara CSV
+usme import karna hoga), Form 16 Part A (TRACES se aata hai), aur PT return.
+
+**Test:** ECR live data par verified — 3 member, 1800 / 1250 / 550 ka split
+sahi, total 10,800. Bina approve wala block bhi verified. **ESI aur 24Q ka
+output live data par nahi dekha** — seed me koi employee ESI limit ke neeche
+nahi hai aur kisi ka TDS nahi banta, isliye dono khaali file dete hain (jo us
+data ke liye sahi hai). Pehli asli filing se pehle in dono ko ek baar aankh se
+dekh lena.
+
+### Email notification channel (18 Sep)
+
+`notification_preferences` me `email` column pehle se tha aur preference screen
+bhi bani hui thi — bas bhejne ka code nahi tha. Ab hai.
+
+- `NotificationService::send()` me teesra channel jud gaya, in-app aur push ke saath
+- **Email queue par jaati hai** (`Mail::queue`), request ko rokti nahi. Gmail SMTP
+  ko 4 second lagte hain — 500 logon ki payroll approve karte waqt wo request me
+  nahi baith sakta
+- Mail fail ho jaye to notification fail nahi hoti — `Log::warning` me chali jaati hai
+- **Default OFF hai** (`DEFAULTS['email'] => false`). Jo khud on karega usi ko email
+  jayegi, isliye koi spam nahi
+- `announce()` bulk insert karta hai, wo `send()` se nahi guzarta — usme email alag
+  se jodi hai, ek query me sabki preference padh kar
+
+**Chalane ke liye queue worker chahiye:** `php artisan queue:work`. Worker na chale
+to mail `jobs` table me padi rahegi — kho nahi jaati, bas ruki rehti hai.
+
+**Test:** email off par 0 job, on par 1 job, worker ne 4s me bhej diya, 0 failed.
+
+### SMTP live ho gaya (18 Sep)
+
+`MAIL_MAILER=log` se `smtp` (Gmail). Iska matlab jo email pehle log file me
+jaate the wo **ab asli me jaate hain** — candidate acknowledgement, interview
+invite, offer letter aur salary transfer ka OTP. Test karte waqt asli address
+mat daalna.
+
+### C. Ab kuch pending nahi
+
+18 September ko poori pending list nikal gayi — reports, statutory returns,
+exit letters, email channel, dashboard API, bulk attendance, geo-fence,
+session refresh aur Form 16 Part B.
+
+Chalane ke liye teen cheezein zaroori hain:
+
+```
+php artisan queue:work      email isi se jaati hai
+php artisan schedule:run     har minute — 13 cron isi par hain
+SMTP                         .env me Gmail laga hua hai
+```
 
 ### D. Hata diye — inpe kaam nahi karna
 
@@ -789,7 +989,12 @@ Baaki sab ban gaya — payroll, FnF, LOP, statutory, onboarding flow, advance, T
 Travel                Timesheet / Project
 Insurance claim       Training / LMS
 Loan (byaaj wala)     Old tax regime
+24Q ka .fvu           Form 16 Part A
+PT return
 ```
+
+`.fvu` NSDL ke RPU se banta hai (humara 24Q CSV usme import hota hai) aur
+Form 16 Part A TRACES se aata hai — dono koi payroll tool nahi bana sakta.
 
 Insurance ka sirf **record** rakha hai — insurer, policy number, validity
 employee par; `is_insured` flag har family member par. Claim humare yahan se
@@ -873,6 +1078,19 @@ hain. `PHP_CLI_SERVER_WORKERS=10` lagane se theek ho jaata hai.
 | Approval flow browser me (settings → stop → bulk approve → schedule → code → paisa) | 91/91 |
 | Salary advance (request → approve → code → transfer → EMI → close) | API 22/22 + e2e 22/22 |
 | TDS new regime (6L, 12L, 16L, 25L) | verified |
+| Reports — 8 report ki query | 8/8 chali |
+| Exit letters (4 type generate + render + clearance gate) | 4/4 |
+| SMTP — asli mail bheja | pass |
+| Email notification (off/on + queue worker) | pass |
+| PF ECR (split, totals, approve gate) | verified |
+| ESI / 24Q | chala, par khaali data par |
+| Dashboard API (3 role, permission gating) | pass |
+| Bulk attendance (3 status, skip rules, future block) | pass |
+| Geo-fence (off/flag/block, exempt, no-location) | pass |
+| Session refresh + logout-all | pass |
+| Form 16 Part B | pass |
+| **Final testing — API** | **64/64** |
+| **Final testing — browser (admin/HR/member)** | **25/25, 0 JS error** |
 | Saare 7 role ka scope aur permission | verified |
 | App browser me — har role login karke | 0 JS error |
 

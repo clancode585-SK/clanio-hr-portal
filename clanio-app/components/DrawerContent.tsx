@@ -23,6 +23,7 @@ export function DrawerContent(props: DrawerContentComponentProps) {
 
   const onPlatform = isSuperAdmin && companyId === null
   const [unread, setUnread] = useState(0)
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
 
   const pullUnread = useCallback(async () => {
     try {
@@ -76,46 +77,77 @@ export function DrawerContent(props: DrawerContentComponentProps) {
           </View>
         </View>
 
-        {sections.map((section, index) => (
-          <View key={section.title ?? `section-${index}`} style={styles.section}>
-            {section.title ? (
-              <Text style={[styles.sectionTitle, { color: theme.inkSubtle }]}>{section.title}</Text>
-            ) : null}
+        {sections.map((section, index) => {
+          const key = section.title ?? `section-${index}`
+          const holdsActive = section.items.some(
+            (item) => pathname === item.href || pathname.startsWith(`${item.href}/`)
+          )
+          // Jis group me abhi ho wo khula rehta hai, baaki band — user chahe to toggle kare
+          const open = section.title === null || !(collapsed[key] ?? !holdsActive)
 
-            {section.items.map((item) => {
-              const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
-
-              return (
+          return (
+            <View key={key} style={styles.section}>
+              {section.title ? (
                 <Pressable
-                  key={item.href}
-                  onPress={() => go(item.href)}
-                  style={({ pressed }) => [
-                    styles.item,
-                    {
-                      backgroundColor: active ? theme.brandSoft : pressed ? theme.canvas : 'transparent',
-                    },
-                  ]}
+                  onPress={() => setCollapsed((prev) => ({ ...prev, [key]: !(prev[key] ?? !holdsActive) }))}
+                  style={styles.sectionHead}
                 >
-                  <Icon name={item.icon} size={16} color={active ? theme.brand : theme.inkMuted} />
-                  <Text
-                    style={[
-                      styles.itemLabel,
-                      { color: active ? theme.brand : theme.ink, fontWeight: active ? '700' : '500' },
-                    ]}
-                  >
-                    {item.label}
-                  </Text>
-
-                  {item.href === '/notifications' && unread > 0 ? (
-                    <View style={[styles.badge, { backgroundColor: theme.danger }]}>
-                      <Text style={styles.badgeText}>{unread > 99 ? '99+' : unread}</Text>
-                    </View>
-                  ) : null}
+                  <Text style={[styles.sectionTitle, { color: theme.inkSubtle }]}>{section.title}</Text>
+                  <Icon
+                    name={open ? 'chevron-up-outline' : 'chevron-down-outline'}
+                    size={13}
+                    color={theme.inkSubtle}
+                  />
                 </Pressable>
-              )
-            })}
-          </View>
-        ))}
+              ) : null}
+
+              {open
+                ? section.items.map((item) => {
+                    const active = pathname === item.href || pathname.startsWith(`${item.href}/`)
+
+                    return (
+                      <Pressable
+                        key={item.href}
+                        onPress={() => go(item.href)}
+                        style={({ pressed }) => [
+                          styles.item,
+                          {
+                            backgroundColor: active
+                              ? theme.brandSoft
+                              : pressed
+                                ? theme.canvas
+                                : 'transparent',
+                          },
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.rail,
+                            { backgroundColor: active ? theme.brand : 'transparent' },
+                          ]}
+                        />
+                        <Icon name={item.icon} size={16} color={active ? theme.brand : theme.inkMuted} />
+                        <Text
+                          style={[
+                            styles.itemLabel,
+                            { color: active ? theme.ink : theme.inkMuted, fontWeight: active ? '700' : '500' },
+                          ]}
+                        >
+                          {item.label}
+                        </Text>
+
+                        {item.href === '/notifications' && unread > 0 ? (
+                          <View style={[styles.badge, { backgroundColor: theme.danger }]}>
+                            <Text style={styles.badgeText}>{unread > 99 ? '99+' : unread}</Text>
+                          </View>
+                        ) : null}
+                      </Pressable>
+                    )
+                  })
+                : null}
+            </View>
+          )
+        })}
       </DrawerContentScrollView>
 
       <View style={[styles.footer, { borderTopColor: theme.line, paddingBottom: insets.bottom + spacing.md }]}>
@@ -172,6 +204,12 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
     gap: 2,
   },
+  sectionHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingRight: spacing.md,
+  },
   sectionTitle: {
     fontSize: font.xs,
     fontWeight: '800',
@@ -185,8 +223,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.md,
     paddingVertical: 11,
-    paddingHorizontal: spacing.md,
+    paddingRight: spacing.md,
+    paddingLeft: spacing.sm,
     borderRadius: radius.sm,
+  },
+  rail: {
+    width: 3,
+    alignSelf: 'stretch',
+    borderRadius: 2,
   },
   badge: {
     minWidth: 20,

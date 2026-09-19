@@ -55,6 +55,7 @@ export default function ProfileScreen() {
   const [problem, setProblem] = useState<string | null>(null)
   const [done, setDone] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [busyAll, setBusyAll] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -76,6 +77,32 @@ export default function ProfileScreen() {
   const leave = async () => {
     await signOut()
     router.replace('/login')
+  }
+
+  const leaveEverywhere = async () => {
+    if (busyAll) {
+      return
+    }
+
+    setBusyAll(true)
+    setDone(null)
+
+    try {
+      const out = await api<{ revoked: number }>('/auth/logout-all', {
+        method: 'POST',
+        body: { keep_current: true },
+      })
+
+      setDone(
+        out.revoked === 0
+          ? 'Koi aur device signed in nahi tha.'
+          : `${out.revoked} device se sign out kar diya. Ye wala chalu hai.`
+      )
+    } catch (caught) {
+      setProblem(caught instanceof ApiError ? caught.message : 'Nahi ho paaya.')
+    } finally {
+      setBusyAll(false)
+    }
   }
 
   const close = () => {
@@ -257,6 +284,13 @@ export default function ProfileScreen() {
             setOpen(true)
             setDone(null)
           }}
+          fullWidth
+        />
+        <Button
+          label="Sign out from all devices"
+          variant="secondary"
+          onPress={() => void leaveEverywhere()}
+          loading={busyAll}
           fullWidth
         />
         <Button label="Sign out" variant="secondary" onPress={leave} fullWidth />

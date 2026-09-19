@@ -118,6 +118,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         applyTenant(me)
         setToken(stored.token)
         setProfile(me)
+
+        // App khulte hi session aage badha dete hain, warna 7 din baad achanak logout
+        void api<{ token: string }>('/auth/refresh', { method: 'POST', token: stored.token })
+          .then(async (fresh) => {
+            if (active && fresh?.token) {
+              await saveSession(fresh.token, stored.role)
+              setToken(fresh.token)
+            }
+          })
+          .catch(() => {
+            // Refresh na ho to purana token chalta rahega
+          })
       } catch {
         await clearSession()
       } finally {

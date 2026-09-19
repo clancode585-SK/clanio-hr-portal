@@ -17,6 +17,7 @@ use App\Services\FnfStatementService;
 use App\Services\SalaryDisbursementService;
 use App\Services\TransferVerificationService;
 use App\Support\ApiResponse;
+use App\Support\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -33,24 +34,12 @@ class FnfController extends ApiController
 
     public function preview(FnfSettlement $fnfSettlement): Response
     {
-        return response(
-            $this->statements->html($fnfSettlement),
-            200,
-            ['Content-Type' => 'text/html; charset=utf-8']
-        );
+        return Pdf::show($this->statements->pdf($fnfSettlement), $this->statements->fileName($fnfSettlement));
     }
 
     public function download(FnfSettlement $fnfSettlement): StreamedResponse
     {
-        $html = $this->statements->html($fnfSettlement);
-
-        return response()->streamDownload(
-            static function () use ($html): void {
-                echo $html;
-            },
-            $this->statements->fileName($fnfSettlement),
-            ['Content-Type' => 'text/html']
-        );
+        return Pdf::send($this->statements->pdf($fnfSettlement), $this->statements->fileName($fnfSettlement));
     }
 
     public function index(Request $request): JsonResponse

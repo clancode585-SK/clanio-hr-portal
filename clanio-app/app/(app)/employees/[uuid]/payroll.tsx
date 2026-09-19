@@ -2,9 +2,11 @@ import { useCallback, useState } from 'react'
 import { useLocalSearchParams } from 'expo-router'
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Screen } from '@/components/Screen'
+import { Button } from '@/components/ui/Button'
 import { Notice } from '@/components/ui/Notice'
 import { EmptyState, ErrorState, Loader } from '@/components/ui/States'
-import { api } from '@/lib/api'
+import { ApiError, api } from '@/lib/api'
+import { downloadFile } from '@/lib/download'
 import { Money } from '@/lib/money'
 import { useResource } from '@/lib/useResource'
 import { useTheme } from '@/theme/useTheme'
@@ -16,6 +18,8 @@ export default function EmployeePayrollScreen() {
   const theme = useTheme()
   const { uuid } = useLocalSearchParams<{ uuid: string }>()
   const [month, setMonth] = useState<string | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [problem, setProblem] = useState<string | null>(null)
 
   const load = useCallback(
     () => api<Loaded>(`/employees/${uuid}/payroll${month === null ? '' : `?month=${month}`}`),
@@ -23,6 +27,34 @@ export default function EmployeePayrollScreen() {
   )
 
   const record = useResource<Loaded>(load, [uuid, month])
+
+  // FY April se shuru — March tak wahi saal chalta hai
+  const fyOf = (key: string | null): number => {
+    const now = new Date()
+    const year = key === null ? now.getFullYear() : Number(key.slice(0, 4))
+    const m = key === null ? now.getMonth() + 1 : Number(key.slice(5, 7))
+
+    return m >= 4 ? year : year - 1
+  }
+
+  const saveForm16 = async (key: string | null) => {
+    if (busy) {
+      return
+    }
+
+    const fy = fyOf(key)
+
+    setBusy(true)
+    setProblem(null)
+
+    try {
+      await downloadFile(`/employees/${uuid}/form16/download?fy=${fy}`, `Form16-${fy}.pdf`)
+    } catch (caught) {
+      setProblem(caught instanceof ApiError ? caught.message : 'Form 16 nahi bana.')
+    } finally {
+      setBusy(false)
+    }
+  }
 
   if (record.loading) {
     return (
@@ -171,6 +203,20 @@ export default function EmployeePayrollScreen() {
                 </Text>
               </View>
             ) : null}
+            <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}>
+              <Text style={[styles.section, { color: theme.inkMuted }]}>Form 16</Text>
+              <Text style={[styles.hint, { color: theme.inkSubtle }]}>
+                FY {fyOf(picked.month)}-{String(fyOf(picked.month) + 1).slice(2)} ka Part B — PDF me
+                aayega. TDS 0 hai to salary certificate ke taur par kaam karta hai.
+              </Text>
+              {problem ? <Notice tone="danger" title="Nahi ho paaya" message={problem} /> : null}
+              <Button
+                label="Form 16 download"
+                variant="secondary"
+                onPress={() => void saveForm16(picked.month)}
+                loading={busy}
+              />
+            </View>
           </>
         )}
       </ScrollView>

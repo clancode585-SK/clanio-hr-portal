@@ -9,9 +9,15 @@ use App\Models\Company;
 use App\Models\FnfLine;
 use App\Models\FnfSettlement;
 use App\Support\Money;
+use App\Support\Pdf;
 
 final class FnfStatementService
 {
+    public function pdf(FnfSettlement $settlement): string
+    {
+        return Pdf::fromHtml($this->html($settlement));
+    }
+
     public function html(FnfSettlement $settlement): string
     {
         $settlement->loadMissing('lines');
@@ -33,7 +39,7 @@ final class FnfStatementService
                 ->filter(fn (FnfLine $line): bool => $line->isSuggestion() && ! $line->counts())
                 ->values(),
             'inWords' => Money::inWords(abs((float) $settlement->net_payable)),
-            'rupee' => fn (float|int|string|null $value): string => '₹' . Money::indian($value, 2),
+            'rupee' => fn (float|int|string|null $value): string => 'Rs. ' . Money::indian($value, 2),
             'days' => fn (float|int|string|null $value): string => rtrim(rtrim(number_format((float) $value, 1, '.', ''), '0'), '.'),
         ])->render();
     }
@@ -41,6 +47,6 @@ final class FnfStatementService
     public function fileName(FnfSettlement $settlement): string
     {
         return 'FnF-' . $settlement->employee_code . '-'
-            . ($settlement->last_working_date?->format('Y-m-d') ?? 'settlement') . '.html';
+            . ($settlement->last_working_date?->format('Y-m-d') ?? 'settlement') . '.pdf';
     }
 }

@@ -263,7 +263,7 @@ export default function FnfDetailScreen() {
     setBusy(true)
 
     try {
-      await downloadFile(`/fnf-settlements/${uuid}/download`, `FnF-${record.data?.employee_code ?? 'statement'}.html`)
+      await downloadFile(`/fnf-settlements/${uuid}/download`, `FnF-${record.data?.employee_code ?? 'statement'}.pdf`)
     } catch {
       setProblem('Could not download the statement.')
     } finally {

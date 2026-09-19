@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Models\WorkShift;
 use App\Support\AttendanceCache;
 use App\Support\CompanyTime;
+use App\Support\GeoFence;
 use App\Support\Realtime;
 use App\Support\WorkCalendar;
 use Illuminate\Http\Request;
@@ -36,7 +37,15 @@ final class AttendanceService
 
         $this->assertWorkingDay($day);
 
-        $attendance = DB::transaction(function () use ($employee, $actor, $data, $request, $now, $day): Attendance {
+        $fence = GeoFence::check(
+            $employee,
+            isset($data['latitude']) ? (float) $data['latitude'] : null,
+            isset($data['longitude']) ? (float) $data['longitude'] : null
+        );
+
+        $this->assertInsideFence($fence);
+
+        $attendance = DB::transaction(function () use ($employee, $actor, $data, $request, $now, $day, $fence): Attendance {
             $this->assertNotCheckedIn($employee);
 
             $shift = WorkCalendar::shiftFor($employee);
@@ -47,6 +56,8 @@ final class AttendanceService
                 'check_in_latitude' => $data['latitude'] ?? null,
                 'check_in_longitude' => $data['longitude'] ?? null,
                 'check_in_ip' => $request->ip(),
+                'check_in_distance_m' => $fence['distance'],
+                'check_in_outside' => $fence['outside'],
             ]);
             $detail->company_id = $employee->company_id;
             $detail->attendance_id = $attendance->id;
@@ -74,7 +85,15 @@ final class AttendanceService
         $employee = $this->employeeFor($actor);
         $now = Carbon::now();
 
-        $attendance = DB::transaction(function () use ($employee, $actor, $data, $request, $now): Attendance {
+        $fence = GeoFence::check(
+            $employee,
+            isset($data['latitude']) ? (float) $data['latitude'] : null,
+            isset($data['longitude']) ? (float) $data['longitude'] : null
+        );
+
+        $this->assertInsideFence($fence);
+
+        $attendance = DB::transaction(function () use ($employee, $actor, $data, $request, $now, $fence): Attendance {
             $detail = AttendanceDetail::query()
                 ->where('employee_id', $employee->id)
                 ->whereNull('check_out_at')
@@ -90,6 +109,8 @@ final class AttendanceService
                 'check_out_latitude' => $data['latitude'] ?? null,
                 'check_out_longitude' => $data['longitude'] ?? null,
                 'check_out_ip' => $request->ip(),
+                'check_out_distance_m' => $fence['distance'],
+                'check_out_outside' => $fence['outside'],
                 'worked_minutes' => (int) $detail->check_in_at->diffInMinutes($now),
                 'updated_by' => $actor->id,
             ])->save();
@@ -208,6 +229,130 @@ final class AttendanceService
             $this->forget($employee, $attendance);
 
             return $attendance->refresh();
+        });
+    }
+
+    // Block mode me hi rokte hain — flag mode me sirf record hota hai
+    private function assertInsideFence(array $fence): void
+    {
+        if (! $fence['blocked']) {
+            return;
+        }
+
+        throw new ApiException(
+            'Aap ' . $fence['branch'] . ' se ' . GeoFence::humanDistance((int) $fence['distance'])
+                . ' door ho. Office ke ' . GeoFence::humanDistance((int) $fence['radius'])
+                . ' ke andar aakar punch karo.',
+            422,
+            'OUTSIDE_GEO_FENCE'
+        );
+    }
+
+    /** HR ek din ke liye kai employee ki attendance ek saath mark kare */
+    public function markBulk(array $employeeIds, string $date, string $status, User $actor): array
+    {
+        $on = Carbon::parse($date);
+
+        if ($on->isFuture()) {
+            throw new ApiException('Aane wale din ki attendance nahi mark hoti.', 422, 'DATE_IN_FUTURE');
+        }
+
+        $employees = Employee::query()
+            ->whereIn('id', $employeeIds)
+            ->where('is_active', 1)
+            ->with('user')
+            ->get();
+
+        $done = 0;
+        $skipped = [];
+
+        foreach ($employees as $employee) {
+            $day = WorkCalendar::day($employee, $on);
+
+            if (! $day['is_working_day']) {
+                $skipped[] = [
+                    'employee_code' => $employee->employee_code,
+                    'reason' => $day['day_type'] === 'holiday' ? 'Holiday hai' : 'Weekly off hai',
+                ];
+
+                continue;
+            }
+
+            if ($day['leave_portion'] >= 1) {
+                $skipped[] = [
+                    'employee_code' => $employee->employee_code,
+                    'reason' => 'Is din ki leave approve hai',
+                ];
+
+                continue;
+            }
+
+            $shift = WorkCalendar::shiftFor($employee);
+
+            if ($status === Attendance::ABSENT) {
+                $this->clearDay($employee, $on, $shift, $actor);
+                $done++;
+
+                continue;
+            }
+
+            if ($shift === null) {
+                $skipped[] = [
+                    'employee_code' => $employee->employee_code,
+                    'reason' => 'Iska work shift set nahi hai',
+                ];
+
+                continue;
+            }
+
+            // Pehle din saaf, warna dobara mark karne par minutes jud jaate hain
+            $this->clearDay($employee, $on, $shift, $actor);
+
+            [$in, $out] = $this->shiftWindow($on, $shift, $status);
+            $this->applyRegularization($employee, $on, $in, $out, $actor);
+            $done++;
+        }
+
+        return [
+            'date' => $on->toDateString(),
+            'status' => $status,
+            'marked' => $done,
+            'skipped' => $skipped,
+        ];
+    }
+
+    private function shiftWindow(Carbon $date, WorkShift $shift, string $status): array
+    {
+        $in = $date->copy()->setTimeFromTimeString((string) $shift->start_time);
+        $out = $date->copy()->setTimeFromTimeString((string) $shift->end_time);
+
+        if ($out->lessThanOrEqualTo($in)) {
+            $out->addDay();
+        }
+
+        if ($status === Attendance::HALF_DAY) {
+            $minutes = (int) ($shift->half_day_minutes ?: (int) $in->diffInMinutes($out) / 2);
+            $out = $in->copy()->addMinutes($minutes);
+        }
+
+        return [$in, $out];
+    }
+
+    // Absent matlab us din ka koi punch nahi — detail hata kar dobara ginte hain
+    private function clearDay(Employee $employee, Carbon $date, ?WorkShift $shift, User $actor): void
+    {
+        DB::transaction(function () use ($employee, $date, $shift, $actor): void {
+            $attendance = $this->attendanceForDate($employee, $date, $shift);
+
+            AttendanceDetail::query()->where('attendance_id', $attendance->id)->delete();
+
+            $attendance->forceFill([
+                'source' => self::REGULARIZED,
+                'updated_by' => $actor->id,
+            ])->save();
+
+            $this->recalculate($attendance, $shift);
+            $this->forget($employee, $attendance);
         });
     }
 

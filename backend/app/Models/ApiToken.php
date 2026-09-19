@@ -33,7 +33,7 @@ class ApiToken extends Model
         return hash('sha256', $plainToken);
     }
 
-    public static function issue(User $user, ?string $ip, int $lifetimeMinutes): string
+    public static function issue(User $user, ?string $ip, int $lifetimeMinutes, ?string $userAgent = null): string
     {
         $plainToken = Str::random(80);
 
@@ -42,10 +42,21 @@ class ApiToken extends Model
             'company_id' => $user->company_id,
             'token_hash' => self::hashFor($plainToken),
             'ip_address' => $ip,
+            'user_agent' => $userAgent === null ? null : mb_substr($userAgent, 0, 255),
             'expires_at' => now()->addMinutes($lifetimeMinutes),
         ]);
 
         return $plainToken;
+    }
+
+    /** Baaki saare device se nikaal do — password badalne par bhi kaam aata hai */
+    public static function revokeAllFor(User $user, ?int $exceptId = null): int
+    {
+        return self::query()
+            ->where('user_id', $user->id)
+            ->whereNull('revoked_at')
+            ->when($exceptId !== null, fn ($query) => $query->whereKeyNot($exceptId))
+            ->update(['revoked_at' => now()]);
     }
 
     public function isValid(): bool

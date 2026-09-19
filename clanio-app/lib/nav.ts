@@ -56,6 +56,13 @@ export const navSections: NavSection[] = [
     items: [
       { href: '/leaves', label: 'Leave Requests', icon: 'calendar-outline', permissions: ['leave.approve'] },
       { href: '/regularizations', label: 'Regularizations', icon: 'create-outline', permissions: ['attendance.regularize'] },
+      {
+        href: '/attendance-bulk',
+        label: 'Bulk Attendance',
+        icon: 'checkmark-done-circle-outline',
+        permissions: ['attendance.regularize'],
+        description: 'Ek din ki attendance kai logon ki ek saath',
+      },
       { href: '/expense-claims', label: 'Expense Claims', icon: 'card-outline', permissions: ['expense.verify', 'expense.pay'] },
       {
         href: '/payroll',
@@ -155,6 +162,13 @@ export const navSections: NavSection[] = [
       { href: '/ticket-categories', label: 'Ticket Categories', icon: 'pricetags-outline', permissions: ['ticket.category_manage'] },
       { href: '/ticket-slas', label: 'Response Times', icon: 'stopwatch-outline', permissions: ['ticket.category_manage'] },
       { href: '/data-import', label: 'Data Import', icon: 'cloud-upload-outline', permissions: ['employee.create', 'department.create'] },
+      {
+        href: '/reports',
+        label: 'Reports',
+        icon: 'bar-chart-outline',
+        permissions: ['report.view'],
+        description: 'Register aur statement — CSV download',
+      },
       { href: '/audit-log', label: 'Audit Log', icon: 'footsteps-outline', permissions: ['audit.view'] },
       { href: '/career-page', label: 'Career Page', icon: 'globe-outline', permissions: ['recruitment.career_page'] },
       { href: '/billing', label: 'Invoices', icon: 'receipt-outline', permissions: ['invoice.view'] },

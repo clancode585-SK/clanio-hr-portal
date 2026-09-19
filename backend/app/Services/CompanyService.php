@@ -214,6 +214,9 @@ final class CompanyService
         }
     }
 
+    /** Nayi company me ye module band milte hain — admin khud on karega */
+    private const OFF_BY_DEFAULT = ['report'];
+
     private function enableModules(Company $company): void
     {
         $now = Carbon::now();
@@ -224,7 +227,10 @@ final class CompanyService
             ->map(fn (string $module): array => [
                 'company_id' => $company->id,
                 'module' => $module,
-                'is_enabled' => 1,
+                'is_enabled' => in_array($module, self::OFF_BY_DEFAULT, true) ? 0 : 1,
+                'note' => in_array($module, self::OFF_BY_DEFAULT, true)
+                    ? 'Off by default — admin decides who gets it'
+                    : null,
                 'created_at' => $now,
                 'updated_at' => $now,
             ])

@@ -11,6 +11,7 @@ use App\Models\OfferLetter;
 use App\Services\OfferLetterService;
 use App\Support\ApiResponse;
 use App\Support\CompanyTime;
+use App\Support\Pdf;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -107,20 +108,12 @@ class OfferLetterController extends ApiController
 
     public function preview(OfferLetter $letter): Response
     {
-        return response($this->offers->html($letter), 200, ['Content-Type' => 'text/html; charset=utf-8']);
+        return Pdf::show($this->offers->pdf($letter), $letter->letter_number . '.pdf');
     }
 
     public function download(OfferLetter $letter): StreamedResponse
     {
-        $html = $this->offers->html($letter);
-
-        return response()->streamDownload(
-            static function () use ($html): void {
-                echo $html;
-            },
-            $letter->letter_number . '.html',
-            ['Content-Type' => 'text/html']
-        );
+        return Pdf::send($this->offers->pdf($letter), $letter->letter_number . '.pdf');
     }
 
     public function summary(): JsonResponse

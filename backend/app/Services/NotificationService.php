@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Http\Resources\NotificationResource;
+use App\Mail\NotificationMail;
+use App\Models\Company;
 use App\Models\Notification;
 use App\Models\NotificationPreference;
 use App\Models\User;
@@ -16,6 +18,8 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 final class NotificationService
@@ -55,7 +59,72 @@ final class NotificationService
             $this->push->toUsers([(int) $target->id], $data);
         }
 
+        if ($preference['email']) {
+            $this->emailIt($target, $data);
+        }
+
         return $notification;
+    }
+
+    // Announcement bulk insert se jaata hai, isliye email alag se
+    private function emailMany(array $userIds, string $type, array $data): void
+    {
+        if ($userIds === []) {
+            return;
+        }
+
+        $group = NotificationType::group($type);
+
+        $wants = NotificationPreference::query()
+            ->withoutGlobalScope(CompanyScope::class)
+            ->whereIn('user_id', $userIds)
+            ->whereIn('scope', [$group, $type])
+            ->where('email', 1)
+            ->pluck('user_id')
+            ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->all();
+
+        if ($wants === []) {
+            return;
+        }
+
+        $users = User::query()
+            ->withoutGlobalScope(CompanyScope::class)
+            ->whereIn('id', $wants)
+            ->where('status', 'active')
+            ->get(['id', 'name', 'email', 'company_id']);
+
+        foreach ($users as $user) {
+            $this->emailIt($user, $data + ['type' => $type]);
+        }
+    }
+
+    // Email queue par jaati hai — Gmail SMTP slow hai, request ko rokna nahi chahiye
+    private function emailIt(User $target, array $data): void
+    {
+        if (blank($target->email)) {
+            return;
+        }
+
+        try {
+            Mail::to($target->email)->queue(new NotificationMail(
+                $target->name ?? 'there',
+                (string) ($data['title'] ?? 'Update'),
+                (string) ($data['body'] ?? ''),
+                $data['action_url'] ?? null,
+                $target->company_id === null
+                    ? null
+                    : Company::query()->withoutGlobalScopes()->find($target->company_id)
+            ));
+        } catch (\Throwable $caught) {
+            // Mail fail ho to notification fail nahi hona chahiye
+            Log::warning('Notification email failed', [
+                'user_id' => $target->id,
+                'type' => $data['type'] ?? null,
+                'error' => $caught->getMessage(),
+            ]);
+        }
     }
 
     public function sendMany(array $userIds, array $data, ?User $actor = null): int
@@ -135,6 +204,12 @@ final class NotificationService
             'body' => $data['body'] ?? '',
             'type' => $type,
             'action_url' => $data['action_url'] ?? '',
+        ]);
+
+        $this->emailMany($targets, $type, [
+            'title' => $data['title'],
+            'body' => $data['body'] ?? '',
+            'action_url' => $data['action_url'] ?? null,
         ]);
 
         return ['recipients' => count($targets)];

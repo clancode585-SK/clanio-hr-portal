@@ -30,7 +30,7 @@ export default function MyPayslipsScreen() {
     setProblem(null)
 
     try {
-      await downloadFile(`/payslips/${slip.uuid}/download`, `Payslip-${slip.month}.html`)
+      await downloadFile(`/payslips/${slip.uuid}/download`, `Payslip-${slip.month}.pdf`)
     } catch {
       setProblem('Could not download the payslip.')
     } finally {

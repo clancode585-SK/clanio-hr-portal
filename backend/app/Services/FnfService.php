@@ -534,7 +534,7 @@ final class FnfService
                 'source' => FnfLine::AUTO,
                 'suggested_amount' => $amount,
                 'basis' => $line->kind === SalaryComponent::EARNING
-                    ? '₹' . number_format($full, 2) . ' × ' . $this->plainDays($days['paid']) . '/' . $this->plainDays($days['working'])
+                    ? 'Rs. ' . number_format($full, 2) . ' × ' . $this->plainDays($days['paid']) . '/' . $this->plainDays($days['working'])
                     : null,
                 'sequence' => $sequence += 10,
             ];
@@ -566,7 +566,7 @@ final class FnfService
                 'kind' => FnfLine::DEDUCTION,
                 'source' => FnfLine::SUGGESTED,
                 'suggested_amount' => round($rate * $notice['shortfall'], 2),
-                'basis' => $notice['served'] . ' of ' . $notice['required'] . ' days served · ₹'
+                'basis' => $notice['served'] . ' of ' . $notice['required'] . ' days served · Rs. '
                     . number_format($perDay, 2) . ' ÷ ' . $this->plainDays($days['working'])
                     . ' × ' . $notice['shortfall'],
                 'sequence' => 210,
@@ -596,7 +596,7 @@ final class FnfService
                 'kind' => FnfLine::DEDUCTION,
                 'source' => FnfLine::SUGGESTED,
                 'suggested_amount' => round((float) $advance->outstanding, 2),
-                'basis' => '₹' . number_format((float) $advance->amount, 2) . ' me se ₹'
+                'basis' => 'Rs. ' . number_format((float) $advance->amount, 2) . ' me se Rs. '
                     . number_format((float) $advance->recovered, 2) . ' EMI se kat chuka hai',
                 'sequence' => 230,
             ];
@@ -651,7 +651,7 @@ final class FnfService
             'kind' => FnfLine::EARNING,
             'source' => FnfLine::AUTO,
             'suggested_amount' => round($perDay * $days, 2),
-            'basis' => implode(', ', $names) . ' · ₹' . number_format($base, 2) . ' ÷ '
+            'basis' => implode(', ', $names) . ' · Rs. ' . number_format($base, 2) . ' ÷ '
                 . $this->plainDays($settings['encashment_month_days']),
             'sequence' => 150,
         ];
@@ -684,7 +684,7 @@ final class FnfService
             'kind' => FnfLine::EARNING,
             'source' => FnfLine::AUTO,
             'suggested_amount' => $amount,
-            'basis' => '₹' . number_format($basic, 2) . ' × '
+            'basis' => 'Rs. ' . number_format($basic, 2) . ' × '
                 . $this->plainDays($settings['gratuity_days_per_year']) . '/'
                 . $this->plainDays($settings['gratuity_month_days']) . ' × ' . $countable,
             'sequence' => 160,

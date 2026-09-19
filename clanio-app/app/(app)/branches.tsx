@@ -8,6 +8,9 @@ const fields: FieldSpec[] = [
   { key: 'address', label: 'Address', type: 'text', placeholder: 'Street, city, pin', autoCapitalize: 'sentences', multiline: true, max: 500 },
   { key: 'phone', label: 'Phone', type: 'text', placeholder: 'Optional', max: 20, pattern: /^[0-9+\-() ]{6,20}$/, patternMessage: 'Enter a valid phone number' },
   { key: 'email', label: 'Email', type: 'text', placeholder: 'Optional', max: 255, pattern: /^\S+@\S+\.\S+$/, patternMessage: 'Enter a valid email' },
+  { key: 'latitude', label: 'Latitude', type: 'text', placeholder: '28.6315', hint: 'Geo-fence ke liye — Google Maps se copy karo', max: 20 },
+  { key: 'longitude', label: 'Longitude', type: 'text', placeholder: '77.2167', max: 20 },
+  { key: 'geo_radius_metres', label: 'Geo-fence radius (metre)', type: 'text', placeholder: '200', hint: 'Itni doori tak ka punch office ka maana jayega', max: 6 },
   { key: 'is_head_office', label: 'Head office', type: 'toggle', hint: 'Only one branch should carry this' },
 ]
 

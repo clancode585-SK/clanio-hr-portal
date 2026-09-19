@@ -17,6 +17,7 @@ use App\Http\Controllers\Company\CompanyController;
 use App\Http\Controllers\Company\ClearanceController;
 use App\Http\Controllers\Company\CompanySettingController;
 use App\Http\Controllers\Company\DailyReportController;
+use App\Http\Controllers\Company\DashboardController;
 use App\Http\Controllers\Company\DepartmentController;
 use App\Http\Controllers\Company\DesignationController;
 use App\Http\Controllers\Company\DeviceTokenController;
@@ -46,7 +47,9 @@ use App\Http\Controllers\Company\PolicyController;
 use App\Http\Controllers\Company\RealtimeController;
 use App\Http\Controllers\Company\RecognitionController;
 use App\Http\Controllers\Company\RegularizationController;
+use App\Http\Controllers\Company\ReportController;
 use App\Http\Controllers\Company\RoleController;
+use App\Http\Controllers\Company\StatutoryReturnController;
 use App\Http\Controllers\Company\TaskAttachmentController;
 use App\Http\Controllers\Company\TaskCommentController;
 use App\Http\Controllers\Company\TicketCategoryController;
@@ -88,6 +91,9 @@ Route::prefix('hrms')->group(function (): void {
 
     Route::middleware(['auth:api', 'tenant', 'company.active', 'policy.gate', 'throttle:api'])->group(function (): void {
         Route::post('auth/logout', [AuthController::class, 'logout']);
+        Route::post('auth/refresh', [AuthController::class, 'refresh']);
+        Route::post('auth/logout-all', [AuthController::class, 'logoutAll']);
+        Route::get('auth/sessions', [AuthController::class, 'sessions']);
         Route::post('auth/change-password', [AuthController::class, 'changePassword'])->middleware('throttle:sensitive');
 
         Route::get('profile', [ProfileController::class, 'show']);
@@ -145,6 +151,24 @@ Route::prefix('hrms')->group(function (): void {
             Route::get('invoices/{invoice}/download', [InvoiceController::class, 'download'])
                 ->name('invoices.download');
         });
+
+        Route::get('dashboard', [DashboardController::class, 'index']);
+
+        Route::get('statutory-returns', [StatutoryReturnController::class, 'index'])
+            ->middleware('permission:report.view');
+        Route::get('statutory-returns/{return}', [StatutoryReturnController::class, 'show'])
+            ->middleware('permission:report.view');
+        Route::get('statutory-returns/{return}/download', [StatutoryReturnController::class, 'download'])
+            ->middleware('permission:report.export')
+            ->name('statutory-returns.download');
+
+        Route::get('reports', [ReportController::class, 'index'])
+            ->middleware('permission:report.view');
+        Route::get('reports/{report}', [ReportController::class, 'show'])
+            ->middleware('permission:report.view');
+        Route::get('reports/{report}/download', [ReportController::class, 'download'])
+            ->middleware('permission:report.export')
+            ->name('reports.download');
 
         Route::get('imports/modules', [ImportController::class, 'modules']);
         Route::get('imports/{module}/sample', [ImportController::class, 'sample']);
@@ -326,6 +350,15 @@ Route::prefix('hrms')->group(function (): void {
         Route::post('payroll-runs', [PayrollController::class, 'store'])->middleware('permission:payroll.run');
         Route::get('employees/{employee}/payroll', [PayrollController::class, 'employeeMonths'])
             ->middleware('permission:payroll.view');
+        Route::get('form16/bulk', [PayrollController::class, 'form16Bulk'])
+            ->middleware('permission:payroll.view')
+            ->name('form16.bulk');
+        Route::get('employees/{employee}/form16', [PayrollController::class, 'form16'])
+            ->middleware('permission:payroll.view')
+            ->name('form16.preview');
+        Route::get('employees/{employee}/form16/download', [PayrollController::class, 'form16Download'])
+            ->middleware('permission:payroll.view')
+            ->name('form16.download');
         Route::get('payroll-runs/{payrollRun}', [PayrollController::class, 'show'])
             ->middleware('permission:payroll.view');
         Route::get('payroll-runs/{payrollRun}/payslips', [PayrollController::class, 'items'])
@@ -514,6 +547,8 @@ Route::prefix('hrms')->group(function (): void {
 
         Route::post('attendance/check-in', [AttendanceController::class, 'checkIn']);
         Route::post('attendance/check-out', [AttendanceController::class, 'checkOut']);
+        Route::post('attendance/bulk', [AttendanceController::class, 'markBulk'])
+            ->middleware('permission:attendance.regularize');
         Route::get('attendance/today', [AttendanceController::class, 'today']);
         Route::get('attendance/calendar', [AttendanceController::class, 'calendar']);
         Route::get('attendance', [AttendanceController::class, 'index']);
@@ -622,6 +657,8 @@ Route::prefix('hrms')->group(function (): void {
             ->name('exits.reject');
         Route::delete('exits/{exit}', [EmployeeExitController::class, 'destroy']);
 
+        Route::get('exit-documents/{document}/preview', [ExitDocumentController::class, 'preview'])
+            ->name('exit-documents.preview');
         Route::get('exit-documents/{document}/download', [ExitDocumentController::class, 'download'])
             ->name('exit-documents.download');
 
@@ -709,6 +746,8 @@ Route::prefix('hrms')->group(function (): void {
 
             Route::get('documents', [ExitDocumentController::class, 'index']);
             Route::post('documents', [ExitDocumentController::class, 'store'])
+                ->middleware('permission:exit.document');
+            Route::post('documents/generate', [ExitDocumentController::class, 'generate'])
                 ->middleware('permission:exit.document');
             Route::delete('documents/{document}', [ExitDocumentController::class, 'destroy'])
                 ->middleware('permission:exit.document');

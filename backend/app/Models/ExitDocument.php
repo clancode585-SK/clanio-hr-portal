@@ -42,6 +42,9 @@ class ExitDocument extends Model
         'size_bytes',
         'issued_on',
         'remarks',
+        'body',
+        'signatory_name',
+        'signatory_designation',
     ];
 
     protected function casts(): array

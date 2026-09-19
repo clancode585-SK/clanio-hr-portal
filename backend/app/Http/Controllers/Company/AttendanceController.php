@@ -4,11 +4,13 @@ declare(strict_types=1);
 
 namespace App\Http\Controllers\Company;
 
+use App\Exceptions\ApiException;
 use App\Http\Controllers\ApiController;
 use App\Http\Requests\CalendarRequest;
 use App\Http\Requests\PunchRequest;
 use App\Http\Resources\AttendanceResource;
 use App\Models\Attendance;
+use App\Models\Employee;
 use App\Services\AttendanceService;
 use App\Support\ApiResponse;
 use App\Support\CompanyTime;
@@ -92,6 +94,34 @@ class AttendanceController extends ApiController
         return ApiResponse::success(
             new AttendanceResource($attendance),
             'Checked out successfully. Total time today: ' . Attendance::humanDuration($attendance->worked_minutes)
+        );
+    }
+
+    public function markBulk(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'date' => ['required', 'date_format:Y-m-d'],
+            'status' => ['required', 'string', 'in:present,absent,half_day'],
+            'employee_uuids' => ['required', 'array', 'min:1', 'max:500'],
+            'employee_uuids.*' => ['string'],
+        ]);
+
+        $ids = Employee::query()
+            ->visibleTo($request->user())
+            ->whereIn('uuid', $data['employee_uuids'])
+            ->pluck('id')
+            ->all();
+
+        if ($ids === []) {
+            throw new ApiException('Koi employee nahi mila.', 422, 'NO_EMPLOYEES');
+        }
+
+        $result = $this->attendance->markBulk($ids, $data['date'], $data['status'], $request->user());
+
+        return ApiResponse::success(
+            $result,
+            $result['marked'] . ' employee ki attendance mark ho gayi'
+                . ($result['skipped'] === [] ? '' : ' · ' . count($result['skipped']) . ' chhoot gaye')
         );
     }
 }

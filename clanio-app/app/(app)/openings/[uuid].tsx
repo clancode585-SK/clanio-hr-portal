@@ -248,7 +248,7 @@ export default function OpeningDetailScreen() {
     setProblem(null)
 
     try {
-      await downloadFile(`/offer-letters/${letter.uuid}/download`, `${letter.letter_number}.html`)
+      await downloadFile(`/offer-letters/${letter.uuid}/download`, `${letter.letter_number}.pdf`)
     } catch {
       setProblem('Could not download the letter.')
     } finally {

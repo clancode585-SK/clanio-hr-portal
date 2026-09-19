@@ -22,6 +22,7 @@ class CompanySettingRequest extends FormRequest
             'expense_claim_days' => ['nullable', 'integer', 'between:1,365'],
             'notice_period_days' => ['nullable', 'integer', 'between:0,180'],
             'policy_gate_enabled' => ['nullable', 'boolean'],
+            'geo_fence_mode' => ['nullable', 'string', 'in:off,flag,block'],
             'ticket_sla_enabled' => ['nullable', 'boolean'],
             'fiscal_year_start' => ['nullable', 'integer', 'between:1,12'],
             'timezone' => ['nullable', 'string', 'max:64', 'timezone'],

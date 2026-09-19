@@ -12,9 +12,12 @@ use App\Models\Employee;
 use App\Models\PayrollItem;
 use App\Models\PayrollRun;
 use App\Models\SalaryComponent;
+use App\Services\Form16Service;
 use App\Services\PayrollService;
 use App\Services\PayslipService;
 use App\Support\ApiResponse;
+use App\Support\CompanyTime;
+use App\Support\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Response;
@@ -190,26 +193,14 @@ class PayrollController extends ApiController
     {
         $this->payslips->assertReadable($payrollItem, $request->user());
 
-        return response(
-            $this->payslips->html($payrollItem),
-            200,
-            ['Content-Type' => 'text/html; charset=utf-8']
-        );
+        return Pdf::show($this->payslips->pdf($payrollItem), $this->payslips->fileName($payrollItem));
     }
 
     public function downloadSlip(Request $request, PayrollItem $payrollItem): StreamedResponse
     {
         $this->payslips->assertReadable($payrollItem, $request->user());
 
-        $html = $this->payslips->html($payrollItem);
-
-        return response()->streamDownload(
-            static function () use ($html): void {
-                echo $html;
-            },
-            $this->payslips->fileName($payrollItem),
-            ['Content-Type' => 'text/html']
-        );
+        return Pdf::send($this->payslips->pdf($payrollItem), $this->payslips->fileName($payrollItem));
     }
 
     public function mine(Request $request): JsonResponse
@@ -218,6 +209,54 @@ class PayrollController extends ApiController
             PayrollItemResource::collection($this->payroll->payslipsFor($request->user())),
             'Your payslips fetched successfully'
         );
+    }
+
+    public function form16(Request $request, Employee $employee): Response
+    {
+        $fy = $this->financialYear($request);
+        $service = $this->form16Service();
+
+        return Pdf::show($service->pdf($employee, $fy), $service->fileName($employee, $fy));
+    }
+
+    public function form16Download(Request $request, Employee $employee): StreamedResponse
+    {
+        $fy = $this->financialYear($request);
+        $service = $this->form16Service();
+
+        return Pdf::send($service->pdf($employee, $fy), $service->fileName($employee, $fy));
+    }
+
+    public function form16Bulk(Request $request): StreamedResponse
+    {
+        $fy = $this->financialYear($request);
+        $built = $this->form16Service()->bulkPdf($this->companyId(), $fy, $request->boolean('only_tds'));
+
+        return Pdf::send(
+            $built['pdf'],
+            'Form16B-all-' . $fy . '-' . substr((string) ($fy + 1), 2) . '.pdf',
+            [
+                'X-Generated-Count' => (string) $built['made'],
+                'X-Skipped-Count' => (string) count($built['skipped']),
+            ]
+        );
+    }
+
+    private function form16Service(): Form16Service
+    {
+        return app(Form16Service::class);
+    }
+
+    // fy na aaye to chalta hua financial year — April se pehle pichhla saal
+    private function financialYear(Request $request): int
+    {
+        if ($request->filled('fy')) {
+            return (int) $request->integer('fy');
+        }
+
+        $now = CompanyTime::now();
+
+        return $now->month >= 4 ? $now->year : $now->year - 1;
     }
 
     // Employee ke andar month chuno — us mahine ki salary, PF, TDS aur advance ek jagah

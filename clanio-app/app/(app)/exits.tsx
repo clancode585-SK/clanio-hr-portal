@@ -6,6 +6,7 @@ type Item = Record<string, any>
 export default function ExitsScreen() {
   const { can } = useAuth()
   const canApprove = can('exit.approve')
+  const canDocument = can('exit.document')
 
   return (
     <ApprovalList<Item>
@@ -34,9 +35,13 @@ export default function ExitsScreen() {
       toFiles={(item): FileRef[] =>
         (item.documents ?? []).map((doc: Record<string, any>) => ({
           id: String(doc.uuid ?? doc.id),
-          label: doc.type_label ?? doc.original_name ?? 'Document',
+          label: doc.is_generated
+            ? `${doc.type_label} · ${doc.letter_number}`
+            : (doc.type_label ?? doc.original_name ?? 'Document'),
           path: `/exit-documents/${doc.uuid ?? doc.id}/download`,
-          fileName: doc.original_name ?? 'document.pdf',
+          fileName: doc.is_generated
+            ? `${doc.letter_number ?? 'letter'}.pdf`
+            : (doc.original_name ?? 'document.pdf'),
         }))
       }
       toDetails={(item): Detail[] => [
@@ -99,6 +104,32 @@ export default function ExitsScreen() {
             path: `/exits/${id}/complete`,
             remarks: 'optional',
           })
+        }
+
+        // Letter tabhi ban sakta hai jab HR approve kar chuki ho
+        if (canDocument && ['manager_approved', 'serving_notice', 'completed'].includes(item.status)) {
+          const letters: { key: string; label: string }[] = [
+            { key: 'experience_letter', label: 'Experience Letter' },
+            { key: 'relieving_letter', label: 'Relieving Letter' },
+            { key: 'recommendation_letter', label: 'Letter of Recommendation' },
+          ]
+
+          for (const letter of letters) {
+            actions.push({
+              key: `letter-${letter.key}`,
+              label: `Generate ${letter.label}`,
+              tone: 'secondary',
+              path: `/exits/${id}/documents/generate`,
+              method: 'POST',
+              remarks: 'none',
+              body: { type: letter.key },
+              extra: [
+                { key: 'signatory_name', label: 'Kiske naam se', placeholder: 'Rohit Sharma' },
+                { key: 'signatory_designation', label: 'Unka designation', placeholder: 'Director' },
+                { key: 'body', label: 'Extra paragraph (optional)' },
+              ],
+            })
+          }
         }
 
         actions.push({

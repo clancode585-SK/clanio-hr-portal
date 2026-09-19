@@ -748,11 +748,22 @@ final class PayrollService
             return 0.0;
         }
 
+        $on = Carbon::parse($month . '-01');
+        $months = TaxMath::payableMonths(
+            $employee->date_of_joining === null ? null : Carbon::parse($employee->date_of_joining),
+            $employee->exit_date === null ? null : Carbon::parse($employee->exit_date),
+            $on
+        );
+
+        if ($months <= 0) {
+            return 0.0;
+        }
+
         $annual = 0.0;
 
         foreach ($structure->lines as $line) {
             if ($line->kind === SalaryComponent::EARNING && $line->is_taxable) {
-                $annual += (float) $line->monthly_amount * 12;
+                $annual += (float) $line->monthly_amount * $months;
             }
         }
 
@@ -760,11 +771,11 @@ final class PayrollService
             return 0.0;
         }
 
-        $on = Carbon::parse($month . '-01');
         $deducted = $this->tdsPaidInFy((int) $employee->id, $on);
 
         return TaxMath::project($annual, $deducted, $on)['monthly_tds'];
     }
+
 
     // Isi financial year me jitna TDS approve/paid ho chuka hai
     private function tdsPaidInFy(int $employeeId, Carbon $on): float

@@ -60,7 +60,7 @@
         @endif
         <tr><th>Location</th><td>{{ $letter->location }}</td></tr>
         <tr><th>Employment type</th><td>{{ ucwords(str_replace('_', ' ', $letter->employment_type)) }}</td></tr>
-        <tr><th>Annual CTC</th><td>₹{{ \App\Support\Money::indian($letter->annual_ctc, 2) }}</td></tr>
+        <tr><th>Annual CTC</th><td>Rs. {{ \App\Support\Money::indian($letter->annual_ctc, 2) }}</td></tr>
         <tr><th>Joining date</th><td>{{ $letter->joining_date?->format('j F Y') }}</td></tr>
         @if ($letter->reporting_to)
             <tr><th>Reporting to</th><td>{{ $letter->reporting_to }}</td></tr>

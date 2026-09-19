@@ -77,6 +77,26 @@ export default function DashboardScreen() {
     setCounts({})
     setRefreshing(true)
 
+    // Ek hi call me sab — pehle har tile apni API maarti thi
+    try {
+      const result = await api<{ counts: Record<string, number> }>('/dashboard')
+
+      if (run.current === ticket) {
+        const next: Counts = {}
+
+        for (const block of tiles) {
+          next[block.key] = result.counts[block.key] ?? null
+        }
+
+        setCounts(next)
+        setRefreshing(false)
+
+        return
+      }
+    } catch {
+      // Purana tarika fallback — ek endpoint band ho to dashboard khaali na rahe
+    }
+
     await Promise.all(
       tiles.map(async (block) => {
         const value = await one(block)

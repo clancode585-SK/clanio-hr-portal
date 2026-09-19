@@ -12,6 +12,7 @@ use App\Models\OfferLetter;
 use App\Models\User;
 use App\Support\CompanyTime;
 use App\Support\NotificationType;
+use App\Support\Pdf;
 use Carbon\Carbon;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
@@ -141,6 +142,11 @@ final class OfferLetterService
         ])->save();
 
         return $letter->refresh();
+    }
+
+    public function pdf(OfferLetter $letter): string
+    {
+        return Pdf::fromHtml($this->html($letter));
     }
 
     public function html(OfferLetter $letter): string

@@ -33,6 +33,38 @@ class AuthController extends ApiController
         return ApiResponse::success(null, 'Logged out successfully');
     }
 
+    public function refresh(Request $request): JsonResponse
+    {
+        return ApiResponse::success(
+            $this->auth->refresh($request->user(), $request),
+            'Session aage badha diya gaya'
+        );
+    }
+
+    public function logoutAll(Request $request): JsonResponse
+    {
+        $data = $request->validate(['keep_current' => ['nullable', 'boolean']]);
+        $keep = (bool) ($data['keep_current'] ?? true);
+
+        $count = $this->auth->logoutEverywhere($request->user(), $request, $keep);
+
+        return ApiResponse::success(
+            ['revoked' => $count],
+            $count === 0
+                ? 'Koi aur device signed in nahi tha'
+                : $count . ' device se sign out kar diya'
+                    . ($keep ? ' — ye wala chalu hai' : '')
+        );
+    }
+
+    public function sessions(Request $request): JsonResponse
+    {
+        return ApiResponse::success(
+            ['sessions' => $this->auth->sessions($request->user(), $request)],
+            'Sessions fetched successfully'
+        );
+    }
+
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse
     {
         $this->auth->forgotPassword($request->validated(), $request);

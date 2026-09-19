@@ -160,6 +160,7 @@ class CompanySettingController extends ApiController
                 'expense_claim_days' => (int) $company->expense_claim_days,
                 'notice_period_days' => (int) $company->notice_period_days,
                 'policy_gate_enabled' => (bool) $company->policy_gate_enabled,
+                'geo_fence_mode' => $company->geo_fence_mode,
                 'ticket_sla_enabled' => (bool) $company->ticket_sla_enabled,
                 'fiscal_year_start' => (int) $company->fiscal_year_start,
                 'timezone' => $company->timezone,
@@ -172,6 +173,7 @@ class CompanySettingController extends ApiController
                 'expense_claim_days' => 'Itne din purana kharcha hi reimbursement mein claim ho sakta hai',
                 'notice_period_days' => 'Resignation par last working date isi hisab se apne aap banti hai',
                 'policy_gate_enabled' => 'On karo to naya employee saari policies accept karne tak tool nahi khol payega',
+                'geo_fence_mode' => 'off — location sirf save hoti hai · flag — office se bahar ka punch mark hota hai · block — bahar se punch hi nahi hoga',
                 'ticket_sla_enabled' => 'Off rakho to ticket par koi deadline nahi lagegi. On karo to priority ke hisaab se target lagega — sirf office hours ginte hue',
             ],
         ];

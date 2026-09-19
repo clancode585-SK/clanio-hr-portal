@@ -64,6 +64,7 @@ class Employee extends Model
         'aadhaar_number',
         'esic_number',
         'pt_state',
+        'geo_fence_exempt',
         'insurer_name',
         'insurance_number',
         'insurance_valid_till',

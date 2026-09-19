@@ -447,7 +447,7 @@ export default function PayrollRunScreen() {
     setBusy(true)
 
     try {
-      await downloadFile(`/payslips/${slip.uuid}/download`, `Payslip-${slip.employee_code}.html`)
+      await downloadFile(`/payslips/${slip.uuid}/download`, `Payslip-${slip.employee_code}.pdf`)
     } catch {
       setProblem('Could not download the payslip.')
     } finally {

@@ -42,6 +42,33 @@ class TaxMath
         return $on->month >= 4 ? 16 - $on->month : 4 - $on->month;
     }
 
+    /**
+     * Is FY me kitne mahine salary milegi — joining se March tak, exit ho to wahan tak.
+     * Feb me joda banda 12 mahine ki salary nahi kamayega, TDS bhi utne hi par lagega.
+     */
+    public static function payableMonths(
+        ?CarbonInterface $joined,
+        ?CarbonInterface $left,
+        CarbonInterface $on
+    ): int {
+        $fyStart = $on->copy()->setDate($on->month >= 4 ? $on->year : $on->year - 1, 4, 1)->startOfDay();
+        $fyEnd = $fyStart->copy()->addMonthsNoOverflow(11);
+
+        $from = $joined !== null && $joined->copy()->startOfMonth()->greaterThan($fyStart)
+            ? $joined->copy()->startOfMonth()
+            : $fyStart;
+
+        $to = $left !== null && $left->copy()->startOfMonth()->lessThan($fyEnd)
+            ? $left->copy()->startOfMonth()
+            : $fyEnd;
+
+        if ($from->greaterThan($to)) {
+            return 0;
+        }
+
+        return (int) $from->diffInMonths($to) + 1;
+    }
+
     public static function slabBreakup(float $netTaxable): array
     {
         $rows = [];

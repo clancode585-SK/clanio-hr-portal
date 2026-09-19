@@ -21,6 +21,8 @@ use Illuminate\Support\Facades\Mail;
 
 final class AuthService
 {
+    private const REFRESH_GRACE_MINUTES = 2;
+
     public function login(array $credentials, Request $request): array
     {
         $email = $credentials['email'];
@@ -53,7 +55,7 @@ final class AuthService
         $gate = app(PolicyService::class)->gateStatus($user);
 
         return [
-            'token' => ApiToken::issue($user, $request->ip(), $this->config('lifetime', 10080)),
+            'token' => ApiToken::issue($user, $request->ip(), $this->config('lifetime', 10080), $request->userAgent()),
             'role' => $user->primaryRole(),
             'policy_gate' => [
                 'blocked' => $gate['blocked'],
@@ -70,6 +72,82 @@ final class AuthService
         if ($token instanceof ApiToken) {
             $token->revoke();
         }
+    }
+
+    /** Purana token revoke, naya de do — session aage badh jaata hai */
+    public function refresh(User $user, Request $request): array
+    {
+        $current = $request->attributes->get('api_token');
+
+        if (! $current instanceof ApiToken) {
+            throw new ApiException('Token nahi mila.', 401, 'AUTH_TOKEN_MISSING');
+        }
+
+        $fresh = ApiToken::issue(
+            $user,
+            $request->ip(),
+            $this->config('lifetime', 10080),
+            $request->userAgent()
+        );
+
+        // Purana token turant nahi marta — jo request abhi chal rahi hain wo 401 na khaayein
+        $current->forceFill(['expires_at' => now()->addMinutes(self::REFRESH_GRACE_MINUTES)])->save();
+
+        return [
+            'token' => $fresh,
+            'expires_in_minutes' => (int) $this->config('lifetime', 10080),
+            'old_token_valid_for_minutes' => self::REFRESH_GRACE_MINUTES,
+        ];
+    }
+
+    public function logoutEverywhere(User $user, Request $request, bool $keepCurrent): int
+    {
+        $current = $request->attributes->get('api_token');
+        $exceptId = $keepCurrent && $current instanceof ApiToken ? (int) $current->id : null;
+
+        return ApiToken::revokeAllFor($user, $exceptId);
+    }
+
+    public function sessions(User $user, Request $request): array
+    {
+        $current = $request->attributes->get('api_token');
+        $currentId = $current instanceof ApiToken ? (int) $current->id : null;
+
+        return ApiToken::query()
+            ->where('user_id', $user->id)
+            ->whereNull('revoked_at')
+            ->where(fn ($query) => $query->whereNull('expires_at')->orWhere('expires_at', '>', now()))
+            ->orderByDesc('last_used_at')
+            ->orderByDesc('id')
+            ->get(['id', 'ip_address', 'user_agent', 'last_used_at', 'expires_at', 'created_at'])
+            ->map(fn (ApiToken $token): array => [
+                'id' => (int) $token->id,
+                'is_current' => (int) $token->id === $currentId,
+                'ip_address' => $token->ip_address,
+                'device' => $this->device($token->user_agent),
+                'last_used_at' => $token->last_used_at?->toIso8601String(),
+                'expires_at' => $token->expires_at?->toIso8601String(),
+                'signed_in_at' => $token->created_at?->toIso8601String(),
+            ])
+            ->all();
+    }
+
+    // User agent se mota-moti device ka naam
+    private function device(?string $agent): string
+    {
+        if ($agent === null || $agent === '') {
+            return 'Unknown device';
+        }
+
+        return match (true) {
+            str_contains($agent, 'Android') => 'Android',
+            str_contains($agent, 'iPhone') => 'iPhone',
+            str_contains($agent, 'iPad') => 'iPad',
+            str_contains($agent, 'Windows') => 'Windows',
+            str_contains($agent, 'Macintosh') => 'Mac',
+            str_contains($agent, 'Linux') => 'Linux',
+            default => 'Unknown device',
+        };
     }
 
     public function changePassword(User $user, string $currentPassword, string $newPassword): void

@@ -22,8 +22,17 @@ class ExitDocumentResource extends JsonResource
             'size_bytes' => $this->size_bytes,
             'issued_on' => $this->issued_on?->format('Y-m-d'),
             'remarks' => $this->remarks,
+            'source' => $this->source,
+            'is_generated' => $this->source === 'generated',
+            'letter_number' => $this->letter_number,
+            'body' => $this->body,
+            'signatory_name' => $this->signatory_name,
+            'signatory_designation' => $this->signatory_designation,
             'uploaded_by' => $this->uploaded_by === null ? null : (int) $this->uploaded_by,
             'uploader_name' => $this->uploader?->name,
+            'preview_url' => $this->source === 'generated'
+                ? '/exit-documents/' . $this->uuid . '/preview'
+                : null,
             'download_url' => '/exit-documents/' . $this->uuid . '/download',
             'created_at' => $this->created_at,
         ];
