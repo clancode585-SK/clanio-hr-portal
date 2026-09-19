@@ -38,7 +38,8 @@ COPY . .
 RUN composer install \
     --no-dev \
     --optimize-autoloader \
-    --no-interaction
+    --no-interaction \
+    --no-scripts
 
 # Laravel permissions
 RUN chown -R www-data:www-data /var/www/html/storage \
