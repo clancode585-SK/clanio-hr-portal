@@ -1,5 +1,4 @@
 <!DOCTYPE html>
-     <html class="no-js"> <!--<![endif]-->
 <html>
     <head>
         <meta charset="utf-8">

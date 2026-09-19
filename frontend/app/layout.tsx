@@ -1,23 +1,17 @@
-import type { Metadata, Viewport } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
-import { config } from '@/lib/config'
-import { themeBootstrapScript } from '@/lib/theme'
-import './globals.css'
+import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
+import "./globals.css";
 
-const geistSans = Geist({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-})
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-})
+const inter = Inter({
+  variable: "--font-inter",
+  subsets: ["latin"],
+  display: "swap",
+});
 
 export const metadata: Metadata = {
-  title: `${config.appName} — Enterprise HR Management`,
-  description: 'The complete HR management system for modern teams.',
-}
+  title: "Clanio - Enterprise HR Management System | Sign In",
+  description: "The Complete HR Management System for Modern Teams. Streamline your HR processes, empower employees, and grow your organization with Clanio.",
+};
 
 export const viewport: Viewport = {
   themeColor: [
@@ -28,16 +22,11 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html
-      lang="en"
-      data-theme="light"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-      suppressHydrationWarning
-    >
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeBootstrapScript }} />
-      </head>
-      <body className="min-h-full">{children}</body>
+    <html lang="en" className={`${inter.variable} h-full antialiased`}>
+      <body className="min-h-full flex flex-col font-sans bg-[#FAF7FF] text-slate-900 selection:bg-blue-500 selection:text-white">
+        {children}
+      </body>
     </html>
   )
 }
+
