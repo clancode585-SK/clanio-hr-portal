@@ -136,20 +136,15 @@ export const getEmployeeColumns = (opts: ColumnOptions): ColumnDef<Employee>[] =
   {
     accessorKey: "department",
     header: "Department",
-    cell: (info) => {
-      const dept = info.getValue() as string;
-      return (
-        <span
-          className={`font-semibold text-xs px-2.5 py-1 rounded-lg border ${
-            opts.isDarkMode
-              ? "bg-blue-500/15 text-blue-300 border-blue-500/30"
-              : "bg-blue-50 text-blue-700 border-blue-200"
-          }`}
-        >
-          {dept}
-        </span>
-      );
-    },
+    cell: (info) => (
+      <span
+        className={`text-xs font-medium ${
+          opts.isDarkMode ? "text-slate-300" : "text-slate-700"
+        }`}
+      >
+        {info.getValue() as string}
+      </span>
+    ),
   },
   {
     accessorKey: "role",
@@ -167,20 +162,15 @@ export const getEmployeeColumns = (opts: ColumnOptions): ColumnDef<Employee>[] =
   {
     accessorKey: "branch",
     header: "Branch",
-    cell: (info) => {
-      const branchName = (info.getValue() as string) || "Corporate HQ";
-      return (
-        <span
-          className={`font-mono text-xs font-semibold px-2.5 py-1 rounded-lg border ${
-            opts.isDarkMode
-              ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
-              : "bg-amber-50 text-amber-700 border-amber-200"
-          }`}
-        >
-          {branchName}
-        </span>
-      );
-    },
+    cell: (info) => (
+      <span
+        className={`text-xs font-medium ${
+          opts.isDarkMode ? "text-slate-300" : "text-slate-700"
+        }`}
+      >
+        {(info.getValue() as string) || "Corporate HQ"}
+      </span>
+    ),
   },
   {
     id: "actions",
@@ -237,10 +227,8 @@ export const getDepartmentColumns = (opts: ColumnOptions): ColumnDef<Department>
     header: "Total Members",
     cell: (info) => (
       <span
-        className={`font-semibold text-xs px-2.5 py-1 rounded-full border ${
-          opts.isDarkMode
-            ? "bg-purple-500/15 text-purple-300 border-purple-500/30"
-            : "bg-purple-50 text-purple-700 border-purple-200"
+        className={`text-xs font-medium ${
+          opts.isDarkMode ? "text-slate-300" : "text-slate-700"
         }`}
       >
         {info.getValue() as number} members
@@ -302,10 +290,8 @@ export const getDesignationColumns = (opts: ColumnOptions): ColumnDef<Designatio
     header: "Total Employees",
     cell: (info) => (
       <span
-        className={`font-semibold text-xs px-2.5 py-1 rounded-full border ${
-          opts.isDarkMode
-            ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
-            : "bg-indigo-50 text-indigo-700 border-indigo-200"
+        className={`text-xs font-medium ${
+          opts.isDarkMode ? "text-slate-300" : "text-slate-700"
         }`}
       >
         {info.getValue() as number} employees
@@ -361,10 +347,8 @@ export const getCompanyColumns = (opts: ColumnOptions): ColumnDef<CompanyItem>[]
     header: "Slug",
     cell: (info) => (
       <span
-        className={`font-mono text-xs font-bold px-2.5 py-1 rounded-lg border ${
-          opts.isDarkMode
-            ? "bg-purple-500/15 text-purple-300 border-purple-500/30"
-            : "bg-purple-50 text-purple-700 border-purple-200"
+        className={`font-mono text-xs font-medium ${
+          opts.isDarkMode ? "text-slate-300" : "text-slate-700"
         }`}
       >
         {info.getValue() as string}
@@ -465,10 +449,8 @@ export const getBranchColumns = (opts: ColumnOptions): ColumnDef<BranchItem>[] =
     header: "Company",
     cell: (info) => (
       <span
-        className={`font-semibold text-xs px-2.5 py-1 rounded-lg border ${
-          opts.isDarkMode
-            ? "bg-purple-500/15 text-purple-300 border-purple-500/30"
-            : "bg-purple-50 text-purple-700 border-purple-200"
+        className={`text-xs font-medium ${
+          opts.isDarkMode ? "text-slate-300" : "text-slate-700"
         }`}
       >
         {info.getValue() as string}
@@ -480,10 +462,8 @@ export const getBranchColumns = (opts: ColumnOptions): ColumnDef<BranchItem>[] =
     header: "Total Members",
     cell: (info) => (
       <span
-        className={`font-semibold text-xs px-2.5 py-1 rounded-full border ${
-          opts.isDarkMode
-            ? "bg-purple-500/15 text-purple-300 border-purple-500/30"
-            : "bg-purple-50 text-purple-700 border-purple-200"
+        className={`text-xs font-medium ${
+          opts.isDarkMode ? "text-slate-300" : "text-slate-700"
         }`}
       >
         {info.getValue() as number} members
@@ -532,10 +512,8 @@ export const getTeamColumns = (opts: ColumnOptions): ColumnDef<TeamItem>[] => [
     header: "Department",
     cell: (info) => (
       <span
-        className={`font-semibold text-xs px-2.5 py-1 rounded-lg border ${
-          opts.isDarkMode
-            ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/30"
-            : "bg-cyan-50 text-cyan-700 border-cyan-200"
+        className={`text-xs font-medium ${
+          opts.isDarkMode ? "text-slate-300" : "text-slate-700"
         }`}
       >
         {info.getValue() as string}
@@ -547,10 +525,8 @@ export const getTeamColumns = (opts: ColumnOptions): ColumnDef<TeamItem>[] => [
     header: "Members",
     cell: (info) => (
       <span
-        className={`font-semibold text-xs px-2.5 py-1 rounded-full border ${
-          opts.isDarkMode
-            ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
-            : "bg-indigo-50 text-indigo-700 border-indigo-200"
+        className={`text-xs font-medium ${
+          opts.isDarkMode ? "text-slate-300" : "text-slate-700"
         }`}
       >
         {info.getValue() as number} members
@@ -599,10 +575,8 @@ export const getRoleColumns = (opts: ColumnOptions): ColumnDef<RoleItem>[] => [
     header: "Data Scope",
     cell: (info) => (
       <span
-        className={`font-mono text-xs font-bold px-2 py-0.5 rounded uppercase border ${
-          opts.isDarkMode
-            ? "bg-purple-500/15 text-purple-300 border-purple-500/30"
-            : "bg-purple-50 text-purple-700 border-purple-200"
+        className={`font-mono text-xs font-medium uppercase ${
+          opts.isDarkMode ? "text-slate-300" : "text-slate-700"
         }`}
       >
         {info.getValue() as string}

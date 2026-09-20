@@ -80,6 +80,10 @@ export default function HomeContent() {
 
   // Sync active tab with URL query parameter on mount and browser back/forward navigation
   useEffect(() => {
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setIsSidebarCollapsed(true);
+    }
+
     const syncTabFromUrl = () => {
       if (typeof window !== "undefined") {
         const params = new URLSearchParams(window.location.search);
@@ -885,7 +889,13 @@ export default function HomeContent() {
         isCollapsed={isSidebarCollapsed}
         isDarkMode={isDarkMode}
         activeItem={activeNav}
-        onSelectItem={(id) => handleNavSelect(id)}
+        onSelectItem={(id) => {
+          handleNavSelect(id);
+          if (typeof window !== "undefined" && window.innerWidth < 768) {
+            setIsSidebarCollapsed(true);
+          }
+        }}
+        onToggle={() => setIsSidebarCollapsed((prev) => !prev)}
       />
 
       <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
@@ -897,16 +907,13 @@ export default function HomeContent() {
           onSelectItem={(id) => handleNavSelect(id)}
         />
 
-        <main className={`flex-1 p-4 sm:p-6 md:p-8 space-y-6 overflow-y-auto ${isDarkMode ? "" : "bg-[#EEF2F6] shadow-inner"}`}>
+        <main className={`flex-1 p-3 sm:p-6 md:p-8 space-y-4 sm:space-y-6 overflow-y-auto ${isDarkMode ? "" : "bg-[#EEF2F6] shadow-inner"}`}>
           {/* HEADER BAR */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight capitalize">
                 {activeNav.replace("-", " ")} Workspace
               </h1>
-              <p className={`text-xs sm:text-sm ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
-                Manage system data, workforce operations, and organization configurations.
-              </p>
             </div>
           </div>
 

@@ -22,6 +22,7 @@ import {
   User,
   X,
 } from "lucide-react";
+import { SidebarSimple, List } from "@phosphor-icons/react";
 import { getFlatSidebarOptions } from "./Sidebar";
 import { fetchApi } from "@/lib/api";
 import { removeCookie } from "@/lib/cookies";
@@ -110,41 +111,24 @@ export const Topbar: React.FC<TopbarProps> = ({
 
   const fetchUserProfile = async () => {
     try {
-      const res = await fetchApi<any>("/profile");
-      const profile = res?.data || res;
-      if (profile) {
-        if (profile.name) setUserName(profile.name);
-        if (profile.email) setUserEmail(profile.email);
-        if (profile.avatar_url) setUserAvatarUrl(profile.avatar_url);
-        if (profile.is_super_admin) {
-          setUserRole("Super Administrator");
-        } else if (profile.roles && profile.roles.length > 0) {
-          setUserRole(profile.roles[0].name || "Employee");
-        } else if (profile.employee?.designation?.name) {
-          setUserRole(profile.employee.designation.name);
-        }
+      const data = await fetchApi<any>("/auth/me");
+      if (data && data.name) {
+        setUserName(data.name);
+        setUserEmail(data.email || "");
+        setUserRole(data.roles?.[0]?.name || data.role || "Administrator");
+        if (data.avatar_url) setUserAvatarUrl(data.avatar_url);
       }
     } catch {
-      // fallback to stored values
+      // ignore
     }
   };
 
   const fetchLiveNotifications = async () => {
     try {
-      const [summaryRes, listRes] = await Promise.all([
-        fetchApi<any>("/notifications/unread-count").catch(() => null),
-        fetchApi<any>("/notifications?unread=1").catch(() => null),
-      ]);
-
-      if (summaryRes) {
-        const sum = summaryRes?.data || summaryRes;
-        setLiveUnreadCount(sum?.unread_count ?? 0);
-      }
-      if (listRes) {
-        const lData = listRes?.data?.data || listRes?.data || listRes;
-        if (Array.isArray(lData)) {
-          setLiveNotifications(lData);
-        }
+      const data = await fetchApi<any>("/notifications");
+      if (data) {
+        setLiveUnreadCount(data.unread_count || 0);
+        setLiveNotifications(data.notifications || []);
       }
     } catch {
       // ignore
@@ -308,32 +292,58 @@ export const Topbar: React.FC<TopbarProps> = ({
 
   return (
     <header
-      className={`sticky top-0 z-30 shrink-0 w-full h-[76px] backdrop-blur-md px-6 sm:px-8 flex items-center justify-between font-sans select-none transition-colors duration-300 ${isDarkMode
+      className={`sticky top-0 z-30 shrink-0 w-full h-[64px] sm:h-[76px] backdrop-blur-md pl-1 sm:pl-2 md:pl-3 pr-3 sm:pr-6 md:pr-8 flex items-center justify-between font-sans select-none transition-colors duration-300 ${isDarkMode
           ? "bg-[#081425] text-white border-b border-white/[0.06] shadow-[0_10px_30px_-5px_rgba(0,0,0,0.3)]"
-          : "bg-[#DBEAFE] text-slate-900 border-none"
+          : "bg-[#EEF5FF]/95 text-slate-900 border-b border-blue-200/70 shadow-[0_4px_20px_-2px_rgba(37,99,235,0.04)]"
         }`}
     >
       {/* =================================================== */}
       {/* LEFT SECTION                                        */}
       {/* =================================================== */}
-      <div className="flex items-center gap-4 min-w-0">
+      <div className="flex items-center gap-2 sm:gap-4 min-w-0">
         {/* Sidebar Collapse Toggle Button */}
         <button
           onClick={onToggleSidebar}
-          className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 shadow-2xs active:scale-95 shrink-0 ${isDarkMode
-              ? "bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-300 hover:text-white"
-              : "bg-white/90 hover:bg-white border border-blue-200/80 text-slate-700 hover:text-blue-600 shadow-2xs"
-            }`}
+          className="p-1.5 flex items-center justify-center transition-all duration-200 group active:scale-90 shrink-0 bg-transparent border-none outline-none"
           title={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
         >
-          <PanelLeft className="w-4 h-4" />
+          {/* Mobile Hamburger Icon */}
+          <List
+            size={28}
+            weight="duotone"
+            className={`block md:hidden transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              isDarkMode ? "text-blue-400 group-hover:text-blue-300" : "text-blue-600 group-hover:text-blue-700"
+            } ${isSidebarOpen ? "rotate-90 text-indigo-400" : "rotate-0"}`}
+          />
+          {/* Desktop Sidebar Collapse Icon */}
+          <SidebarSimple
+            size={28}
+            weight="duotone"
+            className={`hidden md:block transition-transform duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] ${
+              isDarkMode ? "text-blue-400 group-hover:text-blue-300" : "text-blue-600 group-hover:text-blue-700"
+            } ${!isSidebarOpen ? "rotate-180" : ""}`}
+          />
         </button>
+
+        {/* Mobile Brand Title */}
+        <div className="flex xl:hidden items-center gap-2 min-w-0">
+          <Image
+            src="/images/logo/Clanio.png"
+            alt="Clanio Logo"
+            width={28}
+            height={28}
+            className="w-7 h-7 object-contain rounded-lg shrink-0"
+          />
+          <span className={`font-black text-sm sm:text-base tracking-tight truncate ${isDarkMode ? "text-white" : "text-slate-900"}`}>
+            Clanio <span className="text-blue-600">HR</span>
+          </span>
+        </div>
       </div>
 
       {/* =================================================== */}
-      {/* CENTER SECTION: LARGE GLOBAL SEARCH BAR             */}
+      {/* CENTER SECTION: GLOBAL SEARCH BAR                   */}
       {/* =================================================== */}
-      <div className="hidden xl:flex items-center justify-center flex-1 max-w-[520px] mx-6">
+      <div className="hidden xl:flex items-center justify-center flex-1 max-w-[360px] mx-6">
         <div className="w-full relative group" ref={searchContainerRef}>
           <div
             className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors ${isDarkMode ? "text-slate-400 group-focus-within:text-cyan-300" : "text-blue-500/70 group-focus-within:text-blue-600"
@@ -556,7 +566,7 @@ export const Topbar: React.FC<TopbarProps> = ({
           {/* Notifications Dropdown */}
           {activeDropdown === "notifications" && (
             <div
-              className={`absolute right-0 mt-2 w-80 rounded-2xl p-3.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150 border ${isDarkMode
+              className={`absolute right-0 mt-2 w-72 sm:w-80 max-w-[calc(100vw-24px)] rounded-2xl p-3 sm:p-3.5 z-50 animate-in fade-in slide-in-from-top-2 duration-150 border ${isDarkMode
                   ? "bg-[#0B1A30] border-white/[0.1] text-white shadow-2xl shadow-black/60"
                   : "bg-white border-slate-200/90 text-slate-900 shadow-xl shadow-slate-900/10"
                 }`}
@@ -646,116 +656,6 @@ export const Topbar: React.FC<TopbarProps> = ({
           )}
         </div>
 
-        {/* ADMIN / EMPLOYEE MODE TOGGLE SWITCH */}
-        <div
-          className={`p-1 rounded-full flex items-center gap-1 border shadow-inner ${isDarkMode
-              ? "bg-white/[0.06] border-white/[0.08]"
-              : "bg-white/90 border border-blue-200/80 shadow-2xs"
-            }`}
-        >
-          <button
-            onClick={() => handleToggleMode("admin")}
-            className={`px-3 py-1 rounded-full text-xs font-extrabold flex items-center gap-1.5 transition-all duration-200 cursor-pointer ${
-              currentViewMode === "admin"
-                ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm shadow-blue-500/30"
-                : isDarkMode
-                ? "text-slate-400 hover:text-slate-200"
-                : "text-slate-600 hover:text-blue-700"
-            }`}
-            title="Switch to Admin Mode"
-          >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Admin</span>
-          </button>
-          <button
-            onClick={() => handleToggleMode("employee")}
-            className={`px-3 py-1 rounded-full text-xs font-extrabold flex items-center gap-1.5 transition-all duration-200 cursor-pointer ${
-              currentViewMode === "employee"
-                ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm shadow-emerald-500/30"
-                : isDarkMode
-                ? "text-slate-400 hover:text-slate-200"
-                : "text-slate-600 hover:text-emerald-700"
-            }`}
-            title="Switch to Employee Mode"
-          >
-            <User className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Employee</span>
-          </button>
-        </div>
-
-        {/* 5. THEME TOGGLE (ANIMATED PILL) */}
-        <div
-          className={`p-1 rounded-full flex items-center gap-0.5 border shadow-inner ${isDarkMode
-              ? "bg-white/[0.06] border-white/[0.08]"
-              : "bg-white/90 border border-blue-200/80 shadow-2xs"
-            }`}
-        >
-          <button
-            onClick={() => handleToggleTheme(false)}
-            className={`p-1.5 rounded-full transition-all duration-200 ${!isDarkMode
-                ? "bg-blue-600 text-white shadow-xs"
-                : "text-slate-400 hover:text-slate-200"
-              }`}
-            title="Light Mode"
-          >
-            <Sun className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => handleToggleTheme(true)}
-            className={`p-1.5 rounded-full transition-all duration-200 ${isDarkMode
-                ? "bg-[#081425] text-purple-400 shadow-sm"
-                : "text-slate-400 hover:text-slate-600"
-              }`}
-            title="Dark Mode"
-          >
-            <Moon className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {/* 6. LANGUAGE SELECTOR */}
-        <div className="relative hidden md:block">
-          <button
-            onClick={() => toggleDropdown("lang")}
-            className={`h-9 px-3 rounded-full text-xs font-medium flex items-center gap-1.5 transition-all ${isDarkMode
-                ? "bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-200"
-                : "bg-white/90 hover:bg-white border border-blue-200/80 text-slate-700 shadow-2xs"
-              }`}
-          >
-            <Globe className="w-3.5 h-3.5 text-blue-500/70" />
-            <span>{selectedLang}</span>
-            <ChevronDown className="w-3 h-3 text-slate-400" />
-          </button>
-
-          {activeDropdown === "lang" && (
-            <div
-              className={`absolute right-0 mt-2 w-36 rounded-2xl p-1 z-50 border ${isDarkMode
-                  ? "bg-[#0B1A30] border-white/[0.1] text-white shadow-2xl shadow-black/60"
-                  : "bg-white border-slate-200/90 text-slate-900 shadow-xl"
-                }`}
-            >
-              {languages.map((lang) => (
-                <button
-                  key={lang.code}
-                  onClick={() => {
-                    setSelectedLang(lang.name);
-                    setActiveDropdown(null);
-                  }}
-                  className={`w-full text-left px-3 py-1.5 rounded-xl text-xs font-semibold ${selectedLang === lang.name
-                      ? isDarkMode
-                        ? "bg-purple-500/20 text-purple-300 font-bold"
-                        : "bg-purple-50 text-purple-600 font-bold"
-                      : isDarkMode
-                        ? "text-slate-300 hover:bg-white/[0.06]"
-                        : "text-slate-700 hover:bg-slate-50"
-                    }`}
-                >
-                  {lang.name}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-
 
 
         {/* 9. USER PROFILE */}
@@ -789,7 +689,7 @@ export const Topbar: React.FC<TopbarProps> = ({
           {/* Profile Dropdown */}
           {activeDropdown === "profile" && (
             <div
-              className={`absolute right-0 mt-2 w-60 rounded-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150 border ${isDarkMode
+              className={`absolute right-0 mt-2 w-60 sm:w-64 max-w-[calc(100vw-24px)] rounded-2xl p-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150 border ${isDarkMode
                   ? "bg-[#0B1A30] border-white/[0.1] text-white shadow-2xl shadow-black/60"
                   : "bg-white border-slate-200/90 text-slate-900 shadow-xl shadow-slate-900/10"
                 }`}
@@ -883,6 +783,78 @@ export const Topbar: React.FC<TopbarProps> = ({
                   />
                   <span>Company Policies & Help</span>
                 </button>
+
+                {/* Theme Toggle */}
+                <div
+                  className={`py-2 px-3 border-t mt-1 flex items-center justify-between ${
+                    isDarkMode ? "border-white/[0.08]" : "border-slate-100"
+                  }`}
+                >
+                  <span className={`text-xs font-semibold ${isDarkMode ? "text-slate-300" : "text-slate-700"}`}>Theme</span>
+                  <div
+                    className={`p-1 rounded-full flex items-center gap-0.5 border shadow-inner ${
+                      isDarkMode
+                        ? "bg-white/[0.06] border-white/[0.08]"
+                        : "bg-slate-100 border-slate-200/80"
+                    }`}
+                  >
+                    <button
+                      onClick={() => handleToggleTheme(false)}
+                      className={`p-1.5 rounded-full transition-all duration-200 ${
+                        !isDarkMode
+                          ? "bg-blue-600 text-white shadow-xs"
+                          : "text-slate-400 hover:text-slate-200"
+                      }`}
+                      title="Light Mode"
+                    >
+                      <Sun className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      onClick={() => handleToggleTheme(true)}
+                      className={`p-1.5 rounded-full transition-all duration-200 ${
+                        isDarkMode
+                          ? "bg-[#081425] text-purple-400 shadow-sm"
+                          : "text-slate-400 hover:text-slate-600"
+                      }`}
+                      title="Dark Mode"
+                    >
+                      <Moon className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+
+                {/* Language Switcher */}
+                <div
+                  className={`py-2 px-3 border-t flex flex-col gap-1.5 ${
+                    isDarkMode ? "border-white/[0.08]" : "border-slate-100"
+                  }`}
+                >
+                  <div className="flex items-center justify-between text-xs font-semibold">
+                    <span className={`flex items-center gap-1.5 ${isDarkMode ? "text-[#CBD5E1]" : "text-slate-700"}`}>
+                      <Globe className="w-3.5 h-3.5 text-blue-500/70" /> Language
+                    </span>
+                    <span className="font-bold text-xs text-indigo-500">{selectedLang}</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-1 pt-0.5">
+                    {languages.map((lang) => (
+                      <button
+                        key={lang.code}
+                        onClick={() => setSelectedLang(lang.name)}
+                        className={`px-2 py-1 rounded-lg text-[11px] font-semibold text-center transition-colors ${
+                          selectedLang === lang.name
+                            ? isDarkMode
+                              ? "bg-purple-500/20 text-purple-300 border border-purple-500/30"
+                              : "bg-indigo-50 text-indigo-700 border border-indigo-200 font-bold"
+                            : isDarkMode
+                            ? "text-slate-300 hover:bg-white/[0.06]"
+                            : "text-slate-700 hover:bg-slate-100"
+                        }`}
+                      >
+                        {lang.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
 
                 <div
                   className={`pt-1 border-t mt-1 ${isDarkMode ? "border-white/[0.08]" : "border-slate-100"

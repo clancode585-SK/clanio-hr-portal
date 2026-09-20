@@ -9,7 +9,71 @@ import {
   ChevronRight,
   ChevronDown,
   ShieldCheck,
+  X,
 } from "lucide-react";
+import {
+  SquaresFour,
+  UsersThree,
+  CalendarCheck,
+  CalendarPlus,
+  TrendUp,
+  CheckSquareOffset,
+  TreeStructure,
+  UserMinus,
+  Receipt,
+  Laptop,
+  FolderOpen,
+  ChatTeardropText,
+  Headset,
+  Buildings,
+  GearSix,
+  Buildings as WorkspaceIcon,
+} from "@phosphor-icons/react";
+
+const phosphorIconMap: Record<
+  string,
+  { icon: React.ComponentType<any>; color: string; darkColor: string }
+> = {
+  dashboard: { icon: SquaresFour, color: "text-blue-600", darkColor: "text-blue-400" },
+  workforce: { icon: UsersThree, color: "text-indigo-600", darkColor: "text-indigo-400" },
+  attendance: { icon: CalendarCheck, color: "text-emerald-600", darkColor: "text-emerald-400" },
+  leave: { icon: CalendarPlus, color: "text-amber-600", darkColor: "text-amber-400" },
+  performance: { icon: TrendUp, color: "text-purple-600", darkColor: "text-purple-400" },
+  tasks: { icon: CheckSquareOffset, color: "text-cyan-600", darkColor: "text-cyan-400" },
+  "organization-chart": { icon: TreeStructure, color: "text-teal-600", darkColor: "text-teal-400" },
+  "employee-exits": { icon: UserMinus, color: "text-rose-600", darkColor: "text-rose-400" },
+  "expense-claims": { icon: Receipt, color: "text-emerald-600", darkColor: "text-emerald-300" },
+  assets: { icon: Laptop, color: "text-sky-600", darkColor: "text-sky-400" },
+  documents: { icon: FolderOpen, color: "text-orange-600", darkColor: "text-orange-400" },
+  communication: { icon: ChatTeardropText, color: "text-pink-600", darkColor: "text-pink-400" },
+  "help-desk": { icon: Headset, color: "text-violet-600", darkColor: "text-violet-400" },
+  companies: { icon: Buildings, color: "text-blue-600", darkColor: "text-cyan-300" },
+  administration: { icon: GearSix, color: "text-slate-600", darkColor: "text-slate-300" },
+};
+
+const SidebarIcon: React.FC<{
+  itemId: string;
+  isActive?: boolean;
+  isDarkMode?: boolean;
+}> = ({ itemId, isActive, isDarkMode }) => {
+  const config = phosphorIconMap[itemId];
+  if (!config) return null;
+  const IconComponent = config.icon;
+
+  const colorClass = isActive
+    ? "text-white"
+    : isDarkMode
+    ? config.darkColor
+    : config.color;
+
+  return (
+    <IconComponent
+      size={22}
+      weight="duotone"
+      className={`w-[22px] h-[22px] shrink-0 transition-transform duration-200 group-hover:scale-110 ${colorClass}`}
+    />
+  );
+};
 
 export interface SubMenuItem {
   id: string;
@@ -198,6 +262,7 @@ export const getFlatSidebarOptions = (): FlatSidebarOption[] => {
 export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed = false,
   isDarkMode = false,
+  onToggle,
   activeItem: externalActiveItem,
   onSelectItem,
   viewMode = "admin",
@@ -427,11 +492,25 @@ export const Sidebar: React.FC<SidebarProps> = ({
     return items;
   }, [dynamicMenuItems, viewMode, isSuperAdmin, userPermissions]);
 
+  useEffect(() => {
+    if (!activeItem) return;
+    const parent = sidebarMenuItems.find((item) =>
+      item.subItems?.some((sub) => sub.id === activeItem)
+    );
+    if (parent) {
+      setOpenSubmenus({ [parent.id]: true });
+    } else {
+      const isParentWithSubItems = sidebarMenuItems.some(
+        (item) => item.id === activeItem && item.subItems && item.subItems.length > 0
+      );
+      if (!isParentWithSubItems) {
+        setOpenSubmenus({});
+      }
+    }
+  }, [activeItem]);
+
   const toggleSubmenu = (id: string) => {
-    setOpenSubmenus((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
+    setOpenSubmenus((prev) => (prev[id] ? {} : { [id]: true }));
   };
 
   const getBadgeStyle = (variant: "emerald" | "purple" | "cyan" | "amber") => {
@@ -492,104 +571,70 @@ export const Sidebar: React.FC<SidebarProps> = ({
     .filter(Boolean) as MenuItem[];
 
   return (
-    <aside
-      className={`${
-        isCollapsed ? "w-[84px] p-3.5" : "w-[280px] py-2.5 px-2.5"
-      } sticky top-0 h-screen flex flex-col justify-between relative overflow-hidden select-none z-30 shrink-0 font-sans transition-all duration-300 ease-in-out ${
-        isDarkMode
-          ? "bg-[#081425] text-[#94A3B8] border-r border-white/[0.06] shadow-[10px_0_40px_rgba(0,0,0,0.4)]"
-          : "bg-[#DBEAFE] text-slate-800 border-none"
-      }`}
-    >
-      {/* Decorative Subtle Background Glow (Dark mode only) */}
-      {isDarkMode && (
-        <>
-          <div className="absolute -top-24 -left-24 w-60 h-60 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -right-24 w-60 h-60 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
-        </>
+    <>
+      {/* Mobile Backdrop Overlay */}
+      {onToggle && (
+        <div
+          onClick={onToggle}
+          className={`fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden transition-opacity duration-300 ease-in-out cursor-pointer ${
+            !isCollapsed ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          }`}
+        />
       )}
 
-      {/* TOP & MIDDLE CONTAINER WITH SCROLL */}
-      <div className="flex-1 flex flex-col space-y-2.5 min-h-0 overflow-y-auto scrollbar-none pr-0.5">
-        {/* =================================================== */}
-        {/* TOP SECTION: BRAND LOGO                            */}
-        {/* =================================================== */}
-        {isCollapsed ? (
-          <div className="flex items-center justify-center pt-1 pb-1">
-            <Image
-              src="/images/logo/Clanio.png"
-              alt="Clanio Logo"
-              width={40}
-              height={40}
-              priority
-              className="h-9 w-9 object-contain rounded-xl shadow-md"
-            />
-          </div>
-        ) : (
-          <div className="flex items-center gap-3 pt-1 pb-1">
-            <div className="shrink-0">
-              <Image
-                src="/images/logo/Clanio.png"
-                alt="Clanio Logo"
-                width={140}
-                height={40}
-                priority
-                className="h-10 w-auto object-contain rounded-xl"
-              />
-            </div>
-
-            <div className="min-w-0">
-              <div
-                className={`text-lg font-bold tracking-tight flex items-center gap-1.5 leading-none ${
-                  isDarkMode ? "text-white" : "text-slate-900"
-                }`}
-              >
-                <span>Clanio</span>
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                  HR
-                </span>
-              </div>
-              <div className="text-[10px] font-medium tracking-tight flex items-center gap-1 mt-1 leading-none">
-                <span className="text-[#2563EB]">Work.</span>
-                <span className="text-[#7C3AED]">Manage.</span>
-                <span className="text-[#22D3EE]">Grow.</span>
-              </div>
-            </div>
-          </div>
+      <aside
+        className={`fixed md:sticky top-0 h-screen flex flex-col justify-between overflow-hidden select-none z-50 md:z-30 shrink-0 font-sans transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform-gpu ${
+          isCollapsed
+            ? "-translate-x-full md:translate-x-0 md:w-[84px] md:p-3.5"
+            : "translate-x-0 w-[280px] py-2.5 px-2.5"
+        } ${
+          isDarkMode
+            ? "bg-[#081425] text-[#94A3B8] border-r border-white/[0.06] shadow-[10px_0_40px_rgba(0,0,0,0.4)]"
+            : "bg-[#EEF5FF] text-slate-800 border-r border-blue-200/70 shadow-[4px_0_24px_rgba(37,99,235,0.04)] backdrop-blur-xl"
+        }`}
+      >
+        {/* Decorative Subtle Background Glow (Dark mode only) */}
+        {isDarkMode && (
+          <>
+            <div className="absolute -top-24 -left-24 w-60 h-60 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -right-24 w-60 h-60 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+          </>
         )}
 
         {/* =================================================== */}
-        {/* WORKSPACE CARD                                      */}
+        {/* TOP SECTION: WORKSPACE CARD (FULL WIDTH)           */}
         {/* =================================================== */}
-        {isCollapsed ? (
-          <div
-            title={`${companyName} (Enterprise Plan)`}
-            className="w-11 h-11 mx-auto rounded-2xl bg-gradient-to-tr from-[#2563EB] to-[#7C3AED] p-0.5 flex items-center justify-center relative shrink-0 shadow-md shadow-purple-900/30 group cursor-pointer"
-          >
+        <div
+          className={`shrink-0 transition-all border-b h-[64px] sm:h-[76px] flex items-center ${
+            isCollapsed ? "-mx-3.5 -mt-3.5 px-3" : "-mx-2.5 -mt-2.5 px-3.5"
+          } ${
+            isDarkMode
+              ? "bg-[#06101E] border-white/[0.08]"
+              : "bg-[#E2EDFF]/90 border-blue-200/70 backdrop-blur-md"
+          }`}
+        >
+          {isCollapsed ? (
             <div
-              className={`w-full h-full rounded-[14px] flex items-center justify-center ${
-                isDarkMode ? "bg-[#081425]" : "bg-white"
-              }`}
+              title={`${companyName} (Enterprise Plan)`}
+              className="flex items-center justify-center relative shrink-0 cursor-pointer w-full"
             >
-              <Image
-                src="/images/icons/teamwork.png"
-                alt="Workspace"
-                width={22}
-                height={22}
-                className="w-5.5 h-5.5 object-contain"
-              />
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#2563EB] to-[#7C3AED] p-0.5 flex items-center justify-center relative shrink-0 shadow-md shadow-purple-900/30 group">
+                <div
+                  className={`w-full h-full rounded-[14px] flex items-center justify-center ${
+                    isDarkMode ? "bg-[#081425]" : "bg-white"
+                  }`}
+                >
+                  <WorkspaceIcon
+                    size={20}
+                    weight="duotone"
+                    className="w-5 h-5 text-blue-500 shrink-0"
+                  />
+                </div>
+                <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-[#081425] shadow-[0_0_8px_#10B981]" />
+              </div>
             </div>
-            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-[#081425] shadow-[0_0_8px_#10B981]" />
-          </div>
-        ) : (
-          <div
-            className={`rounded-2xl p-3.5 space-y-2.5 transition-all duration-200 group border ${
-              isDarkMode
-                ? "bg-white/[0.03] hover:bg-white/[0.05] border-white/[0.08]"
-                : "bg-white/90 hover:bg-white border border-blue-200/80 shadow-2xs backdrop-blur-md"
-            }`}
-          >
-            <div className="flex items-center justify-between">
+          ) : (
+            <div className="flex items-center justify-between group w-full">
               <div className="flex items-center gap-2.5 min-w-0">
                 <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-500 to-blue-700 p-0.5 flex items-center justify-center shrink-0 shadow-2xs">
                   <div
@@ -597,12 +642,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                       isDarkMode ? "bg-[#081425]" : "bg-blue-50"
                     }`}
                   >
-                    <Image
-                      src="/images/icons/teamwork.png"
-                      alt="Workspace"
-                      width={20}
-                      height={20}
-                      className="w-5 h-5 object-contain"
+                    <WorkspaceIcon
+                      size={20}
+                      weight="duotone"
+                      className="w-5 h-5 text-blue-500 shrink-0"
                     />
                   </div>
                 </div>
@@ -632,8 +675,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_#10B981]" />
               </div>
             </div>
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* MIDDLE SCROLLABLE CONTAINER FOR SEARCH & NAV */}
+        <div className="flex-1 flex flex-col space-y-2.5 min-h-0 overflow-y-auto scrollbar-none pt-2.5">
 
         {/* =================================================== */}
         {/* SEARCH BOX / SEARCH ICON                            */}
@@ -719,13 +765,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         : "text-slate-700 hover:bg-white/80 hover:text-blue-700 shadow-2xs"
                     }`}
                   >
-                    <Image
-                      src={item.iconPath}
-                      alt={item.label}
-                      width={20}
-                      height={20}
-                      className="w-5 h-5 object-contain"
-                    />
+                    <SidebarIcon itemId={item.id} isActive={isActive} isDarkMode={isDarkMode} />
 
                     {/* Badge Dot Indicator */}
                     {item.badge && (
@@ -746,16 +786,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {hasSubItems ? (
                   <button
                     onClick={() => toggleSubmenu(item.id)}
-                    className={`w-full relative flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 group ${
+                    className={`w-[calc(100%+1.25rem)] -mx-2.5 relative flex items-center justify-between px-3.5 sm:px-4 py-2.5 text-[15px] sm:text-[16px] font-bold transition-all duration-200 group ${
                       isParentActive && !hasSubItems
-                        ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-sm shadow-blue-500/20 font-bold"
+                        ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-sm shadow-blue-500/20"
                         : isChildActive
                         ? isDarkMode
-                          ? "bg-white/[0.06] text-white font-semibold"
-                          : "bg-white text-blue-700 font-bold border border-blue-200/80 shadow-2xs"
+                          ? "bg-white/[0.06] text-white font-bold"
+                          : "bg-white text-blue-700 font-bold border-y border-blue-200/80 shadow-2xs"
                         : isDarkMode
-                        ? "text-[#94A3B8] hover:bg-[#7C3AED]/12 hover:text-white"
-                        : "text-slate-700 hover:bg-white/80 hover:text-blue-700 font-semibold"
+                        ? "text-[#94A3B8] hover:bg-[#7C3AED]/12 hover:text-white font-semibold"
+                        : "text-slate-800 hover:bg-white/80 hover:text-blue-700 font-bold"
                     }`}
                   >
                     {/* Active Indicator Line */}
@@ -764,28 +804,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     )}
 
                     <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={`p-1.5 rounded-xl transition-colors shrink-0 ${
-                          isParentActive && !hasSubItems
-                            ? "bg-white/20"
-                            : isChildActive
-                            ? isDarkMode
-                              ? "bg-purple-500/20"
-                              : "bg-blue-100/90 border border-blue-200"
-                            : isDarkMode
-                            ? "bg-white/[0.04] group-hover:bg-purple-500/20"
-                            : "bg-white/60 border border-blue-100 group-hover:bg-blue-50 group-hover:border-blue-200"
-                        }`}
-                      >
-                        <Image
-                          src={item.iconPath}
-                          alt={item.label}
-                          width={20}
-                          height={20}
-                          className="w-4.5 h-4.5 object-contain"
-                        />
-                      </div>
-
+                      <SidebarIcon itemId={item.id} isActive={isParentActive && !hasSubItems} isDarkMode={isDarkMode} />
                       <span className="truncate">{item.label}</span>
                     </div>
 
@@ -811,9 +830,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           }`}
                         >
                           {isOpen ? (
-                            <ChevronDown className="w-3.5 h-3.5" />
+                            <ChevronDown className="w-4 h-4" />
                           ) : (
-                            <ChevronRight className="w-3.5 h-3.5" />
+                            <ChevronRight className="w-4 h-4" />
                           )}
                         </div>
                       )}
@@ -823,12 +842,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <Link
                     href={`/?tab=${item.id}`}
                     onClick={() => handleSelectItem(item.id)}
-                    className={`w-full relative flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 group ${
+                    className={`w-[calc(100%+1.25rem)] -mx-2.5 relative flex items-center justify-between px-3.5 sm:px-4 py-2.5 text-[15px] sm:text-[16px] font-bold transition-all duration-200 group ${
                       isParentActive
                         ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-sm shadow-blue-500/20 font-bold"
                         : isDarkMode
-                        ? "text-[#94A3B8] hover:bg-[#7C3AED]/12 hover:text-white"
-                        : "text-slate-700 hover:bg-white/80 hover:text-blue-700 font-semibold"
+                        ? "text-[#94A3B8] hover:bg-[#7C3AED]/12 hover:text-white font-semibold"
+                        : "text-slate-800 hover:bg-white/80 hover:text-blue-700 font-bold"
                     }`}
                   >
                     {isParentActive && (
@@ -836,24 +855,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     )}
 
                     <div className="flex items-center gap-3 min-w-0">
-                      <div
-                        className={`p-1.5 rounded-xl transition-colors shrink-0 ${
-                          isParentActive
-                            ? "bg-white/20"
-                            : isDarkMode
-                            ? "bg-white/[0.04] group-hover:bg-purple-500/20"
-                            : "bg-white/60 border border-blue-100 group-hover:bg-blue-50 group-hover:border-blue-200"
-                        }`}
-                      >
-                        <Image
-                          src={item.iconPath}
-                          alt={item.label}
-                          width={20}
-                          height={20}
-                          className="w-4.5 h-4.5 object-contain"
-                        />
-                      </div>
-
+                      <SidebarIcon itemId={item.id} isActive={isParentActive} isDarkMode={isDarkMode} />
                       <span className="truncate">{item.label}</span>
                     </div>
 
@@ -872,7 +874,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 {/* Sub-Items List */}
                 {hasSubItems && isOpen && (
                   <div
-                    className={`pl-4 space-y-0.5 border-l-2 ml-5 py-0.5 ${
+                    className={`pl-4 space-y-1 border-l-2 ml-5 py-1 ${
                       isDarkMode ? "border-white/[0.06]" : "border-blue-200/80"
                     }`}
                   >
@@ -884,12 +886,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
                           key={sub.id}
                           href={`/?tab=${sub.id}`}
                           onClick={() => handleSelectItem(sub.id)}
-                          className={`w-full relative flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-all duration-150 group ${
+                          className={`w-full relative flex items-center gap-2.5 px-3 py-2 rounded-xl text-[14px] sm:text-[14.5px] font-semibold transition-all duration-150 group ${
                             isSubActive
                               ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold shadow-2xs"
                               : isDarkMode
                               ? "text-slate-400 hover:text-white hover:bg-white/[0.04]"
-                              : "text-slate-600 hover:text-blue-700 hover:bg-white/70 font-medium"
+                              : "text-slate-700 hover:text-blue-700 hover:bg-white/70 font-semibold"
                           }`}
                         >
                           <span
@@ -914,107 +916,80 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* =================================================== */}
-      {/* BOTTOM SECTION: USER PROFILE CARD                   */}
+      {/* BOTTOM SECTION: BRAND LOGO (FULL WIDTH)            */}
       {/* =================================================== */}
       <div
-        className={`pt-2.5 border-t space-y-2 shrink-0 ${
-          isDarkMode ? "border-white/[0.06]" : "border-blue-200/80"
+        className={`shrink-0 mt-auto border-t transition-all ${
+          isCollapsed ? "-mx-3.5 -mb-3.5 p-3" : "-mx-2.5 -mb-2.5 p-3.5"
+        } ${
+          isDarkMode
+            ? "bg-[#06101E] border-white/[0.08]"
+            : "bg-[#E2EDFF]/90 border-blue-200/70 backdrop-blur-md"
         }`}
       >
         {isCollapsed ? (
-          <div
-            title="Rahul Sharma (HR Administrator)"
-            className="w-10 h-10 mx-auto rounded-full bg-gradient-to-tr from-blue-500 via-purple-500 to-cyan-400 p-0.5 relative cursor-pointer shadow-md"
-          >
-            <div
-              className={`w-full h-full rounded-full flex items-center justify-center font-bold text-xs ${
-                isDarkMode ? "bg-[#081425] text-white" : "bg-white text-blue-700"
-              }`}
-            >
-              RS
-            </div>
-            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-[#081425]" />
+          <div className="flex items-center justify-center">
+            <Image
+              src="/images/logo/Clanio.png"
+              alt="Clanio Logo"
+              width={40}
+              height={40}
+              priority
+              className="h-9 w-9 object-contain rounded-xl shadow-md"
+            />
           </div>
         ) : (
-          <div
-            className={`rounded-2xl p-2.5 flex items-center justify-between gap-2 border ${
-              isDarkMode
-                ? "bg-white/[0.03] border-white/[0.08]"
-                : "bg-white/90 border border-blue-200/80 shadow-2xs backdrop-blur-md"
-            }`}
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="relative shrink-0">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 via-indigo-500 to-blue-600 p-0.5 shadow-2xs">
-                  <div
-                    className={`w-full h-full rounded-full flex items-center justify-center font-bold text-xs ${
-                      isDarkMode ? "bg-[#081425] text-white" : "bg-blue-50 text-blue-700"
-                    }`}
-                  >
-                    {initials}
-                  </div>
-                </div>
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="shrink-0">
+                <Image
+                  src="/images/logo/Clanio.png"
+                  alt="Clanio Logo"
+                  width={140}
+                  height={40}
+                  priority
+                  className="h-10 w-auto object-contain rounded-xl"
+                />
               </div>
 
               <div className="min-w-0">
                 <div
-                  className={`text-xs font-bold truncate ${
+                  className={`text-lg font-bold tracking-tight flex items-center gap-1.5 leading-none ${
                     isDarkMode ? "text-white" : "text-slate-900"
                   }`}
                 >
-                  {userName}
+                  <span>Clanio</span>
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                    HR
+                  </span>
                 </div>
-                <div
-                  className={`text-[10px] font-medium truncate ${
-                    isDarkMode ? "text-slate-400" : "text-blue-600/80"
-                  }`}
-                >
-                  {userRole}
+                <div className="text-[10px] font-medium tracking-tight flex items-center gap-1 mt-1 leading-none">
+                  <span className="text-[#2563EB]">Work.</span>
+                  <span className="text-[#7C3AED]">Manage.</span>
+                  <span className="text-[#22D3EE]">Grow.</span>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-1 shrink-0">
+            {/* Mobile Close Button */}
+            {onToggle && (
               <button
-                onClick={() => handleSelectItem("admin-settings")}
-                className={`p-1.5 rounded-xl transition-all ${
+                onClick={onToggle}
+                className={`p-1.5 rounded-xl md:hidden transition-colors cursor-pointer shrink-0 ${
                   isDarkMode
-                    ? "bg-white/[0.04] hover:bg-white/10 text-slate-400 hover:text-white"
-                    : "bg-blue-50/80 hover:bg-blue-100 border border-blue-200/60 text-blue-700 shadow-2xs"
+                    ? "text-slate-400 hover:text-white hover:bg-white/10"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-blue-100/60"
                 }`}
-                title="Settings"
+                title="Close Sidebar"
               >
-                <Image
-                  src="/images/icons/administration.png"
-                  alt="Settings"
-                  width={16}
-                  height={16}
-                  className="w-4 h-4 object-contain"
-                />
+                <X className="w-5 h-5" />
               </button>
-              <Link
-                href="/login"
-                className={`p-1.5 rounded-xl transition-all ${
-                  isDarkMode
-                    ? "bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300"
-                    : "bg-red-50 hover:bg-red-100/80 border border-red-200/80 text-red-600 shadow-2xs"
-                }`}
-                title="Logout"
-              >
-                <Image
-                  src="/images/icons/out.png"
-                  alt="Logout"
-                  width={16}
-                  height={16}
-                  className="w-4 h-4 object-contain"
-                />
-              </Link>
-            </div>
+            )}
           </div>
         )}
       </div>
     </aside>
+    </>
   );
 };
 

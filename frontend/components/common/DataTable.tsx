@@ -80,7 +80,7 @@ export function DataTable<TData, TValue>({
       {/* Header Bar */}
       {(title || description || actionButton || searchPlaceholder) && (
         <div
-          className={`p-5 border-b flex flex-col md:flex-row md:items-center justify-between gap-4 ${
+          className={`p-3 border-b flex flex-col md:flex-row md:items-center justify-between gap-4 ${
             isDarkMode
               ? "border-white/[0.08] bg-white/[0.02]"
               : "border-slate-200 bg-slate-50/40"
@@ -100,15 +100,6 @@ export function DataTable<TData, TValue>({
                   {title}
                 </h3>
               </div>
-            )}
-            {description && (
-              <p
-                className={`text-xs font-medium mt-0.5 ${
-                  isDarkMode ? "text-slate-400" : "text-slate-500"
-                }`}
-              >
-                {description}
-              </p>
             )}
           </div>
 

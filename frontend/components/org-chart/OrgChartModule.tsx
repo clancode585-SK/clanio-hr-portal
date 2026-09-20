@@ -181,7 +181,7 @@ export const OrgChartModule: React.FC<OrgChartModuleProps> = ({
                 <Network className="w-5 h-5" />
               </span>
               <h1
-                className={`text-2xl sm:text-3xl font-black tracking-tight ${
+                className={`text-xl sm:text-2xl font-black tracking-tight ${
                   isDarkMode ? "text-white" : "text-slate-900"
                 }`}
               >
