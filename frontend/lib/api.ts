@@ -8,12 +8,23 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit): Prom
     ? (getCookie("token") || localStorage.getItem("token"))
     : null;
 
+  let companyId = typeof window !== "undefined"
+    ? (getCookie("company_id") || localStorage.getItem("company_id"))
+    : null;
+
+  if (!companyId || companyId === "1" || companyId === "null" || companyId === "undefined") {
+    companyId = "2";
+  }
+
+  const isFormData = typeof FormData !== "undefined" && options?.body instanceof FormData;
+
   const response = await fetch(`${API_BASE}${endpoint}`, {
     ...options,
     headers: {
-      "Content-Type": "application/json",
       "Accept": "application/json",
+      ...(isFormData ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(companyId ? { "X-Company-Id": companyId } : {}),
       ...options?.headers,
     },
   });
@@ -29,8 +40,23 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit): Prom
       }
     }
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || "An error occurred with the request.");
+    let errorMessage = errorData.message || "An error occurred with the request.";
+    if (errorData.errors && typeof errorData.errors === "object") {
+      const details = Object.values(errorData.errors).flat().join(" ");
+      if (details) {
+        errorMessage = `${errorMessage} ${details}`;
+      }
+    }
+    throw new Error(errorMessage);
   }
 
   return response.json();
+}
+
+export function extractList(res: any): any[] {
+  if (!res) return [];
+  if (Array.isArray(res)) return res;
+  if (Array.isArray(res.data)) return res.data;
+  if (res.data && Array.isArray(res.data.data)) return res.data.data;
+  return [];
 }

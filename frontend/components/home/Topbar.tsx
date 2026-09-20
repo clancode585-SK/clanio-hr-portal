@@ -20,8 +20,10 @@ import {
   UserCheck,
   ShieldCheck,
   User,
+  X,
 } from "lucide-react";
 import { getFlatSidebarOptions } from "./Sidebar";
+import { fetchApi } from "@/lib/api";
 import { removeCookie } from "@/lib/cookies";
 
 interface TopbarProps {
@@ -90,30 +92,108 @@ export const Topbar: React.FC<TopbarProps> = ({
   const [userName, setUserName] = useState("Platform Super Admin");
   const [userEmail, setUserEmail] = useState("superadmin@clanio.com");
   const [userRole, setUserRole] = useState("Super Administrator");
+  const [userAvatarUrl, setUserAvatarUrl] = useState<string | null>(null);
+
+  // Live Notification States
+  const [liveUnreadCount, setLiveUnreadCount] = useState<number>(0);
+  const [liveNotifications, setLiveNotifications] = useState<any[]>([]);
+
+  // Change Password Modal States
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [passwordForm, setPasswordForm] = useState({
+    current_password: "",
+    new_password: "",
+    new_password_confirmation: "",
+  });
+  const [passwordNotify, setPasswordNotify] = useState<{ msg: string; type: "success" | "error" } | null>(null);
+  const [submittingPassword, setSubmittingPassword] = useState(false);
+
+  const fetchUserProfile = async () => {
+    try {
+      const res = await fetchApi<any>("/profile");
+      const profile = res?.data || res;
+      if (profile) {
+        if (profile.name) setUserName(profile.name);
+        if (profile.email) setUserEmail(profile.email);
+        if (profile.avatar_url) setUserAvatarUrl(profile.avatar_url);
+        if (profile.is_super_admin) {
+          setUserRole("Super Administrator");
+        } else if (profile.roles && profile.roles.length > 0) {
+          setUserRole(profile.roles[0].name || "Employee");
+        } else if (profile.employee?.designation?.name) {
+          setUserRole(profile.employee.designation.name);
+        }
+      }
+    } catch {
+      // fallback to stored values
+    }
+  };
+
+  const fetchLiveNotifications = async () => {
+    try {
+      const [summaryRes, listRes] = await Promise.all([
+        fetchApi<any>("/notifications/unread-count").catch(() => null),
+        fetchApi<any>("/notifications?unread=1").catch(() => null),
+      ]);
+
+      if (summaryRes) {
+        const sum = summaryRes?.data || summaryRes;
+        setLiveUnreadCount(sum?.unread_count ?? 0);
+      }
+      if (listRes) {
+        const lData = listRes?.data?.data || listRes?.data || listRes;
+        if (Array.isArray(lData)) {
+          setLiveNotifications(lData);
+        }
+      }
+    } catch {
+      // ignore
+    }
+  };
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const storedName = localStorage.getItem("user_name");
-      const storedEmail = localStorage.getItem("user_email");
-      const isSuper = localStorage.getItem("is_super_admin") === "true";
-
-      if (storedName) {
-        setUserName(storedName);
-      } else if (isSuper || storedEmail === "superadmin@clanio.com") {
-        setUserName("Platform Super Admin");
-      }
-
-      if (storedEmail) {
-        setUserEmail(storedEmail);
-      }
-
-      if (isSuper || storedEmail === "superadmin@clanio.com") {
-        setUserRole("Super Administrator");
-      } else {
-        setUserRole("Employee");
-      }
-    }
+    fetchUserProfile();
+    fetchLiveNotifications();
+    const interval = setInterval(fetchLiveNotifications, 30000);
+    return () => clearInterval(interval);
   }, []);
+
+  const handleMarkAllRead = async () => {
+    try {
+      await fetchApi("/notifications/read-all", { method: "PUT" });
+      setLiveUnreadCount(0);
+      setLiveNotifications([]);
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleChangePasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (passwordForm.new_password !== passwordForm.new_password_confirmation) {
+      setPasswordNotify({ msg: "New password and confirmation do not match!", type: "error" });
+      return;
+    }
+
+    setSubmittingPassword(true);
+    setPasswordNotify(null);
+    try {
+      await fetchApi("/auth/change-password", {
+        method: "POST",
+        body: JSON.stringify(passwordForm),
+      });
+      setPasswordNotify({ msg: "Password changed successfully!", type: "success" });
+      setTimeout(() => {
+        setShowPasswordModal(false);
+        setPasswordForm({ current_password: "", new_password: "", new_password_confirmation: "" });
+        setPasswordNotify(null);
+      }, 1500);
+    } catch (err: any) {
+      setPasswordNotify({ msg: err.message || "Failed to change password", type: "error" });
+    } finally {
+      setSubmittingPassword(false);
+    }
+  };
 
   const initials = userName
     .split(" ")
@@ -228,9 +308,9 @@ export const Topbar: React.FC<TopbarProps> = ({
 
   return (
     <header
-      className={`w-full h-[76px] backdrop-blur-md px-6 sm:px-8 flex items-center justify-between z-20 relative font-sans select-none transition-colors duration-300 ${isDarkMode
+      className={`sticky top-0 z-30 shrink-0 w-full h-[76px] backdrop-blur-md px-6 sm:px-8 flex items-center justify-between font-sans select-none transition-colors duration-300 ${isDarkMode
           ? "bg-[#081425] text-white border-b border-white/[0.06] shadow-[0_10px_30px_-5px_rgba(0,0,0,0.3)]"
-          : "bg-white/95 text-slate-900 border-b border-slate-900/[0.06] shadow-[0_10px_30px_-5px_rgba(15,23,42,0.05)]"
+          : "bg-[#DBEAFE] text-slate-900 border-none"
         }`}
     >
       {/* =================================================== */}
@@ -242,7 +322,7 @@ export const Topbar: React.FC<TopbarProps> = ({
           onClick={onToggleSidebar}
           className={`w-10 h-10 rounded-xl flex items-center justify-center transition-all duration-200 shadow-2xs active:scale-95 shrink-0 ${isDarkMode
               ? "bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-300 hover:text-white"
-              : "bg-slate-100/80 hover:bg-slate-200/80 border border-slate-200/60 text-slate-600 hover:text-slate-900"
+              : "bg-white/90 hover:bg-white border border-blue-200/80 text-slate-700 hover:text-blue-600 shadow-2xs"
             }`}
           title={isSidebarOpen ? "Collapse Sidebar" : "Expand Sidebar"}
         >
@@ -256,7 +336,7 @@ export const Topbar: React.FC<TopbarProps> = ({
       <div className="hidden xl:flex items-center justify-center flex-1 max-w-[520px] mx-6">
         <div className="w-full relative group" ref={searchContainerRef}>
           <div
-            className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors ${isDarkMode ? "text-slate-400 group-focus-within:text-cyan-300" : "text-slate-400 group-focus-within:text-purple-600"
+            className={`absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none transition-colors ${isDarkMode ? "text-slate-400 group-focus-within:text-cyan-300" : "text-blue-500/70 group-focus-within:text-blue-600"
               }`}
           >
             <Search className="w-4 h-4" />
@@ -275,7 +355,7 @@ export const Topbar: React.FC<TopbarProps> = ({
             }}
             className={`w-full pl-10 pr-20 py-2.5 rounded-full text-xs placeholder-slate-400 outline-none transition-all duration-200 ${isDarkMode
                 ? "bg-white/[0.04] hover:bg-white/[0.07] focus:bg-[#081425] border border-white/[0.08] focus:border-purple-500/60 text-white focus:ring-4 focus:ring-purple-500/20"
-                : "bg-slate-50 hover:bg-slate-100/80 focus:bg-white border border-slate-200/80 text-slate-900 focus:border-purple-500/60 focus:ring-4 focus:ring-purple-500/10 shadow-sm"
+                : "bg-white/90 hover:bg-white focus:bg-white border border-blue-200/80 text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10 shadow-2xs"
               }`}
           />
 
@@ -283,7 +363,7 @@ export const Topbar: React.FC<TopbarProps> = ({
             <span
               className={`text-[10px] font-mono font-semibold rounded-md px-1.5 py-0.5 ${isDarkMode
                   ? "bg-white/[0.06] border border-white/10 text-slate-400"
-                  : "bg-white border border-slate-200 text-slate-400 shadow-2xs"
+                  : "bg-blue-50/80 border border-blue-200/60 text-blue-600 shadow-2xs"
                 }`}
             >
               Ctrl + K
@@ -399,24 +479,29 @@ export const Topbar: React.FC<TopbarProps> = ({
               </div>
               <div className="space-y-0.5">
                 {[
-                  { label: "New Employee", iconPath: "/images/icons/teamwork.png", desc: "Add team member" },
-                  { label: "Leave Request", iconPath: "/images/icons/calendar.png", desc: "Apply for leave" },
-                  { label: "Task", iconPath: "/images/icons/task.png", desc: "Assign new task" },
-                  { label: "Payroll", iconPath: "/images/icons/wages.png", desc: "Run payroll cycle" },
-                  { label: "Announcement", iconPath: "/images/icons/chat-bubbles.png", desc: "Post company update" },
+                  { label: "New Employee", iconPath: "/images/icons/teamwork.png", desc: "Add team member", target: "employees" },
+                  { label: "Leave Request", iconPath: "/images/icons/calendar.png", desc: "Apply for leave", target: "leave-requests" },
+                  { label: "New Task", iconPath: "/images/icons/task.png", desc: "Assign team task", target: "my-tasks" },
+                  { label: "Expense Claim", iconPath: "/images/icons/wages.png", desc: "Submit expense claim", target: "expense-claims" },
+                  { label: "Announcement", iconPath: "/images/icons/chat-bubbles.png", desc: "Post company update", target: "announcements" },
+                  { label: "Performance Goal", iconPath: "/images/icons/trophy.png", desc: "Set KRA or OKR", target: "performance-goals" },
+                  { label: "Support Ticket", iconPath: "/images/icons/help.png", desc: "Raise helpdesk ticket", target: "tickets" },
                 ].map((item, idx) => (
                   <button
                     key={idx}
-                    onClick={() => setActiveDropdown(null)}
-                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-colors text-left group ${isDarkMode
+                    onClick={() => {
+                      setActiveDropdown(null);
+                      if (onSelectItem) onSelectItem(item.target);
+                    }}
+                    className={`w-full flex items-center gap-3 px-3 py-2 rounded-xl text-xs font-medium transition-colors text-left group cursor-pointer ${isDarkMode
                         ? "text-slate-200 hover:bg-white/[0.06] hover:text-white"
                         : "text-slate-700 hover:bg-purple-50 hover:text-purple-700"
                       }`}
                   >
                     <div
                       className={`p-1.5 rounded-lg transition-colors ${isDarkMode
-                          ? "bg-white/[0.06]"
-                          : "bg-slate-100"
+                          ? "bg-white/[0.06] group-hover:bg-purple-500/20"
+                          : "bg-slate-100 group-hover:bg-purple-100"
                         }`}
                     >
                       <Image
@@ -450,7 +535,7 @@ export const Topbar: React.FC<TopbarProps> = ({
             onClick={() => toggleDropdown("notifications")}
             className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all relative active:scale-95 ${isDarkMode
                 ? "bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08]"
-                : "bg-slate-50 hover:bg-slate-100 border border-slate-200/70 shadow-2xs"
+                : "bg-white/90 hover:bg-white border border-blue-200/80 shadow-2xs text-slate-700 hover:text-blue-600"
               }`}
             title="Notifications"
           >
@@ -461,9 +546,11 @@ export const Topbar: React.FC<TopbarProps> = ({
               height={20}
               className="w-5 h-5 object-contain"
             />
-            <span className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-purple-600 text-white text-[10px] font-extrabold flex items-center justify-center ring-2 ring-[#081425] shadow-xs">
-              12
-            </span>
+            {liveUnreadCount > 0 && (
+              <span className="absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-purple-600 text-white text-[10px] font-extrabold flex items-center justify-center ring-2 ring-[#081425] shadow-xs font-mono">
+                {liveUnreadCount > 99 ? "99+" : liveUnreadCount}
+              </span>
+            )}
           </button>
 
           {/* Notifications Dropdown */}
@@ -480,32 +567,45 @@ export const Topbar: React.FC<TopbarProps> = ({
               >
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-bold">Recent Notifications</span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-                    12 New
-                  </span>
+                  {liveUnreadCount > 0 && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                      {liveUnreadCount} New
+                    </span>
+                  )}
                 </div>
-                <button className="text-[10px] text-purple-400 hover:underline font-semibold">
+                <button
+                  onClick={handleMarkAllRead}
+                  className="text-[10px] text-purple-400 hover:underline font-semibold cursor-pointer"
+                >
                   Mark all as read
                 </button>
               </div>
 
               <div className="py-2 space-y-2 max-h-80 overflow-y-auto scrollbar-none">
-                {notifications.map((item) => {
-                  const Icon = item.icon;
+                {(liveNotifications.length > 0 ? liveNotifications : notifications).slice(0, 5).map((item: any, idx: number) => {
+                  const title = item.title || item.name || "Notification";
+                  const body = item.body || item.desc || "";
+                  const isUnread = !item.read_at && item.unread !== false;
+
                   return (
                     <div
-                      key={item.id}
+                      key={item.id || idx}
+                      onClick={() => {
+                        if (item.id) {
+                          fetchApi(`/notifications/${item.id}/read`, { method: "PUT" }).catch(() => {});
+                        }
+                      }}
                       className={`p-2.5 rounded-xl border transition-all cursor-pointer flex items-start gap-3 ${isDarkMode
-                          ? item.unread
+                          ? isUnread
                             ? "bg-purple-500/10 border-purple-500/20 hover:bg-purple-500/20"
                             : "bg-white/[0.02] border-white/[0.06] hover:bg-white/[0.06]"
-                          : item.unread
+                          : isUnread
                             ? "bg-purple-50/40 border-purple-100 hover:bg-purple-50/80"
                             : "bg-white border-slate-100 hover:bg-slate-50"
                         }`}
                     >
-                      <div className={`p-2 rounded-xl shrink-0 mt-0.5 ${item.color}`}>
-                        <Icon className="w-3.5 h-3.5" />
+                      <div className="p-2 rounded-xl shrink-0 mt-0.5 text-purple-400 bg-purple-500/15">
+                        <CheckCircle2 className="w-3.5 h-3.5" />
                       </div>
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between">
@@ -513,14 +613,14 @@ export const Topbar: React.FC<TopbarProps> = ({
                             className={`text-xs font-bold truncate ${isDarkMode ? "text-white" : "text-slate-900"
                               }`}
                           >
-                            {item.title}
+                            {title}
                           </h4>
-                          <span className="text-[10px] text-slate-400 shrink-0">
-                            {item.time}
+                          <span className="text-[10px] text-slate-400 shrink-0 font-mono">
+                            {item.created_at ? new Date(item.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : (item.time || "Now")}
                           </span>
                         </div>
                         <p className="text-[11px] text-slate-400 mt-0.5 leading-snug line-clamp-2">
-                          {item.desc}
+                          {body}
                         </p>
                       </div>
                     </div>
@@ -532,7 +632,13 @@ export const Topbar: React.FC<TopbarProps> = ({
                 className={`pt-2 border-t text-center ${isDarkMode ? "border-white/[0.08]" : "border-slate-100"
                   }`}
               >
-                <button className="text-xs font-bold text-purple-400 hover:underline">
+                <button
+                  onClick={() => {
+                    setActiveDropdown(null);
+                    if (onSelectItem) onSelectItem("notifications");
+                  }}
+                  className="text-xs font-bold text-purple-400 hover:underline cursor-pointer"
+                >
                   View All Notifications →
                 </button>
               </div>
@@ -544,7 +650,7 @@ export const Topbar: React.FC<TopbarProps> = ({
         <div
           className={`p-1 rounded-full flex items-center gap-1 border shadow-inner ${isDarkMode
               ? "bg-white/[0.06] border-white/[0.08]"
-              : "bg-slate-100/90 border-slate-200/60"
+              : "bg-white/90 border border-blue-200/80 shadow-2xs"
             }`}
         >
           <button
@@ -552,7 +658,9 @@ export const Topbar: React.FC<TopbarProps> = ({
             className={`px-3 py-1 rounded-full text-xs font-extrabold flex items-center gap-1.5 transition-all duration-200 cursor-pointer ${
               currentViewMode === "admin"
                 ? "bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-sm shadow-blue-500/30"
-                : "text-slate-400 hover:text-slate-200"
+                : isDarkMode
+                ? "text-slate-400 hover:text-slate-200"
+                : "text-slate-600 hover:text-blue-700"
             }`}
             title="Switch to Admin Mode"
           >
@@ -564,7 +672,9 @@ export const Topbar: React.FC<TopbarProps> = ({
             className={`px-3 py-1 rounded-full text-xs font-extrabold flex items-center gap-1.5 transition-all duration-200 cursor-pointer ${
               currentViewMode === "employee"
                 ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm shadow-emerald-500/30"
-                : "text-slate-400 hover:text-slate-200"
+                : isDarkMode
+                ? "text-slate-400 hover:text-slate-200"
+                : "text-slate-600 hover:text-emerald-700"
             }`}
             title="Switch to Employee Mode"
           >
@@ -577,13 +687,13 @@ export const Topbar: React.FC<TopbarProps> = ({
         <div
           className={`p-1 rounded-full flex items-center gap-0.5 border shadow-inner ${isDarkMode
               ? "bg-white/[0.06] border-white/[0.08]"
-              : "bg-slate-100/90 border-slate-200/60"
+              : "bg-white/90 border border-blue-200/80 shadow-2xs"
             }`}
         >
           <button
             onClick={() => handleToggleTheme(false)}
             className={`p-1.5 rounded-full transition-all duration-200 ${!isDarkMode
-                ? "bg-white text-slate-800 shadow-sm"
+                ? "bg-blue-600 text-white shadow-xs"
                 : "text-slate-400 hover:text-slate-200"
               }`}
             title="Light Mode"
@@ -608,10 +718,10 @@ export const Topbar: React.FC<TopbarProps> = ({
             onClick={() => toggleDropdown("lang")}
             className={`h-9 px-3 rounded-full text-xs font-medium flex items-center gap-1.5 transition-all ${isDarkMode
                 ? "bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.08] text-slate-200"
-                : "bg-slate-50 hover:bg-slate-100 border border-slate-200/70 text-slate-700 shadow-2xs"
+                : "bg-white/90 hover:bg-white border border-blue-200/80 text-slate-700 shadow-2xs"
               }`}
           >
-            <Globe className="w-3.5 h-3.5 text-slate-400" />
+            <Globe className="w-3.5 h-3.5 text-blue-500/70" />
             <span>{selectedLang}</span>
             <ChevronDown className="w-3 h-3 text-slate-400" />
           </button>
@@ -659,10 +769,18 @@ export const Topbar: React.FC<TopbarProps> = ({
             title={`${userName} (${userRole})`}
           >
             <div className="relative shrink-0">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-blue-600 via-purple-600 to-cyan-400 p-0.5 shadow-md shadow-purple-500/20 group-hover:scale-105 transition-transform">
-                <div className="w-full h-full rounded-full bg-[#081425] flex items-center justify-center text-white font-bold text-xs">
-                  {initials}
-                </div>
+              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-full bg-gradient-to-tr from-blue-600 via-purple-600 to-cyan-400 p-0.5 shadow-md shadow-purple-500/20 group-hover:scale-105 transition-transform overflow-hidden flex items-center justify-center">
+                {userAvatarUrl ? (
+                  <img
+                    src={userAvatarUrl}
+                    alt={userName}
+                    className="w-full h-full object-cover rounded-full"
+                  />
+                ) : (
+                  <div className="w-full h-full rounded-full bg-[#081425] flex items-center justify-center text-white font-bold text-xs">
+                    {initials}
+                  </div>
+                )}
               </div>
               <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-[#081425] shadow-xs" />
             </div>
@@ -680,45 +798,103 @@ export const Topbar: React.FC<TopbarProps> = ({
                 className={`px-3 py-2 border-b mb-1 ${isDarkMode ? "border-white/[0.08]" : "border-slate-100"
                   }`}
               >
-                <div className="font-bold text-xs">{userName}</div>
-                <div className="text-[10px] text-slate-400">{userEmail}</div>
+                <div className="font-bold text-xs truncate">{userName}</div>
+                <div className="text-[10px] text-slate-400 truncate">{userEmail}</div>
+                <div className="text-[9px] font-extrabold uppercase mt-1 px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30 inline-block font-mono">
+                  {userRole}
+                </div>
               </div>
 
               <div className="space-y-0.5 text-xs font-medium">
-                {[
-                  { label: "My Account", iconPath: "/images/icons/authentication.png" },
-                  { label: "Workspace Settings", iconPath: "/images/icons/teamwork.png" },
-                  { label: "Preferences", iconPath: "/images/icons/administration.png" },
-                  { label: "Security", iconPath: "/images/icons/authentication.png" },
-                  { label: "Billing", iconPath: "/images/icons/wages.png" },
-                  { label: "Help", iconPath: "/images/icons/help.png" },
-                ].map((item, idx) => (
-                  <button
-                    key={idx}
-                    onClick={() => setActiveDropdown(null)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors ${isDarkMode
-                        ? "text-slate-300 hover:bg-white/[0.06] hover:text-white"
-                        : "text-slate-700 hover:bg-purple-50 hover:text-purple-700"
-                      }`}
-                  >
-                    <Image
-                      src={item.iconPath}
-                      alt={item.label}
-                      width={16}
-                      height={16}
-                      className="w-4 h-4 object-contain"
-                    />
-                    <span>{item.label}</span>
-                  </button>
-                ))}
+                <button
+                  onClick={() => {
+                    setActiveDropdown(null);
+                    if (onSelectItem) onSelectItem("profile");
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors cursor-pointer ${
+                    isDarkMode
+                      ? "text-slate-300 hover:bg-white/[0.06] hover:text-white"
+                      : "text-slate-700 hover:bg-purple-50 hover:text-purple-700"
+                  }`}
+                >
+                  <Image
+                    src="/images/icons/authentication.png"
+                    alt="My Profile"
+                    width={16}
+                    height={16}
+                    className="w-4 h-4 object-contain"
+                  />
+                  <span>My Profile & Account</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setActiveDropdown(null);
+                    setShowPasswordModal(true);
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors cursor-pointer ${
+                    isDarkMode
+                      ? "text-slate-300 hover:bg-white/[0.06] hover:text-white"
+                      : "text-slate-700 hover:bg-purple-50 hover:text-purple-700"
+                  }`}
+                >
+                  <ShieldCheck className="w-4 h-4 text-purple-400 shrink-0" />
+                  <span>Security & Password</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setActiveDropdown(null);
+                    if (onSelectItem) onSelectItem("company-settings");
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors cursor-pointer ${
+                    isDarkMode
+                      ? "text-slate-300 hover:bg-white/[0.06] hover:text-white"
+                      : "text-slate-700 hover:bg-purple-50 hover:text-purple-700"
+                  }`}
+                >
+                  <Image
+                    src="/images/icons/administration.png"
+                    alt="Company Settings"
+                    width={16}
+                    height={16}
+                    className="w-4 h-4 object-contain"
+                  />
+                  <span>Company Settings</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    setActiveDropdown(null);
+                    if (onSelectItem) onSelectItem("company-policies");
+                  }}
+                  className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-xl transition-colors cursor-pointer ${
+                    isDarkMode
+                      ? "text-slate-300 hover:bg-white/[0.06] hover:text-white"
+                      : "text-slate-700 hover:bg-purple-50 hover:text-purple-700"
+                  }`}
+                >
+                  <Image
+                    src="/images/icons/help.png"
+                    alt="Help & Policies"
+                    width={16}
+                    height={16}
+                    className="w-4 h-4 object-contain"
+                  />
+                  <span>Company Policies & Help</span>
+                </button>
 
                 <div
                   className={`pt-1 border-t mt-1 ${isDarkMode ? "border-white/[0.08]" : "border-slate-100"
                     }`}
                 >
-                  <Link
-                    href="/login"
-                    onClick={() => {
+                  <button
+                    onClick={async () => {
+                      try {
+                        await fetchApi("/auth/logout", { method: "POST" });
+                      } catch {
+                        // ignore API failure and proceed with local signout
+                      }
                       removeCookie("token");
                       removeCookie("isAuthenticated");
                       if (typeof window !== "undefined") {
@@ -726,8 +902,9 @@ export const Topbar: React.FC<TopbarProps> = ({
                         localStorage.removeItem("isAuthenticated");
                       }
                       setActiveDropdown(null);
+                      window.location.href = "/login";
                     }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors cursor-pointer text-left"
                   >
                     <Image
                       src="/images/icons/out.png"
@@ -736,14 +913,111 @@ export const Topbar: React.FC<TopbarProps> = ({
                       height={16}
                       className="w-4 h-4 object-contain"
                     />
-                    <span className="font-bold">Logout</span>
-                  </Link>
+                    <span className="font-bold">Sign Out</span>
+                  </button>
                 </div>
               </div>
             </div>
           )}
         </div>
       </div>
+
+      {/* CHANGE PASSWORD MODAL */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in font-sans">
+          <div
+            className={`w-full max-w-md p-6 rounded-3xl border shadow-2xl space-y-4 ${
+              isDarkMode ? "bg-[#0B1A30] border-white/[0.1] text-white" : "bg-white border-slate-200 text-slate-900"
+            }`}
+          >
+            <div className="flex items-center justify-between border-b pb-3 border-slate-700/20">
+              <h2 className="text-base font-black tracking-tight flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-purple-400" />
+                <span>Security & Password</span>
+              </h2>
+              <button onClick={() => setShowPasswordModal(false)} className="text-slate-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {passwordNotify && (
+              <div
+                className={`p-3 rounded-xl border text-xs font-semibold ${
+                  passwordNotify.type === "success"
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                    : "bg-rose-500/10 border-rose-500/30 text-rose-400"
+                }`}
+              >
+                {passwordNotify.msg}
+              </div>
+            )}
+
+            <form onSubmit={handleChangePasswordSubmit} className="space-y-4 text-xs">
+              <div>
+                <label className="block font-bold mb-1 text-slate-400">Current Password *</label>
+                <input
+                  type="password"
+                  required
+                  value={passwordForm.current_password}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, current_password: e.target.value })}
+                  className={`w-full p-3 rounded-2xl border outline-none ${
+                    isDarkMode
+                      ? "bg-white/[0.04] border-white/[0.08] text-white focus:border-purple-500"
+                      : "bg-slate-50 border-slate-200 text-slate-900"
+                  }`}
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold mb-1 text-slate-400">New Password *</label>
+                <input
+                  type="password"
+                  required
+                  value={passwordForm.new_password}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, new_password: e.target.value })}
+                  className={`w-full p-3 rounded-2xl border outline-none ${
+                    isDarkMode
+                      ? "bg-white/[0.04] border-white/[0.08] text-white focus:border-purple-500"
+                      : "bg-slate-50 border-slate-200 text-slate-900"
+                  }`}
+                />
+              </div>
+
+              <div>
+                <label className="block font-bold mb-1 text-slate-400">Confirm New Password *</label>
+                <input
+                  type="password"
+                  required
+                  value={passwordForm.new_password_confirmation}
+                  onChange={(e) => setPasswordForm({ ...passwordForm, new_password_confirmation: e.target.value })}
+                  className={`w-full p-3 rounded-2xl border outline-none ${
+                    isDarkMode
+                      ? "bg-white/[0.04] border-white/[0.08] text-white focus:border-purple-500"
+                      : "bg-slate-50 border-slate-200 text-slate-900"
+                  }`}
+                />
+              </div>
+
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowPasswordModal(false)}
+                  className="px-4 py-2 rounded-xl border border-slate-700 font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submittingPassword}
+                  className="px-5 py-2.5 rounded-2xl bg-gradient-to-r from-blue-600 to-purple-600 text-white font-bold shadow-lg shadow-purple-500/25 cursor-pointer"
+                >
+                  {submittingPassword ? "Updating Password..." : "Update Password"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </header>
   );
 };

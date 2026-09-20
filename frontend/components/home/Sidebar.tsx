@@ -54,60 +54,44 @@ export const sidebarMenuItems: MenuItem[] = [
     label: "Workforce",
     iconPath: "/images/icons/teamwork.png",
     subItems: [
-      { id: "companies", label: "Companies" },
-      { id: "branches", label: "Branches" },
       { id: "employees", label: "Employees" },
       { id: "departments", label: "Departments" },
+      { id: "branches", label: "Branches" },
       { id: "teams", label: "Teams" },
       { id: "designations", label: "Designations" },
-      { id: "organization-chart", label: "Organization Chart" },
+      { id: "roles", label: "Roles" },
     ],
   },
   {
     id: "attendance",
     label: "Attendance",
     iconPath: "/images/icons/calendar.png",
-    badge: { text: "Today", variant: "emerald" },
     subItems: [
       { id: "attendance-list", label: "Attendance" },
       { id: "shift-management", label: "Shift Management" },
       { id: "holidays", label: "Holidays" },
-      { id: "timesheets", label: "Timesheets" },
+      { id: "regularization", label: "Attendance Regularization" },
     ],
   },
   {
     id: "leave",
     label: "Leave",
-    iconPath: "/images/icons/calendar.png",
+    iconPath: "/images/icons/notification-bell.png",
     subItems: [
       { id: "leave-requests", label: "Leave Requests" },
       { id: "leave-balance", label: "Leave Balance" },
-      { id: "leave-policies", label: "Leave Policies" },
+      { id: "leave-policies", label: "Leave Types & Policies" },
     ],
   },
   {
-    id: "payroll",
-    label: "Payroll",
-    iconPath: "/images/icons/wages.png",
-    badge: { text: "Pending", variant: "amber" },
+    id: "performance",
+    label: "Performance",
+    iconPath: "/images/icons/seo-report.png",
     subItems: [
-      { id: "payroll-overview", label: "Payroll" },
-      { id: "salary-structure", label: "Salary Structure" },
-      { id: "payslips", label: "Payslips" },
-      { id: "reimbursements", label: "Reimbursements" },
-      { id: "loans-advances", label: "Loans & Advances" },
-    ],
-  },
-  {
-    id: "recruitment",
-    label: "Recruitment",
-    iconPath: "/images/icons/recruitment.png",
-    badge: { text: "3 New", variant: "purple" },
-    subItems: [
-      { id: "jobs", label: "Jobs" },
-      { id: "candidates", label: "Candidates" },
-      { id: "interviews", label: "Interviews" },
-      { id: "offers", label: "Offers" },
+      { id: "performance-goals", label: "Goals & OKRs" },
+      { id: "appraisals", label: "Appraisal Cycles" },
+      { id: "incentives", label: "Incentives & Bonuses" },
+      { id: "recognitions", label: "Recognitions & Awards" },
     ],
   },
   {
@@ -116,9 +100,33 @@ export const sidebarMenuItems: MenuItem[] = [
     iconPath: "/images/icons/task.png",
     subItems: [
       { id: "my-tasks", label: "My Tasks" },
-      { id: "team-tasks", label: "Team Tasks" },
-      { id: "projects", label: "Projects" },
-      { id: "sod-eod", label: "SOD / EOD" },
+      { id: "daily-reports", label: "Daily Reports (SOD/EOD)" },
+      { id: "work-records", label: "Work Records" },
+    ],
+  },
+  {
+    id: "organization-chart",
+    label: "Organization Chart",
+    iconPath: "/images/icons/recruitment.png",
+  },
+  {
+    id: "employee-exits",
+    label: "Exits & Offboarding",
+    iconPath: "/images/icons/out.png",
+  },
+  {
+    id: "expense-claims",
+    label: "Expenses & Claims",
+    iconPath: "/images/icons/wages.png",
+  },
+  {
+    id: "assets",
+    label: "Assets",
+    iconPath: "/images/icons/authentication.png",
+    subItems: [
+      { id: "company-assets", label: "Company Assets" },
+      { id: "my-assets", label: "My Assets" },
+      { id: "asset-requests", label: "Asset Requests" },
     ],
   },
   {
@@ -128,47 +136,39 @@ export const sidebarMenuItems: MenuItem[] = [
     subItems: [
       { id: "employee-documents", label: "Employee Documents" },
       { id: "company-policies", label: "Company Policies" },
-      { id: "templates", label: "Templates" },
-    ],
-  },
-  {
-    id: "reports",
-    label: "Reports",
-    iconPath: "/images/icons/seo-report.png",
-    subItems: [
-      { id: "hr-reports", label: "HR Reports" },
-      { id: "attendance-reports", label: "Attendance Reports" },
-      { id: "payroll-reports", label: "Payroll Reports" },
-      { id: "analytics", label: "Analytics" },
     ],
   },
   {
     id: "communication",
     label: "Communication",
     iconPath: "/images/icons/chat-bubbles.png",
-    badge: { text: "12", variant: "cyan" },
     subItems: [
       { id: "announcements", label: "Announcements" },
       { id: "notifications", label: "Notifications" },
-      { id: "calendar", label: "Calendar" },
     ],
+  },
+  {
+    id: "help-desk",
+    label: "Help Desk",
+    iconPath: "/images/icons/help.png",
+    subItems: [
+      { id: "tickets", label: "Support Tickets" },
+      { id: "ticket-categories", label: "Ticket Categories" },
+    ],
+  },
+  {
+    id: "companies",
+    label: "Companies",
+    iconPath: "/images/icons/messages.png",
   },
   {
     id: "administration",
     label: "Administration",
     iconPath: "/images/icons/administration.png",
     subItems: [
-      { id: "roles", label: "Roles" },
-      { id: "users-roles", label: "Users & Roles" },
+      { id: "permissions", label: "Permissions Matrix" },
       { id: "company-settings", label: "Company Settings" },
-      { id: "billing", label: "Billing" },
-      { id: "audit-logs", label: "Audit Logs" },
     ],
-  },
-  {
-    id: "help",
-    label: "Help",
-    iconPath: "/images/icons/help.png",
   },
 ];
 
@@ -197,7 +197,7 @@ export const getFlatSidebarOptions = (): FlatSidebarOption[] => {
 
 export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed = false,
-  isDarkMode = true,
+  isDarkMode = false,
   activeItem: externalActiveItem,
   onSelectItem,
   viewMode = "admin",
@@ -208,6 +208,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [userName, setUserName] = useState("Platform Super Admin");
   const [userRole, setUserRole] = useState("Super Administrator");
   const [companyName, setCompanyName] = useState("Clanio HR");
+  const [companySlug, setCompanySlug] = useState("clanio");
+
+  const [userPermissions, setUserPermissions] = useState<string[] | null>(null);
 
   React.useEffect(() => {
     if (typeof window !== "undefined") {
@@ -215,6 +218,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const isSuper = localStorage.getItem("is_super_admin") === "true";
       const storedEmail = localStorage.getItem("user_email");
       const storedCompany = localStorage.getItem("company_name");
+      const storedSlug = localStorage.getItem("company_slug");
+      const storedPerms = localStorage.getItem("user_permissions");
+
+      if (storedPerms) {
+        try {
+          setUserPermissions(JSON.parse(storedPerms));
+        } catch {}
+      }
 
       if (storedName) {
         setUserName(storedName);
@@ -225,6 +236,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       if (storedCompany) {
         setCompanyName(storedCompany);
       }
+      if (storedSlug) {
+        setCompanySlug(storedSlug);
+      }
 
       if (isSuper || storedEmail === "superadmin@clanio.com") {
         setUserRole("Super Administrator");
@@ -232,6 +246,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
         setUserRole("Company Admin");
       }
     }
+
+    fetchApi<any>("/profile")
+      .then((res) => {
+        const profile = res?.data || res;
+        if (profile?.name) {
+          setUserName(profile.name);
+          if (typeof window !== "undefined") localStorage.setItem("user_name", profile.name);
+        }
+        if (profile?.permissions && Array.isArray(profile.permissions)) {
+          setUserPermissions(profile.permissions);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("user_permissions", JSON.stringify(profile.permissions));
+          }
+        }
+      })
+      .catch(() => {});
+
+    fetchApi<any>("/company-settings")
+      .then((compRes) => {
+        const compData = compRes?.data || compRes;
+        if (compData?.name) {
+          setCompanyName(compData.name);
+          if (typeof window !== "undefined") localStorage.setItem("company_name", compData.name);
+        }
+        if (compData?.slug) {
+          setCompanySlug(compData.slug);
+          if (typeof window !== "undefined") localStorage.setItem("company_slug", compData.slug);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const initials = userName
@@ -250,49 +294,107 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
-    workforce: true,
-    administration: true,
-  });
+  const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [dynamicMenuItems, setDynamicMenuItems] = useState<MenuItem[]>(sidebarMenuItems);
-
-  useEffect(() => {
-    let isMounted = true;
-    const modeQuery = viewMode ? `?mode=${viewMode}` : "";
-    fetchApi<{ data?: { menu?: MenuItem[] } }>(`/navigation${modeQuery}`)
-      .then((res) => {
-        if (isMounted && res?.data?.menu && Array.isArray(res.data.menu) && res.data.menu.length > 0) {
-          setDynamicMenuItems(res.data.menu);
-        }
-      })
-      .catch((err) => {
-        console.warn("Backend dynamic navigation unavailable, using fallback menu.", err);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [viewMode]);
 
   const isSuperAdmin = typeof window !== "undefined" && (
     localStorage.getItem("is_super_admin") === "true" ||
     localStorage.getItem("user_email") === "superadmin@clanio.com"
   );
 
-  const adminOnlyMenus = ["workforce", "recruitment", "administration"];
+  const adminOnlyMenus = ["companies", "workforce", "administration"];
   const adminOnlySubItems = [
     "shift-management",
     "leave-policies",
-    "payroll-overview",
-    "salary-structure",
-    "loans-advances",
-    "team-tasks",
-    "projects",
   ];
+
+  const itemPermissionMap: Record<string, string[]> = {
+    // Standalone / Parent Tabs
+    dashboard: [],
+    companies: ["company.view"],
+    "organization-chart": ["employee.view", "org_chart.view"],
+    "employee-exits": ["exit.view", "clearance.view"],
+    "expense-claims": ["expense.view"],
+    communication: ["notification.view"],
+
+    // Workforce Sub-items
+    employees: ["employee.view"],
+    departments: ["department.view"],
+    branches: ["branch.view"],
+    teams: ["team.view"],
+    designations: ["designation.view"],
+    roles: ["role.view"],
+
+    // Attendance Sub-items
+    "attendance-list": ["attendance.view"],
+    "shift-management": ["work_shift.view"],
+    holidays: ["holiday.view"],
+    regularization: ["regularization.view"],
+
+    // Leave Sub-items
+    "leave-requests": ["leave.view"],
+    "leave-balance": ["leave_balance.view"],
+    "leave-policies": ["leave_type.view"],
+
+    // Performance Sub-items
+    "performance-goals": ["goal.view", "okr.view"],
+    appraisals: ["appraisal.view"],
+    incentives: ["incentive.view"],
+    recognitions: ["recognition.view"],
+
+    // Tasks Sub-items
+    "my-tasks": ["task.view"],
+    "daily-reports": ["daily_report.view"],
+    "work-records": ["work_record.view"],
+
+    // Assets Sub-items
+    "company-assets": ["asset.view"],
+    "my-assets": ["asset.view"],
+    "asset-requests": ["asset.view"],
+
+    // Documents Sub-items
+    "employee-documents": ["employee_document.view"],
+    "company-policies": ["policy.view"],
+
+    // Help Desk Sub-items
+    tickets: ["ticket.view"],
+    "ticket-categories": ["ticket.category_manage", "ticket.view"],
+
+    // Administration Sub-items
+    permissions: ["user.permission", "permission.view"],
+    "company-settings": ["company.view"],
+  };
+
+  const hasPermission = (itemId: string): boolean => {
+    if (isSuperAdmin || userPermissions === null) return true;
+    const required = itemPermissionMap[itemId];
+    if (!required || required.length === 0) return true;
+    return required.some((perm) => userPermissions.includes(perm));
+  };
 
   const menuItems = React.useMemo(() => {
     let items = dynamicMenuItems;
+
+    // Filter items dynamically based on user's granted permissions
+    if (!isSuperAdmin && userPermissions !== null) {
+      items = items
+        .map((item) => {
+          if (item.subItems && item.subItems.length > 0) {
+            const allowedSubItems = item.subItems.filter((sub) => hasPermission(sub.id));
+            if (allowedSubItems.length === 0) return null;
+            return { ...item, subItems: allowedSubItems };
+          } else {
+            return hasPermission(item.id) ? item : null;
+          }
+        })
+        .filter(Boolean) as MenuItem[];
+    }
+
+    // Only show Companies option to Super Admin
+    if (!isSuperAdmin) {
+      items = items.filter((item) => item.id !== "companies");
+    }
 
     // Hide Teams tab strictly from Super Admin while keeping it visible for Company Admin
     if (isSuperAdmin) {
@@ -323,7 +425,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         });
     }
     return items;
-  }, [dynamicMenuItems, viewMode, isSuperAdmin]);
+  }, [dynamicMenuItems, viewMode, isSuperAdmin, userPermissions]);
 
   const toggleSubmenu = (id: string) => {
     setOpenSubmenus((prev) => ({
@@ -392,14 +494,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
   return (
     <aside
       className={`${
-        isCollapsed ? "w-[84px] p-3.5" : "w-[280px] py-4 px-2"
-      } h-screen flex flex-col justify-between relative overflow-hidden select-none z-30 shrink-0 font-sans backdrop-blur-xl transition-all duration-300 ease-in-out ${
+        isCollapsed ? "w-[84px] p-3.5" : "w-[280px] py-2.5 px-2.5"
+      } sticky top-0 h-screen flex flex-col justify-between relative overflow-hidden select-none z-30 shrink-0 font-sans transition-all duration-300 ease-in-out ${
         isDarkMode
           ? "bg-[#081425] text-[#94A3B8] border-r border-white/[0.06] shadow-[10px_0_40px_rgba(0,0,0,0.4)]"
-          : "bg-white text-slate-600 border-r border-slate-200/90 shadow-[10px_0_30px_rgba(0,0,0,0.04)]"
+          : "bg-[#DBEAFE] text-slate-800 border-none"
       }`}
     >
-      {/* Decorative Subtle Background Glow */}
+      {/* Decorative Subtle Background Glow (Dark mode only) */}
       {isDarkMode && (
         <>
           <div className="absolute -top-24 -left-24 w-60 h-60 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
@@ -408,7 +510,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       )}
 
       {/* TOP & MIDDLE CONTAINER WITH SCROLL */}
-      <div className="flex-1 flex flex-col space-y-4 min-h-0 overflow-y-auto scrollbar-none pr-0.5">
+      <div className="flex-1 flex flex-col space-y-2.5 min-h-0 overflow-y-auto scrollbar-none pr-0.5">
         {/* =================================================== */}
         {/* TOP SECTION: BRAND LOGO                            */}
         {/* =================================================== */}
@@ -481,18 +583,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         ) : (
           <div
-            className={`backdrop-blur-md rounded-2xl p-3.5 space-y-2.5 transition-all duration-200 shadow-inner group border ${
+            className={`rounded-2xl p-3.5 space-y-2.5 transition-all duration-200 group border ${
               isDarkMode
                 ? "bg-white/[0.03] hover:bg-white/[0.05] border-white/[0.08]"
-                : "bg-purple-50/70 hover:bg-purple-50 border-purple-100"
+                : "bg-white/90 hover:bg-white border border-blue-200/80 shadow-2xs backdrop-blur-md"
             }`}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#2563EB] to-[#7C3AED] p-0.5 flex items-center justify-center shrink-0 shadow-md shadow-purple-900/30">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-500 to-blue-700 p-0.5 flex items-center justify-center shrink-0 shadow-2xs">
                   <div
                     className={`w-full h-full rounded-[10px] flex items-center justify-center ${
-                      isDarkMode ? "bg-[#081425]" : "bg-white"
+                      isDarkMode ? "bg-[#081425]" : "bg-blue-50"
                     }`}
                   >
                     <Image
@@ -510,17 +612,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     className={`text-xs font-bold truncate transition-colors ${
                       isDarkMode
                         ? "text-white group-hover:text-cyan-300"
-                        : "text-slate-900 group-hover:text-purple-700"
+                        : "text-slate-900 group-hover:text-blue-600"
                     }`}
                   >
                     {companyName}
                   </div>
                   <div
-                    className={`text-[10px] truncate ${
-                      isDarkMode ? "text-slate-400" : "text-slate-500"
+                    className={`text-[10px] font-medium truncate ${
+                      isDarkMode ? "text-slate-400" : "text-blue-600/80"
                     }`}
                   >
-                    acme.clanio.com
+                    {companySlug ? `${companySlug}.clanio.com` : "clanio.com"}
                   </div>
                 </div>
               </div>
@@ -530,8 +632,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_#10B981]" />
               </div>
             </div>
-
-            
           </div>
         )}
 
@@ -544,7 +644,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={`w-11 h-11 mx-auto rounded-2xl border flex items-center justify-center transition-all cursor-pointer ${
               isDarkMode
                 ? "bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.08] text-slate-400 hover:text-white"
-                : "bg-slate-100 hover:bg-slate-200/70 border-slate-200 text-slate-500 hover:text-slate-900"
+                : "bg-white/90 hover:bg-white border border-blue-200/80 text-slate-600 hover:text-blue-600 shadow-2xs"
             }`}
           >
             <Search className="w-4 h-4" />
@@ -553,7 +653,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="relative">
             <Search
               className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${
-                isDarkMode ? "text-slate-400" : "text-slate-400"
+                isDarkMode ? "text-slate-400" : "text-blue-500/70"
               }`}
             />
             <input
@@ -564,13 +664,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className={`w-full border rounded-xl pl-9 pr-8 py-2 text-xs outline-none transition-all duration-200 ${
                 isDarkMode
                   ? "bg-white/[0.04] hover:bg-white/[0.07] focus:bg-white/[0.09] border-white/[0.08] focus:border-purple-500/50 text-white placeholder-slate-500"
-                  : "bg-slate-100 hover:bg-slate-200/60 focus:bg-white border-slate-200 focus:border-purple-500/60 text-slate-900 placeholder-slate-400"
+                  : "bg-white/90 hover:bg-white focus:bg-white border border-blue-200/80 text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 shadow-2xs"
               }`}
             />
             {searchQuery ? (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 hover:text-slate-600 px-1.5 py-0.5 rounded bg-white/10"
+                className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] px-1.5 py-0.5 rounded ${
+                  isDarkMode
+                    ? "text-slate-400 hover:text-slate-200 bg-white/10"
+                    : "text-blue-600 hover:text-blue-800 bg-blue-50"
+                }`}
               >
                 ESC
               </button>
@@ -579,7 +683,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono border rounded px-1.5 py-0.5 ${
                   isDarkMode
                     ? "text-slate-500 border-white/[0.1] bg-white/[0.03]"
-                    : "text-slate-400 border-slate-200 bg-white shadow-2xs"
+                    : "text-blue-600 border-blue-200/60 bg-blue-50/80"
                 }`}
               >
                 ⌘K
@@ -600,23 +704,19 @@ export const Sidebar: React.FC<SidebarProps> = ({
             const isActive = isParentActive || isChildActive;
 
             if (isCollapsed) {
+              const targetId = hasSubItems && item.subItems?.[0] ? item.subItems[0].id : item.id;
               return (
                 <div key={item.id} className="relative flex justify-center py-0.5">
-                  <button
+                  <Link
+                    href={`/?tab=${targetId}`}
                     title={item.label}
-                    onClick={() => {
-                      if (hasSubItems && item.subItems?.[0]) {
-                        handleSelectItem(item.subItems[0].id);
-                      } else {
-                        handleSelectItem(item.id);
-                      }
-                    }}
+                    onClick={() => handleSelectItem(targetId)}
                     className={`w-11 h-11 rounded-2xl flex items-center justify-center relative transition-all duration-200 group ${
                       isActive
-                        ? "bg-gradient-to-r from-[#2563EB] to-[#7C3AED] text-white shadow-[0_4px_25px_rgba(124,58,237,0.35)]"
+                        ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-[0_4px_16px_rgba(37,99,235,0.35)] font-bold"
                         : isDarkMode
                         ? "text-[#94A3B8] hover:bg-[#7C3AED]/12 hover:text-white"
-                        : "text-slate-600 hover:bg-purple-50 hover:text-purple-700"
+                        : "text-slate-700 hover:bg-white/80 hover:text-blue-700 shadow-2xs"
                     }`}
                   >
                     <Image
@@ -635,7 +735,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         )}`}
                       />
                     )}
-                  </button>
+                  </Link>
                 </div>
               );
             }
@@ -643,59 +743,120 @@ export const Sidebar: React.FC<SidebarProps> = ({
             return (
               <div key={item.id} className="space-y-1">
                 {/* Parent Menu Row */}
-                <button
-                  onClick={() => {
-                    if (hasSubItems) {
-                      toggleSubmenu(item.id);
-                    } else {
-                      handleSelectItem(item.id);
-                    }
-                  }}
-                  className={`w-full relative flex items-center justify-between px-3 py-2 rounded-2xl text-[18px] font-medium transition-all duration-200 group ${
-                    isParentActive && !hasSubItems
-                      ? "bg-gradient-to-r from-[#2563EB] to-[#7C3AED] text-white shadow-[0_4px_25px_rgba(124,58,237,0.35)] font-semibold"
-                      : isChildActive
-                      ? isDarkMode
-                        ? "bg-white/[0.06] text-white font-semibold"
-                        : "bg-purple-50/80 text-purple-700 font-semibold"
-                      : isDarkMode
-                      ? "text-[#94A3B8] hover:bg-[#7C3AED]/12 hover:text-white"
-                      : "text-slate-600 hover:bg-purple-50 hover:text-purple-700"
-                  }`}
-                >
-                  {/* Active Indicator Line */}
-                  {isParentActive && !hasSubItems && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-cyan-400 shadow-[0_0_10px_#22D3EE]" />
-                  )}
+                {hasSubItems ? (
+                  <button
+                    onClick={() => toggleSubmenu(item.id)}
+                    className={`w-full relative flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 group ${
+                      isParentActive && !hasSubItems
+                        ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-sm shadow-blue-500/20 font-bold"
+                        : isChildActive
+                        ? isDarkMode
+                          ? "bg-white/[0.06] text-white font-semibold"
+                          : "bg-white text-blue-700 font-bold border border-blue-200/80 shadow-2xs"
+                        : isDarkMode
+                        ? "text-[#94A3B8] hover:bg-[#7C3AED]/12 hover:text-white"
+                        : "text-slate-700 hover:bg-white/80 hover:text-blue-700 font-semibold"
+                    }`}
+                  >
+                    {/* Active Indicator Line */}
+                    {isParentActive && !hasSubItems && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)]" />
+                    )}
 
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={`p-1.5 rounded-xl transition-colors shrink-0 ${
-                        isParentActive && !hasSubItems
-                          ? "bg-white/20"
-                          : isChildActive
-                          ? isDarkMode
-                            ? "bg-purple-500/20"
-                            : "bg-purple-100"
-                          : isDarkMode
-                          ? "bg-white/[0.04] group-hover:bg-purple-500/20"
-                          : "bg-slate-100 group-hover:bg-purple-100"
-                      }`}
-                    >
-                      <Image
-                        src={item.iconPath}
-                        alt={item.label}
-                        width={20}
-                        height={20}
-                        className="w-4.5 h-4.5 object-contain"
-                      />
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`p-1.5 rounded-xl transition-colors shrink-0 ${
+                          isParentActive && !hasSubItems
+                            ? "bg-white/20"
+                            : isChildActive
+                            ? isDarkMode
+                              ? "bg-purple-500/20"
+                              : "bg-blue-100/90 border border-blue-200"
+                            : isDarkMode
+                            ? "bg-white/[0.04] group-hover:bg-purple-500/20"
+                            : "bg-white/60 border border-blue-100 group-hover:bg-blue-50 group-hover:border-blue-200"
+                        }`}
+                      >
+                        <Image
+                          src={item.iconPath}
+                          alt={item.label}
+                          width={20}
+                          height={20}
+                          className="w-4.5 h-4.5 object-contain"
+                        />
+                      </div>
+
+                      <span className="truncate">{item.label}</span>
                     </div>
 
-                    <span className="truncate">{item.label}</span>
-                  </div>
+                    <div className="flex items-center gap-2">
+                      {/* Badge */}
+                      {item.badge && (
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shadow-sm ${getBadgeStyle(
+                            item.badge.variant
+                          )}`}
+                        >
+                          {item.badge.text}
+                        </span>
+                      )}
 
-                  <div className="flex items-center gap-2">
-                    {/* Badge */}
+                      {/* Chevron icon for collapsible parent */}
+                      {hasSubItems && (
+                        <div
+                          className={`transition-transform duration-200 ${
+                            isDarkMode
+                              ? "text-slate-500 group-hover:text-white"
+                              : "text-slate-400 group-hover:text-blue-600"
+                          }`}
+                        >
+                          {isOpen ? (
+                            <ChevronDown className="w-3.5 h-3.5" />
+                          ) : (
+                            <ChevronRight className="w-3.5 h-3.5" />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                ) : (
+                  <Link
+                    href={`/?tab=${item.id}`}
+                    onClick={() => handleSelectItem(item.id)}
+                    className={`w-full relative flex items-center justify-between px-3 py-2 rounded-xl text-xs font-semibold transition-all duration-200 group ${
+                      isParentActive
+                        ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-sm shadow-blue-500/20 font-bold"
+                        : isDarkMode
+                        ? "text-[#94A3B8] hover:bg-[#7C3AED]/12 hover:text-white"
+                        : "text-slate-700 hover:bg-white/80 hover:text-blue-700 font-semibold"
+                    }`}
+                  >
+                    {isParentActive && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)]" />
+                    )}
+
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div
+                        className={`p-1.5 rounded-xl transition-colors shrink-0 ${
+                          isParentActive
+                            ? "bg-white/20"
+                            : isDarkMode
+                            ? "bg-white/[0.04] group-hover:bg-purple-500/20"
+                            : "bg-white/60 border border-blue-100 group-hover:bg-blue-50 group-hover:border-blue-200"
+                        }`}
+                      >
+                        <Image
+                          src={item.iconPath}
+                          alt={item.label}
+                          width={20}
+                          height={20}
+                          className="w-4.5 h-4.5 object-contain"
+                        />
+                      </div>
+
+                      <span className="truncate">{item.label}</span>
+                    </div>
+
                     {item.badge && (
                       <span
                         className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shadow-sm ${getBadgeStyle(
@@ -705,59 +866,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         {item.badge.text}
                       </span>
                     )}
-
-                    {/* Chevron icon for collapsible parent */}
-                    {hasSubItems && (
-                      <div
-                        className={`transition-transform duration-200 ${
-                          isDarkMode
-                            ? "text-slate-500 group-hover:text-white"
-                            : "text-slate-400 group-hover:text-purple-700"
-                        }`}
-                      >
-                        {isOpen ? (
-                          <ChevronDown className="w-3.5 h-3.5" />
-                        ) : (
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </button>
+                  </Link>
+                )}
 
                 {/* Sub-Items List */}
                 {hasSubItems && isOpen && (
                   <div
-                    className={`pl-6 space-y-1 border-l-2 ml-5 py-1 ${
-                      isDarkMode ? "border-white/[0.06]" : "border-slate-200"
+                    className={`pl-4 space-y-0.5 border-l-2 ml-5 py-0.5 ${
+                      isDarkMode ? "border-white/[0.06]" : "border-blue-200/80"
                     }`}
                   >
                     {item.subItems?.map((sub) => {
                       const isSubActive = activeItem === sub.id;
 
                       return (
-                        <button
+                        <Link
                           key={sub.id}
+                          href={`/?tab=${sub.id}`}
                           onClick={() => handleSelectItem(sub.id)}
-                          className={`w-full relative flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-md transition-all duration-150 group ${
+                          className={`w-full relative flex items-center gap-2.5 px-2.5 py-1.5 rounded-lg text-xs transition-all duration-150 group ${
                             isSubActive
-                              ? "bg-gradient-to-r from-[#2563EB] to-[#7C3AED] text-white font-semibold shadow-md shadow-purple-900/30"
+                              ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold shadow-2xs"
                               : isDarkMode
                               ? "text-slate-400 hover:text-white hover:bg-white/[0.04]"
-                              : "text-slate-600 hover:text-purple-700 hover:bg-purple-50/60"
+                              : "text-slate-600 hover:text-blue-700 hover:bg-white/70 font-medium"
                           }`}
                         >
                           <span
                             className={`w-1.5 h-1.5 rounded-full transition-colors ${
                               isSubActive
-                                ? "bg-cyan-400 shadow-[0_0_8px_#22D3EE]"
+                                ? "bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]"
                                 : isDarkMode
                                 ? "bg-slate-600 group-hover:bg-slate-300"
-                                : "bg-slate-300 group-hover:bg-purple-500"
+                                : "bg-blue-300 group-hover:bg-blue-600"
                             }`}
                           />
                           <span className="truncate">{sub.label}</span>
-                        </button>
+                        </Link>
                       );
                     })}
                   </div>
@@ -772,8 +917,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* BOTTOM SECTION: USER PROFILE CARD                   */}
       {/* =================================================== */}
       <div
-        className={`pt-4 border-t space-y-3 shrink-0 ${
-          isDarkMode ? "border-white/[0.06]" : "border-slate-200"
+        className={`pt-2.5 border-t space-y-2 shrink-0 ${
+          isDarkMode ? "border-white/[0.06]" : "border-blue-200/80"
         }`}
       >
         {isCollapsed ? (
@@ -783,7 +928,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           >
             <div
               className={`w-full h-full rounded-full flex items-center justify-center font-bold text-xs ${
-                isDarkMode ? "bg-[#081425] text-white" : "bg-white text-slate-900"
+                isDarkMode ? "bg-[#081425] text-white" : "bg-white text-blue-700"
               }`}
             >
               RS
@@ -792,18 +937,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         ) : (
           <div
-            className={`backdrop-blur-md rounded-2xl p-3 flex items-center justify-between gap-2 border ${
+            className={`rounded-2xl p-2.5 flex items-center justify-between gap-2 border ${
               isDarkMode
                 ? "bg-white/[0.03] border-white/[0.08]"
-                : "bg-slate-50 border-slate-200"
+                : "bg-white/90 border border-blue-200/80 shadow-2xs backdrop-blur-md"
             }`}
           >
             <div className="flex items-center gap-2.5 min-w-0">
               <div className="relative shrink-0">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 via-purple-500 to-cyan-400 p-0.5 shadow-md">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 via-indigo-500 to-blue-600 p-0.5 shadow-2xs">
                   <div
                     className={`w-full h-full rounded-full flex items-center justify-center font-bold text-xs ${
-                      isDarkMode ? "bg-[#081425] text-white" : "bg-white text-slate-900"
+                      isDarkMode ? "bg-[#081425] text-white" : "bg-blue-50 text-blue-700"
                     }`}
                   >
                     {initials}
@@ -821,8 +966,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   {userName}
                 </div>
                 <div
-                  className={`text-[10px] truncate ${
-                    isDarkMode ? "text-slate-400" : "text-slate-500"
+                  className={`text-[10px] font-medium truncate ${
+                    isDarkMode ? "text-slate-400" : "text-blue-600/80"
                   }`}
                 >
                   {userRole}
@@ -833,10 +978,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <div className="flex items-center gap-1 shrink-0">
               <button
                 onClick={() => handleSelectItem("admin-settings")}
-                className={`p-1.5 rounded-xl transition-colors ${
+                className={`p-1.5 rounded-xl transition-all ${
                   isDarkMode
                     ? "bg-white/[0.04] hover:bg-white/10 text-slate-400 hover:text-white"
-                    : "bg-white hover:bg-slate-200/60 border border-slate-200 text-slate-600 hover:text-slate-900 shadow-2xs"
+                    : "bg-blue-50/80 hover:bg-blue-100 border border-blue-200/60 text-blue-700 shadow-2xs"
                 }`}
                 title="Settings"
               >
@@ -850,10 +995,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
               <Link
                 href="/login"
-                className={`p-1.5 rounded-xl transition-colors ${
+                className={`p-1.5 rounded-xl transition-all ${
                   isDarkMode
                     ? "bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300"
-                    : "bg-red-50 hover:bg-red-100 border border-red-100 text-red-600"
+                    : "bg-red-50 hover:bg-red-100/80 border border-red-200/80 text-red-600 shadow-2xs"
                 }`}
                 title="Logout"
               >
