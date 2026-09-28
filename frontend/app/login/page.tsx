@@ -1,32 +1,81 @@
-import type { Metadata } from 'next'
-import { BrandPanel } from '@/components/brand-panel'
-import { LoginForm } from '@/components/login-form'
-import { ThemeToggle } from '@/components/theme-toggle'
-import { config } from '@/lib/config'
+"use client";
 
-export const metadata: Metadata = {
-  title: `Sign in — ${config.appName}`,
-}
+import React, { useState } from "react";
+import ClanioLogo from "@/components/login/ClanioLogo";
+import FeatureCardList from "@/components/login/FeatureCard";
+import LoginForm from "@/components/login/LoginForm";
 
 export default function LoginPage() {
+  const [isDark, setIsDark] = useState(false);
+
   return (
-    <main className="relative min-h-dvh overflow-hidden bg-canvas lg:h-dvh">
-      <div aria-hidden="true" className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-40 -top-40 h-[30rem] w-[30rem] rounded-full bg-[var(--glow-one)] blur-3xl" />
-        <div className="absolute -bottom-48 -right-32 h-[32rem] w-[32rem] rounded-full bg-[var(--glow-two)] blur-3xl" />
+    <main
+      className={`relative min-h-screen w-full flex items-center justify-center p-4 sm:p-6 lg:p-10 font-sans overflow-hidden transition-colors duration-500 ${
+        isDark
+          ? "bg-slate-950 text-slate-100 dark"
+          : "bg-gradient-to-br from-indigo-100/80 via-purple-100/50 to-blue-100/70 text-slate-900"
+      }`}
+    >
+      {/* Pure CSS Ambient Background */}
+      <div className="absolute inset-0 w-full h-full pointer-events-none z-0 overflow-hidden bg-dot-pattern opacity-60">
+        {/* Soft Radial Ambient Glow Orbs */}
+        <div className={`absolute -top-32 -left-32 w-[450px] h-[450px] rounded-full blur-3xl transition-all duration-700 ${
+          isDark ? "bg-purple-600/25" : "bg-purple-300/40"
+        }`} />
+        <div className={`absolute top-1/2 -right-32 w-[450px] h-[450px] rounded-full blur-3xl transition-all duration-700 ${
+          isDark ? "bg-blue-600/20" : "bg-blue-300/35"
+        }`} />
+        <div className={`absolute -bottom-32 left-1/3 w-[450px] h-[450px] rounded-full blur-3xl transition-all duration-700 ${
+          isDark ? "bg-indigo-600/20" : "bg-indigo-200/40"
+        }`} />
       </div>
 
-      <div className="absolute right-5 top-5 z-10 sm:right-8 sm:top-7">
-        <ThemeToggle />
-      </div>
+      {/* Main Glassmorphic Container Card - Prominent & Spacious */}
+      <div className={`relative z-10 w-full max-w-[1200px] min-h-[550px] rounded-[36px] border transition-all duration-500 grid grid-cols-1 lg:grid-cols-12 overflow-hidden ${
+        isDark
+          ? "bg-slate-900/60 border-white/15 shadow-[0_25px_80px_-15px_rgba(0,0,0,0.9),0_0_30px_rgba(124,58,237,0.15)] backdrop-blur-2xl"
+          : "bg-white/70 border-white shadow-[0_20px_60px_-15px_rgba(15,23,42,0.18),0_0_40px_rgba(99,102,241,0.12)] backdrop-blur-2xl ring-1 ring-slate-900/5"
+      }`}>
 
-      <div className="relative mx-auto flex h-full w-full max-w-6xl flex-col justify-center gap-10 px-5 pb-8 pt-20 sm:px-8 lg:flex-row lg:items-center lg:gap-14 lg:py-0">
-        <BrandPanel />
+        {/* ---------------------------------------------------- */}
+        {/* LEFT SECTION (55% / col-span-7)                      */}
+        {/* ---------------------------------------------------- */}
+        <section className="lg:col-span-7 p-6 sm:p-10 lg:p-12 flex flex-col justify-center relative overflow-hidden">
+          {/* Left Content Header & Features */}
+          <div className="relative z-10 space-y-6 w-full max-w-xl">
+            {/* Logo Component */}
+            <ClanioLogo isDark={isDark} />
 
-        <div className="w-full shrink-0 lg:w-[24rem] xl:w-[26rem]">
-          <LoginForm />
-        </div>
+            {/* Main Headline */}
+            <div className="pt-2">
+              <h1 className={`text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.15] ${
+                isDark ? "text-white" : "text-slate-900"
+              }`}>
+                The Complete HR <br />
+                Management System <br />
+                <span className="text-clanio-gradient">
+                  for Modern Teams
+                </span>
+              </h1>
+            </div>
+
+            {/* 4 Feature Cards */}
+            <FeatureCardList isDark={isDark} />
+          </div>
+        </section>
+
+        {/* ---------------------------------------------------- */}
+        {/* RIGHT SECTION (45% / col-span-5)                     */}
+        {/* ---------------------------------------------------- */}
+        <section className={`lg:col-span-5 rounded-t-3xl lg:rounded-t-none lg:rounded-l-3xl p-6 sm:p-10 lg:p-12 flex items-center justify-center relative z-10 transition-all duration-500 ${
+          isDark
+            ? "bg-slate-900/80 border-l border-white/10 backdrop-blur-3xl shadow-[-15px_0_35px_-5px_rgba(0,0,0,0.5)]"
+            : "bg-white/80 border-l border-white/90 backdrop-blur-3xl shadow-[-15px_0_35px_-5px_rgba(37,99,235,0.08)]"
+        }`}>
+          <LoginForm isDark={isDark} onToggleTheme={() => setIsDark(!isDark)} />
+        </section>
+
       </div>
     </main>
-  )
+  );
 }

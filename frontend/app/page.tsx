@@ -1,15 +1,15 @@
-'use client'
+import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import HomeContent from "@/components/home/HomeContent";
 
-import { useRouter } from 'next/navigation'
-import { useEffect } from 'react'
-import { readSession } from '@/lib/session'
+export default async function Home() {
+  const cookieStore = await cookies();
+  const token = cookieStore.get("token")?.value;
+  const auth = cookieStore.get("isAuthenticated")?.value;
 
-export default function HomePage() {
-  const router = useRouter()
+  if (!token && auth !== "true") {
+    redirect("/login");
+  }
 
-  useEffect(() => {
-    router.replace(readSession() ? '/dashboard' : '/login')
-  }, [router])
-
-  return null
+  return <HomeContent />;
 }

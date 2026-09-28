@@ -1,91 +1,36 @@
-import { config } from './config'
+import { getCookie, removeCookie } from "./cookies";
 
-export type ApiEnvelope<T> = {
-  success: boolean
-  status: number
-  message: string
-  data: T
-}
+const rawBase = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/api/hrms";
+const API_BASE = rawBase.endsWith("/hrms") ? rawBase : `${rawBase.replace(/\/$/, "")}/hrms`;
 
-export type FieldErrors = Record<string, string[]>
+export async function fetchApi<T>(endpoint: string, options?: RequestInit): Promise<T> {
+  const token = typeof window !== "undefined"
+    ? (getCookie("token") || localStorage.getItem("token"))
+    : null;
 
-export class ApiError extends Error {
-  readonly status: number
-  readonly code: string
-  readonly fields: FieldErrors
+  const response = await fetch(`${API_BASE}${endpoint}`, {
+    ...options,
+    headers: {
+      "Content-Type": "application/json",
+      "Accept": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...options?.headers,
+    },
+  });
 
-  constructor(message: string, status: number, code: string, fields: FieldErrors = {}) {
-    super(message)
-    this.name = 'ApiError'
-    this.status = status
-    this.code = code
-    this.fields = fields
-  }
-}
-
-type RequestOptions = {
-  method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE'
-  body?: unknown
-  token?: string | null
-  signal?: AbortSignal
-}
-
-export async function apiRequest<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { method = 'GET', body, token, signal } = options
-
-  const headers: Record<string, string> = { Accept: 'application/json' }
-
-  if (body !== undefined) {
-    headers['Content-Type'] = 'application/json'
-  }
-
-  if (token) {
-    headers.Authorization = `Bearer ${token}`
-  }
-
-  let response: Response
-
-  try {
-    response = await fetch(`${config.apiUrl}${path}`, {
-      method,
-      headers,
-      signal,
-      body: body === undefined ? undefined : JSON.stringify(body),
-    })
-  } catch {
-    throw new ApiError(
-      'Cannot reach the server. Check your connection and try again.',
-      0,
-      'NETWORK_ERROR'
-    )
-  }
-
-  const payload = await response.json().catch(() => null)
-
-  if (!response.ok || payload?.success === false) {
-    throw new ApiError(
-      payload?.message ?? 'Something went wrong. Please try again.',
-      payload?.status ?? response.status,
-      payload?.error_code ?? 'REQUEST_FAILED',
-      normaliseFieldErrors(payload?.errors)
-    )
-  }
-
-  return (payload as ApiEnvelope<T>).data
-}
-
-function normaliseFieldErrors(errors: unknown): FieldErrors {
-  if (!errors || typeof errors !== 'object' || Array.isArray(errors)) {
-    return {}
-  }
-
-  const result: FieldErrors = {}
-
-  for (const [field, messages] of Object.entries(errors as Record<string, unknown>)) {
-    if (Array.isArray(messages) && messages.length > 0) {
-      result[field] = messages.map(String)
+  if (!response.ok) {
+    if (response.status === 401 && typeof window !== "undefined") {
+      removeCookie("token");
+      removeCookie("isAuthenticated");
+      localStorage.removeItem("token");
+      localStorage.removeItem("isAuthenticated");
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
     }
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.message || "An error occurred with the request.");
   }
 
-  return result
+  return response.json();
 }
