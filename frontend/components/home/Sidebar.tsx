@@ -9,7 +9,79 @@ import {
   ChevronRight,
   ChevronDown,
   ShieldCheck,
+  X,
 } from "lucide-react";
+import {
+  SquaresFour,
+  UsersThree,
+  CalendarCheck,
+  CalendarPlus,
+  TrendUp,
+  CheckSquareOffset,
+  TreeStructure,
+  UserMinus,
+  Receipt,
+  Laptop,
+  FolderOpen,
+  ChatTeardropText,
+  Headset,
+  Buildings,
+  GearSix,
+  Buildings as WorkspaceIcon,
+  Wallet,
+  UserPlus,
+  ChartBar,
+  IdentificationCard,
+} from "@phosphor-icons/react";
+
+const phosphorIconMap: Record<
+  string,
+  { icon: React.ComponentType<any>; color: string; darkColor: string }
+> = {
+  dashboard: { icon: SquaresFour, color: "text-blue-600", darkColor: "text-blue-400" },
+  workforce: { icon: UsersThree, color: "text-indigo-600", darkColor: "text-indigo-400" },
+  attendance: { icon: CalendarCheck, color: "text-emerald-600", darkColor: "text-emerald-400" },
+  leave: { icon: CalendarPlus, color: "text-amber-600", darkColor: "text-amber-400" },
+  performance: { icon: TrendUp, color: "text-purple-600", darkColor: "text-purple-400" },
+  payroll: { icon: Wallet, color: "text-emerald-600", darkColor: "text-emerald-400" },
+  recruitment: { icon: UserPlus, color: "text-indigo-600", darkColor: "text-indigo-400" },
+  reports: { icon: ChartBar, color: "text-amber-600", darkColor: "text-amber-400" },
+  "my-space": { icon: IdentificationCard, color: "text-sky-600", darkColor: "text-sky-400" },
+  tasks: { icon: CheckSquareOffset, color: "text-cyan-600", darkColor: "text-cyan-400" },
+  "organization-chart": { icon: TreeStructure, color: "text-teal-600", darkColor: "text-teal-400" },
+  "employee-exits": { icon: UserMinus, color: "text-rose-600", darkColor: "text-rose-400" },
+  "expense-claims": { icon: Receipt, color: "text-emerald-600", darkColor: "text-emerald-300" },
+  assets: { icon: Laptop, color: "text-sky-600", darkColor: "text-sky-400" },
+  documents: { icon: FolderOpen, color: "text-orange-600", darkColor: "text-orange-400" },
+  communication: { icon: ChatTeardropText, color: "text-pink-600", darkColor: "text-pink-400" },
+  "help-desk": { icon: Headset, color: "text-violet-600", darkColor: "text-violet-400" },
+  companies: { icon: Buildings, color: "text-blue-600", darkColor: "text-cyan-300" },
+  administration: { icon: GearSix, color: "text-slate-600", darkColor: "text-slate-300" },
+};
+
+const SidebarIcon: React.FC<{
+  itemId: string;
+  isActive?: boolean;
+  isDarkMode?: boolean;
+}> = ({ itemId, isActive, isDarkMode }) => {
+  const config = phosphorIconMap[itemId];
+  if (!config) return null;
+  const IconComponent = config.icon;
+
+  const colorClass = isActive
+    ? "text-white"
+    : isDarkMode
+    ? config.darkColor
+    : config.color;
+
+  return (
+    <IconComponent
+      size={22}
+      weight="duotone"
+      className={`w-[22px] h-[22px] shrink-0 transition-transform duration-200 group-hover:scale-110 ${colorClass}`}
+    />
+  );
+};
 
 export interface SubMenuItem {
   id: string;
@@ -54,60 +126,57 @@ export const sidebarMenuItems: MenuItem[] = [
     label: "Workforce",
     iconPath: "/images/icons/teamwork.png",
     subItems: [
-      { id: "companies", label: "Companies" },
-      { id: "branches", label: "Branches" },
       { id: "employees", label: "Employees" },
       { id: "departments", label: "Departments" },
+      { id: "branches", label: "Branches" },
       { id: "teams", label: "Teams" },
       { id: "designations", label: "Designations" },
-      { id: "organization-chart", label: "Organization Chart" },
+      { id: "roles", label: "Roles" },
     ],
   },
   {
     id: "attendance",
     label: "Attendance",
     iconPath: "/images/icons/calendar.png",
-    badge: { text: "Today", variant: "emerald" },
     subItems: [
       { id: "attendance-list", label: "Attendance" },
       { id: "shift-management", label: "Shift Management" },
       { id: "holidays", label: "Holidays" },
-      { id: "timesheets", label: "Timesheets" },
+      { id: "regularization", label: "Attendance Regularization" },
     ],
   },
   {
     id: "leave",
     label: "Leave",
-    iconPath: "/images/icons/calendar.png",
+    iconPath: "/images/icons/notification-bell.png",
     subItems: [
       { id: "leave-requests", label: "Leave Requests" },
       { id: "leave-balance", label: "Leave Balance" },
-      { id: "leave-policies", label: "Leave Policies" },
+      { id: "leave-policies", label: "Leave Types & Policies" },
+    ],
+  },
+  {
+    id: "performance",
+    label: "Performance",
+    iconPath: "/images/icons/seo-report.png",
+    subItems: [
+      { id: "performance-goals", label: "Goals & OKRs" },
+      { id: "appraisals", label: "Appraisal Cycles" },
+      { id: "incentives", label: "Incentives & Bonuses" },
+      { id: "recognitions", label: "Recognitions & Awards" },
+      
     ],
   },
   {
     id: "payroll",
     label: "Payroll",
     iconPath: "/images/icons/wages.png",
-    badge: { text: "Pending", variant: "amber" },
     subItems: [
-      { id: "payroll-overview", label: "Payroll" },
-      { id: "salary-structure", label: "Salary Structure" },
-      { id: "payslips", label: "Payslips" },
-      { id: "reimbursements", label: "Reimbursements" },
-      { id: "loans-advances", label: "Loans & Advances" },
-    ],
-  },
-  {
-    id: "recruitment",
-    label: "Recruitment",
-    iconPath: "/images/icons/recruitment.png",
-    badge: { text: "3 New", variant: "purple" },
-    subItems: [
-      { id: "jobs", label: "Jobs" },
-      { id: "candidates", label: "Candidates" },
-      { id: "interviews", label: "Interviews" },
-      { id: "offers", label: "Offers" },
+      { id: "payroll", label: "Payroll Runs" },
+      { id: "fnf", label: "Full & Final" },
+      { id: "advances", label: "Salary Advance" },
+      { id: "salary-components", label: "Salary Components" },
+      { id: "company-bank", label: "Company Bank" },
     ],
   },
   {
@@ -116,9 +185,72 @@ export const sidebarMenuItems: MenuItem[] = [
     iconPath: "/images/icons/task.png",
     subItems: [
       { id: "my-tasks", label: "My Tasks" },
-      { id: "team-tasks", label: "Team Tasks" },
-      { id: "projects", label: "Projects" },
-      { id: "sod-eod", label: "SOD / EOD" },
+      { id: "daily-reports", label: "Daily Reports (SOD/EOD)" },
+      { id: "work-records", label: "Work Records" },
+    ],
+  },
+  {
+    id: "organization-chart",
+    label: "Organization Chart",
+    iconPath: "/images/icons/recruitment.png",
+  },
+  {
+    id: "employee-exits",
+    label: "Exits & Offboarding",
+    iconPath: "/images/icons/out.png",
+    subItems: [
+      { id: "employee-exits", label: "Resignations" },
+      { id: "clearance", label: "Clearance Sign-off" },
+      { id: "clearance-items", label: "Exit Checklist" },
+    ],
+  },
+  {
+    id: "expense-claims",
+    label: "Expenses & Claims",
+    iconPath: "/images/icons/wages.png",
+  },
+  {
+    id: "assets",
+    label: "Assets",
+    iconPath: "/images/icons/authentication.png",
+    subItems: [
+      { id: "company-assets", label: "Company Assets" },
+      { id: "my-assets", label: "My Assets" },
+      { id: "asset-requests", label: "Asset Requests" },
+    ],
+  },
+  {
+    id: "recruitment",
+    label: "Recruitment",
+    iconPath: "/images/icons/recruitment.png",
+    subItems: [
+      { id: "openings", label: "Openings" },
+      { id: "interviews", label: "Interviews" },
+      { id: "joinings", label: "Joining Soon" },
+    ],
+  },
+  {
+    id: "reports",
+    label: "Reports & Billing",
+    iconPath: "/images/icons/seo-report.png",
+    subItems: [
+      { id: "reports", label: "Reports" },
+      { id: "statutory-returns", label: "Statutory Returns" },
+      { id: "billing", label: "Invoices" },
+      { id: "plans", label: "Plans" },
+    ],
+  },
+  {
+    id: "my-space",
+    label: "My Space",
+    iconPath: "/images/icons/notification-bell.png",
+    subItems: [
+      { id: "my-attendance", label: "My Attendance" },
+      { id: "my-leave", label: "My Leave" },
+      { id: "my-payslips", label: "My Payslips" },
+      { id: "my-advance", label: "Advance Salary" },
+      { id: "my-requests", label: "My Requests" },
+      { id: "my-policies", label: "Policies" },
     ],
   },
   {
@@ -128,47 +260,41 @@ export const sidebarMenuItems: MenuItem[] = [
     subItems: [
       { id: "employee-documents", label: "Employee Documents" },
       { id: "company-policies", label: "Company Policies" },
-      { id: "templates", label: "Templates" },
-    ],
-  },
-  {
-    id: "reports",
-    label: "Reports",
-    iconPath: "/images/icons/seo-report.png",
-    subItems: [
-      { id: "hr-reports", label: "HR Reports" },
-      { id: "attendance-reports", label: "Attendance Reports" },
-      { id: "payroll-reports", label: "Payroll Reports" },
-      { id: "analytics", label: "Analytics" },
     ],
   },
   {
     id: "communication",
     label: "Communication",
     iconPath: "/images/icons/chat-bubbles.png",
-    badge: { text: "12", variant: "cyan" },
     subItems: [
       { id: "announcements", label: "Announcements" },
       { id: "notifications", label: "Notifications" },
-      { id: "calendar", label: "Calendar" },
     ],
+  },
+  {
+    id: "help-desk",
+    label: "Help Desk",
+    iconPath: "/images/icons/help.png",
+    subItems: [
+      { id: "tickets", label: "Support Tickets" },
+      { id: "ticket-categories", label: "Ticket Categories" },
+    ],
+  },
+  {
+    id: "companies",
+    label: "Companies",
+    iconPath: "/images/icons/messages.png",
   },
   {
     id: "administration",
     label: "Administration",
     iconPath: "/images/icons/administration.png",
     subItems: [
-      { id: "roles", label: "Roles" },
-      { id: "users-roles", label: "Users & Roles" },
+      { id: "users", label: "Sign-in Accounts" },
+      { id: "permissions", label: "Permissions Matrix" },
+      { id: "audit-log", label: "Audit Log" },
       { id: "company-settings", label: "Company Settings" },
-      { id: "billing", label: "Billing" },
-      { id: "audit-logs", label: "Audit Logs" },
     ],
-  },
-  {
-    id: "help",
-    label: "Help",
-    iconPath: "/images/icons/help.png",
   },
 ];
 
@@ -197,7 +323,8 @@ export const getFlatSidebarOptions = (): FlatSidebarOption[] => {
 
 export const Sidebar: React.FC<SidebarProps> = ({
   isCollapsed = false,
-  isDarkMode = true,
+  isDarkMode = false,
+  onToggle,
   activeItem: externalActiveItem,
   onSelectItem,
   viewMode = "admin",
@@ -208,6 +335,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [userName, setUserName] = useState("Platform Super Admin");
   const [userRole, setUserRole] = useState("Super Administrator");
   const [companyName, setCompanyName] = useState("Clanio HR");
+  const [companySlug, setCompanySlug] = useState("clanio");
+
+  const [userPermissions, setUserPermissions] = useState<string[] | null>(null);
 
   React.useEffect(() => {
     if (typeof window !== "undefined") {
@@ -215,6 +345,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
       const isSuper = localStorage.getItem("is_super_admin") === "true";
       const storedEmail = localStorage.getItem("user_email");
       const storedCompany = localStorage.getItem("company_name");
+      const storedSlug = localStorage.getItem("company_slug");
+      const storedPerms = localStorage.getItem("user_permissions");
+
+      if (storedPerms) {
+        try {
+          setUserPermissions(JSON.parse(storedPerms));
+        } catch {}
+      }
 
       if (storedName) {
         setUserName(storedName);
@@ -225,6 +363,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
       if (storedCompany) {
         setCompanyName(storedCompany);
       }
+      if (storedSlug) {
+        setCompanySlug(storedSlug);
+      }
 
       if (isSuper || storedEmail === "superadmin@clanio.com") {
         setUserRole("Super Administrator");
@@ -232,6 +373,36 @@ export const Sidebar: React.FC<SidebarProps> = ({
         setUserRole("Company Admin");
       }
     }
+
+    fetchApi<any>("/profile")
+      .then((res) => {
+        const profile = res?.data || res;
+        if (profile?.name) {
+          setUserName(profile.name);
+          if (typeof window !== "undefined") localStorage.setItem("user_name", profile.name);
+        }
+        if (profile?.permissions && Array.isArray(profile.permissions)) {
+          setUserPermissions(profile.permissions);
+          if (typeof window !== "undefined") {
+            localStorage.setItem("user_permissions", JSON.stringify(profile.permissions));
+          }
+        }
+      })
+      .catch(() => {});
+
+    fetchApi<any>("/company-settings")
+      .then((compRes) => {
+        const compData = compRes?.data || compRes;
+        if (compData?.name) {
+          setCompanyName(compData.name);
+          if (typeof window !== "undefined") localStorage.setItem("company_name", compData.name);
+        }
+        if (compData?.slug) {
+          setCompanySlug(compData.slug);
+          if (typeof window !== "undefined") localStorage.setItem("company_slug", compData.slug);
+        }
+      })
+      .catch(() => {});
   }, []);
 
   const initials = userName
@@ -250,49 +421,142 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   };
 
-  const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({
-    workforce: true,
-    administration: true,
-  });
+  const [openSubmenus, setOpenSubmenus] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState("");
   const [dynamicMenuItems, setDynamicMenuItems] = useState<MenuItem[]>(sidebarMenuItems);
-
-  useEffect(() => {
-    let isMounted = true;
-    const modeQuery = viewMode ? `?mode=${viewMode}` : "";
-    fetchApi<{ data?: { menu?: MenuItem[] } }>(`/navigation${modeQuery}`)
-      .then((res) => {
-        if (isMounted && res?.data?.menu && Array.isArray(res.data.menu) && res.data.menu.length > 0) {
-          setDynamicMenuItems(res.data.menu);
-        }
-      })
-      .catch((err) => {
-        console.warn("Backend dynamic navigation unavailable, using fallback menu.", err);
-      });
-
-    return () => {
-      isMounted = false;
-    };
-  }, [viewMode]);
 
   const isSuperAdmin = typeof window !== "undefined" && (
     localStorage.getItem("is_super_admin") === "true" ||
     localStorage.getItem("user_email") === "superadmin@clanio.com"
   );
 
-  const adminOnlyMenus = ["workforce", "recruitment", "administration"];
+  const adminOnlyMenus = ["companies", "workforce", "administration"];
   const adminOnlySubItems = [
     "shift-management",
     "leave-policies",
-    "payroll-overview",
-    "salary-structure",
-    "loans-advances",
-    "team-tasks",
-    "projects",
   ];
+
+  const itemPermissionMap: Record<string, string[]> = {
+    // Standalone / Parent Tabs
+    dashboard: [],
+    companies: ["company.create"],
+    "organization-chart": ["employee.view"],
+    "employee-exits": ["exit.approve", "clearance.manage", "clearance.sign"],
+    "expense-claims": ["expense.verify", "expense.pay"],
+    communication: [],
+
+    // Workforce Sub-items
+    employees: ["employee.view"],
+    departments: ["department.view"],
+    branches: ["branch.view"],
+    teams: ["team.view"],
+    designations: ["designation.view"],
+    roles: ["role.view"],
+
+    // Attendance Sub-items
+    "attendance-list": ["employee.view"],
+    "shift-management": ["work_shift.view"],
+    holidays: ["holiday.view"],
+    regularization: ["attendance.regularize"],
+
+    // Leave Sub-items
+    "leave-requests": ["leave.approve"],
+    "leave-balance": ["leave_balance.view"],
+    "leave-policies": ["leave_type.view"],
+
+    // Performance Sub-items
+    "performance-goals": ["okr.verify", "performance.manage"],
+    appraisals: ["performance.manage", "performance.finalise"],
+    incentives: ["incentive.approve", "incentive.manage"],
+    recognitions: ["recognition.give"],
+
+    // Tasks Sub-items
+    "my-tasks": [],
+    "daily-reports": ["daily_report.view_team"],
+    "work-records": ["daily_report.view_team"],
+
+    // Assets Sub-items
+    "company-assets": ["asset.manage", "asset.support"],
+    "my-assets": [],
+    "asset-requests": ["asset.manage", "asset.support"],
+
+    // Documents Sub-items
+    "employee-documents": ["employee_document.view"],
+    "company-policies": ["policy.manage"],
+
+    // Help Desk Sub-items
+    tickets: ["ticket.view_all", "ticket.resolve"],
+    "ticket-categories": ["ticket.category_manage"],
+
+    // Administration Sub-items
+    permissions: ["user.permission", "permission.view"],
+    "company-settings": ["company.view"],
+
+    // Payroll Sub-items
+    payroll: ["payroll.view"],
+    fnf: ["fnf.view"],
+    advances: ["advance.view"],
+    "salary-components": ["salary_structure.view", "salary_component.manage"],
+    "company-bank": ["company_bank.view"],
+
+    // Recruitment Sub-items
+    openings: ["recruitment.view"],
+    interviews: ["interview.conduct", "recruitment.view"],
+    joinings: ["recruitment.view"],
+
+    // Reports & Billing Sub-items
+    reports: ["report.view"],
+    "statutory-returns": ["report.view"],
+    billing: ["invoice.view", "invoice.manage"],
+    plans: ["plan.manage"],
+
+    // Access Sub-items
+    users: ["user.view"],
+    "audit-log": ["audit.view"],
+
+    // My Space Sub-items — ye sabke liye khuli hain
+    "my-attendance": [],
+    "my-leave": [],
+    "my-payslips": [],
+    "my-advance": [],
+    "my-requests": [],
+    "my-policies": [],
+
+    // Exits & Performance ke naye sub-items
+    clearance: ["clearance.sign", "clearance.manage"],
+    "clearance-items": ["clearance.manage"],
+    "incentive-rules": ["incentive.manage"],
+  };
+
+  const hasPermission = (itemId: string): boolean => {
+    if (isSuperAdmin || userPermissions === null) return true;
+    const required = itemPermissionMap[itemId];
+    if (!required || required.length === 0) return true;
+    return required.some((perm) => userPermissions.includes(perm));
+  };
 
   const menuItems = React.useMemo(() => {
     let items = dynamicMenuItems;
+
+    // Filter items dynamically based on user's granted permissions
+    if (!isSuperAdmin && userPermissions !== null) {
+      items = items
+        .map((item) => {
+          if (item.subItems && item.subItems.length > 0) {
+            const allowedSubItems = item.subItems.filter((sub) => hasPermission(sub.id));
+            if (allowedSubItems.length === 0) return null;
+            return { ...item, subItems: allowedSubItems };
+          } else {
+            return hasPermission(item.id) ? item : null;
+          }
+        })
+        .filter(Boolean) as MenuItem[];
+    }
+
+    // Only show Companies option to Super Admin
+    if (!isSuperAdmin) {
+      items = items.filter((item) => item.id !== "companies");
+    }
 
     // Hide Teams tab strictly from Super Admin while keeping it visible for Company Admin
     if (isSuperAdmin) {
@@ -323,13 +587,27 @@ export const Sidebar: React.FC<SidebarProps> = ({
         });
     }
     return items;
-  }, [dynamicMenuItems, viewMode, isSuperAdmin]);
+  }, [dynamicMenuItems, viewMode, isSuperAdmin, userPermissions]);
+
+  useEffect(() => {
+    if (!activeItem) return;
+    const parent = sidebarMenuItems.find((item) =>
+      item.subItems?.some((sub) => sub.id === activeItem)
+    );
+    if (parent) {
+      setOpenSubmenus({ [parent.id]: true });
+    } else {
+      const isParentWithSubItems = sidebarMenuItems.some(
+        (item) => item.id === activeItem && item.subItems && item.subItems.length > 0
+      );
+      if (!isParentWithSubItems) {
+        setOpenSubmenus({});
+      }
+    }
+  }, [activeItem]);
 
   const toggleSubmenu = (id: string) => {
-    setOpenSubmenus((prev) => ({
-      ...prev,
-      [id]: !prev[id],
-    }));
+    setOpenSubmenus((prev) => (prev[id] ? {} : { [id]: true }));
   };
 
   const getBadgeStyle = (variant: "emerald" | "purple" | "cyan" | "amber") => {
@@ -390,117 +668,81 @@ export const Sidebar: React.FC<SidebarProps> = ({
     .filter(Boolean) as MenuItem[];
 
   return (
-    <aside
-      className={`${
-        isCollapsed ? "w-[84px] p-3.5" : "w-[280px] py-4 px-2"
-      } h-screen flex flex-col justify-between relative overflow-hidden select-none z-30 shrink-0 font-sans backdrop-blur-xl transition-all duration-300 ease-in-out ${
-        isDarkMode
-          ? "bg-[#081425] text-[#94A3B8] border-r border-white/[0.06] shadow-[10px_0_40px_rgba(0,0,0,0.4)]"
-          : "bg-white text-slate-600 border-r border-slate-200/90 shadow-[10px_0_30px_rgba(0,0,0,0.04)]"
-      }`}
-    >
-      {/* Decorative Subtle Background Glow */}
-      {isDarkMode && (
-        <>
-          <div className="absolute -top-24 -left-24 w-60 h-60 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
-          <div className="absolute -bottom-24 -right-24 w-60 h-60 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
-        </>
+    <>
+      {/* Mobile Backdrop Overlay */}
+      {onToggle && (
+        <div
+          onClick={onToggle}
+          className={`fixed inset-0 bg-black/60 backdrop-blur-xs z-40 md:hidden transition-opacity duration-300 ease-in-out cursor-pointer ${
+            !isCollapsed ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          }`}
+        />
       )}
 
-      {/* TOP & MIDDLE CONTAINER WITH SCROLL */}
-      <div className="flex-1 flex flex-col space-y-4 min-h-0 overflow-y-auto scrollbar-none pr-0.5">
-        {/* =================================================== */}
-        {/* TOP SECTION: BRAND LOGO                            */}
-        {/* =================================================== */}
-        {isCollapsed ? (
-          <div className="flex items-center justify-center pt-1 pb-1">
-            <Image
-              src="/images/logo/Clanio.png"
-              alt="Clanio Logo"
-              width={40}
-              height={40}
-              priority
-              className="h-9 w-9 object-contain rounded-xl shadow-md"
-            />
-          </div>
-        ) : (
-          <div className="flex items-center gap-3 pt-1 pb-1">
-            <div className="shrink-0">
-              <Image
-                src="/images/logo/Clanio.png"
-                alt="Clanio Logo"
-                width={140}
-                height={40}
-                priority
-                className="h-10 w-auto object-contain rounded-xl"
-              />
-            </div>
-
-            <div className="min-w-0">
-              <div
-                className={`text-lg font-bold tracking-tight flex items-center gap-1.5 leading-none ${
-                  isDarkMode ? "text-white" : "text-slate-900"
-                }`}
-              >
-                <span>Clanio</span>
-                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
-                  HR
-                </span>
-              </div>
-              <div className="text-[10px] font-medium tracking-tight flex items-center gap-1 mt-1 leading-none">
-                <span className="text-[#2563EB]">Work.</span>
-                <span className="text-[#7C3AED]">Manage.</span>
-                <span className="text-[#22D3EE]">Grow.</span>
-              </div>
-            </div>
-          </div>
+      <aside
+        className={`fixed md:sticky top-0 h-screen flex flex-col justify-between overflow-hidden select-none z-50 md:z-30 shrink-0 font-sans transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] transform-gpu ${
+          isCollapsed
+            ? "-translate-x-full md:translate-x-0 md:w-[84px] md:p-3.5"
+            : "translate-x-0 w-[280px] py-2.5 px-2.5"
+        } ${
+          isDarkMode
+            ? "bg-[#081425] text-[#94A3B8] border-r border-white/[0.06] shadow-[10px_0_40px_rgba(0,0,0,0.4)]"
+            : "bg-[#EEF5FF] text-slate-800 border-r border-blue-200/70 shadow-[4px_0_24px_rgba(37,99,235,0.04)] backdrop-blur-xl"
+        }`}
+      >
+        {/* Decorative Subtle Background Glow (Dark mode only) */}
+        {isDarkMode && (
+          <>
+            <div className="absolute -top-24 -left-24 w-60 h-60 bg-purple-600/10 rounded-full blur-3xl pointer-events-none" />
+            <div className="absolute -bottom-24 -right-24 w-60 h-60 bg-blue-600/10 rounded-full blur-3xl pointer-events-none" />
+          </>
         )}
 
         {/* =================================================== */}
-        {/* WORKSPACE CARD                                      */}
+        {/* TOP SECTION: WORKSPACE CARD (FULL WIDTH)           */}
         {/* =================================================== */}
-        {isCollapsed ? (
-          <div
-            title={`${companyName} (Enterprise Plan)`}
-            className="w-11 h-11 mx-auto rounded-2xl bg-gradient-to-tr from-[#2563EB] to-[#7C3AED] p-0.5 flex items-center justify-center relative shrink-0 shadow-md shadow-purple-900/30 group cursor-pointer"
-          >
+        <div
+          className={`shrink-0 transition-all border-b h-[64px] sm:h-[76px] flex items-center ${
+            isCollapsed ? "-mx-3.5 -mt-3.5 px-3" : "-mx-2.5 -mt-2.5 px-3.5"
+          } ${
+            isDarkMode
+              ? "bg-[#06101E] border-white/[0.08]"
+              : "bg-[#E2EDFF]/90 border-blue-200/70 backdrop-blur-md"
+          }`}
+        >
+          {isCollapsed ? (
             <div
-              className={`w-full h-full rounded-[14px] flex items-center justify-center ${
-                isDarkMode ? "bg-[#081425]" : "bg-white"
-              }`}
+              title={`${companyName} (Enterprise Plan)`}
+              className="flex items-center justify-center relative shrink-0 cursor-pointer w-full"
             >
-              <Image
-                src="/images/icons/teamwork.png"
-                alt="Workspace"
-                width={22}
-                height={22}
-                className="w-5.5 h-5.5 object-contain"
-              />
+              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#2563EB] to-[#7C3AED] p-0.5 flex items-center justify-center relative shrink-0 shadow-md shadow-purple-900/30 group">
+                <div
+                  className={`w-full h-full rounded-[14px] flex items-center justify-center ${
+                    isDarkMode ? "bg-[#081425]" : "bg-white"
+                  }`}
+                >
+                  <WorkspaceIcon
+                    size={20}
+                    weight="duotone"
+                    className="w-5 h-5 text-blue-500 shrink-0"
+                  />
+                </div>
+                <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-[#081425] shadow-[0_0_8px_#10B981]" />
+              </div>
             </div>
-            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-emerald-500 ring-2 ring-[#081425] shadow-[0_0_8px_#10B981]" />
-          </div>
-        ) : (
-          <div
-            className={`backdrop-blur-md rounded-2xl p-3.5 space-y-2.5 transition-all duration-200 shadow-inner group border ${
-              isDarkMode
-                ? "bg-white/[0.03] hover:bg-white/[0.05] border-white/[0.08]"
-                : "bg-purple-50/70 hover:bg-purple-50 border-purple-100"
-            }`}
-          >
-            <div className="flex items-center justify-between">
+          ) : (
+            <div className="flex items-center justify-between group w-full">
               <div className="flex items-center gap-2.5 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#2563EB] to-[#7C3AED] p-0.5 flex items-center justify-center shrink-0 shadow-md shadow-purple-900/30">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-500 to-blue-700 p-0.5 flex items-center justify-center shrink-0 shadow-2xs">
                   <div
                     className={`w-full h-full rounded-[10px] flex items-center justify-center ${
-                      isDarkMode ? "bg-[#081425]" : "bg-white"
+                      isDarkMode ? "bg-[#081425]" : "bg-blue-50"
                     }`}
                   >
-                    <Image
-                      src="/images/icons/teamwork.png"
-                      alt="Workspace"
-                      width={20}
-                      height={20}
-                      className="w-5 h-5 object-contain"
+                    <WorkspaceIcon
+                      size={20}
+                      weight="duotone"
+                      className="w-5 h-5 text-blue-500 shrink-0"
                     />
                   </div>
                 </div>
@@ -510,17 +752,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     className={`text-xs font-bold truncate transition-colors ${
                       isDarkMode
                         ? "text-white group-hover:text-cyan-300"
-                        : "text-slate-900 group-hover:text-purple-700"
+                        : "text-slate-900 group-hover:text-blue-600"
                     }`}
                   >
                     {companyName}
                   </div>
                   <div
-                    className={`text-[10px] truncate ${
-                      isDarkMode ? "text-slate-400" : "text-slate-500"
+                    className={`text-[10px] font-medium truncate ${
+                      isDarkMode ? "text-slate-400" : "text-blue-600/80"
                     }`}
                   >
-                    acme.clanio.com
+                    {companySlug ? `${companySlug}.clanio.com` : "clanio.com"}
                   </div>
                 </div>
               </div>
@@ -530,10 +772,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 shadow-[0_0_10px_#10B981]" />
               </div>
             </div>
+          )}
+        </div>
 
-            
-          </div>
-        )}
+        {/* MIDDLE SCROLLABLE CONTAINER FOR SEARCH & NAV */}
+        <div className="flex-1 flex flex-col space-y-2.5 min-h-0 overflow-y-auto scrollbar-none pt-2.5">
 
         {/* =================================================== */}
         {/* SEARCH BOX / SEARCH ICON                            */}
@@ -544,7 +787,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             className={`w-11 h-11 mx-auto rounded-2xl border flex items-center justify-center transition-all cursor-pointer ${
               isDarkMode
                 ? "bg-white/[0.04] hover:bg-white/[0.08] border-white/[0.08] text-slate-400 hover:text-white"
-                : "bg-slate-100 hover:bg-slate-200/70 border-slate-200 text-slate-500 hover:text-slate-900"
+                : "bg-white/90 hover:bg-white border border-blue-200/80 text-slate-600 hover:text-blue-600 shadow-2xs"
             }`}
           >
             <Search className="w-4 h-4" />
@@ -553,7 +796,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <div className="relative">
             <Search
               className={`w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 ${
-                isDarkMode ? "text-slate-400" : "text-slate-400"
+                isDarkMode ? "text-slate-400" : "text-blue-500/70"
               }`}
             />
             <input
@@ -564,13 +807,17 @@ export const Sidebar: React.FC<SidebarProps> = ({
               className={`w-full border rounded-xl pl-9 pr-8 py-2 text-xs outline-none transition-all duration-200 ${
                 isDarkMode
                   ? "bg-white/[0.04] hover:bg-white/[0.07] focus:bg-white/[0.09] border-white/[0.08] focus:border-purple-500/50 text-white placeholder-slate-500"
-                  : "bg-slate-100 hover:bg-slate-200/60 focus:bg-white border-slate-200 focus:border-purple-500/60 text-slate-900 placeholder-slate-400"
+                  : "bg-white/90 hover:bg-white focus:bg-white border border-blue-200/80 text-slate-900 placeholder-slate-400 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 shadow-2xs"
               }`}
             />
             {searchQuery ? (
               <button
                 onClick={() => setSearchQuery("")}
-                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] text-slate-400 hover:text-slate-600 px-1.5 py-0.5 rounded bg-white/10"
+                className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] px-1.5 py-0.5 rounded ${
+                  isDarkMode
+                    ? "text-slate-400 hover:text-slate-200 bg-white/10"
+                    : "text-blue-600 hover:text-blue-800 bg-blue-50"
+                }`}
               >
                 ESC
               </button>
@@ -579,7 +826,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 className={`absolute right-2.5 top-1/2 -translate-y-1/2 text-[10px] font-mono border rounded px-1.5 py-0.5 ${
                   isDarkMode
                     ? "text-slate-500 border-white/[0.1] bg-white/[0.03]"
-                    : "text-slate-400 border-slate-200 bg-white shadow-2xs"
+                    : "text-blue-600 border-blue-200/60 bg-blue-50/80"
                 }`}
               >
                 ⌘K
@@ -600,32 +847,22 @@ export const Sidebar: React.FC<SidebarProps> = ({
             const isActive = isParentActive || isChildActive;
 
             if (isCollapsed) {
+              const targetId = hasSubItems && item.subItems?.[0] ? item.subItems[0].id : item.id;
               return (
                 <div key={item.id} className="relative flex justify-center py-0.5">
-                  <button
+                  <Link
+                    href={`/?tab=${targetId}`}
                     title={item.label}
-                    onClick={() => {
-                      if (hasSubItems && item.subItems?.[0]) {
-                        handleSelectItem(item.subItems[0].id);
-                      } else {
-                        handleSelectItem(item.id);
-                      }
-                    }}
+                    onClick={() => handleSelectItem(targetId)}
                     className={`w-11 h-11 rounded-2xl flex items-center justify-center relative transition-all duration-200 group ${
                       isActive
-                        ? "bg-gradient-to-r from-[#2563EB] to-[#7C3AED] text-white shadow-[0_4px_25px_rgba(124,58,237,0.35)]"
+                        ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-[0_4px_16px_rgba(37,99,235,0.35)] font-bold"
                         : isDarkMode
                         ? "text-[#94A3B8] hover:bg-[#7C3AED]/12 hover:text-white"
-                        : "text-slate-600 hover:bg-purple-50 hover:text-purple-700"
+                        : "text-slate-700 hover:bg-white/80 hover:text-blue-700 shadow-2xs"
                     }`}
                   >
-                    <Image
-                      src={item.iconPath}
-                      alt={item.label}
-                      width={20}
-                      height={20}
-                      className="w-5 h-5 object-contain"
-                    />
+                    <SidebarIcon itemId={item.id} isActive={isActive} isDarkMode={isDarkMode} />
 
                     {/* Badge Dot Indicator */}
                     {item.badge && (
@@ -635,7 +872,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         )}`}
                       />
                     )}
-                  </button>
+                  </Link>
                 </div>
               );
             }
@@ -643,59 +880,82 @@ export const Sidebar: React.FC<SidebarProps> = ({
             return (
               <div key={item.id} className="space-y-1">
                 {/* Parent Menu Row */}
-                <button
-                  onClick={() => {
-                    if (hasSubItems) {
-                      toggleSubmenu(item.id);
-                    } else {
-                      handleSelectItem(item.id);
-                    }
-                  }}
-                  className={`w-full relative flex items-center justify-between px-3 py-2 rounded-2xl text-[18px] font-medium transition-all duration-200 group ${
-                    isParentActive && !hasSubItems
-                      ? "bg-gradient-to-r from-[#2563EB] to-[#7C3AED] text-white shadow-[0_4px_25px_rgba(124,58,237,0.35)] font-semibold"
-                      : isChildActive
-                      ? isDarkMode
-                        ? "bg-white/[0.06] text-white font-semibold"
-                        : "bg-purple-50/80 text-purple-700 font-semibold"
-                      : isDarkMode
-                      ? "text-[#94A3B8] hover:bg-[#7C3AED]/12 hover:text-white"
-                      : "text-slate-600 hover:bg-purple-50 hover:text-purple-700"
-                  }`}
-                >
-                  {/* Active Indicator Line */}
-                  {isParentActive && !hasSubItems && (
-                    <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-cyan-400 shadow-[0_0_10px_#22D3EE]" />
-                  )}
+                {hasSubItems ? (
+                  <button
+                    onClick={() => toggleSubmenu(item.id)}
+                    className={`w-[calc(100%+1.25rem)] -mx-2.5 relative flex items-center justify-between px-3.5 sm:px-4 py-2.5 text-[15px] sm:text-[16px] font-bold transition-all duration-200 group ${
+                      isParentActive && !hasSubItems
+                        ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-sm shadow-blue-500/20"
+                        : isChildActive
+                        ? isDarkMode
+                          ? "bg-white/[0.06] text-white font-bold"
+                          : "bg-white text-blue-700 font-bold border-y border-blue-200/80 shadow-2xs"
+                        : isDarkMode
+                        ? "text-[#94A3B8] hover:bg-[#7C3AED]/12 hover:text-white font-semibold"
+                        : "text-slate-800 hover:bg-white/80 hover:text-blue-700 font-bold"
+                    }`}
+                  >
+                    {/* Active Indicator Line */}
+                    {isParentActive && !hasSubItems && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)]" />
+                    )}
 
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div
-                      className={`p-1.5 rounded-xl transition-colors shrink-0 ${
-                        isParentActive && !hasSubItems
-                          ? "bg-white/20"
-                          : isChildActive
-                          ? isDarkMode
-                            ? "bg-purple-500/20"
-                            : "bg-purple-100"
-                          : isDarkMode
-                          ? "bg-white/[0.04] group-hover:bg-purple-500/20"
-                          : "bg-slate-100 group-hover:bg-purple-100"
-                      }`}
-                    >
-                      <Image
-                        src={item.iconPath}
-                        alt={item.label}
-                        width={20}
-                        height={20}
-                        className="w-4.5 h-4.5 object-contain"
-                      />
+                    <div className="flex items-center gap-3 min-w-0">
+                      <SidebarIcon itemId={item.id} isActive={isParentActive && !hasSubItems} isDarkMode={isDarkMode} />
+                      <span className="truncate">{item.label}</span>
                     </div>
 
-                    <span className="truncate">{item.label}</span>
-                  </div>
+                    <div className="flex items-center gap-2">
+                      {/* Badge */}
+                      {item.badge && (
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shadow-sm ${getBadgeStyle(
+                            item.badge.variant
+                          )}`}
+                        >
+                          {item.badge.text}
+                        </span>
+                      )}
 
-                  <div className="flex items-center gap-2">
-                    {/* Badge */}
+                      {/* Chevron icon for collapsible parent */}
+                      {hasSubItems && (
+                        <div
+                          className={`transition-transform duration-200 ${
+                            isDarkMode
+                              ? "text-slate-500 group-hover:text-white"
+                              : "text-slate-400 group-hover:text-blue-600"
+                          }`}
+                        >
+                          {isOpen ? (
+                            <ChevronDown className="w-4 h-4" />
+                          ) : (
+                            <ChevronRight className="w-4 h-4" />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  </button>
+                ) : (
+                  <Link
+                    href={`/?tab=${item.id}`}
+                    onClick={() => handleSelectItem(item.id)}
+                    className={`w-[calc(100%+1.25rem)] -mx-2.5 relative flex items-center justify-between px-3.5 sm:px-4 py-2.5 text-[15px] sm:text-[16px] font-bold transition-all duration-200 group ${
+                      isParentActive
+                        ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white shadow-sm shadow-blue-500/20 font-bold"
+                        : isDarkMode
+                        ? "text-[#94A3B8] hover:bg-[#7C3AED]/12 hover:text-white font-semibold"
+                        : "text-slate-800 hover:bg-white/80 hover:text-blue-700 font-bold"
+                    }`}
+                  >
+                    {isParentActive && (
+                      <span className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-5 rounded-r-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)]" />
+                    )}
+
+                    <div className="flex items-center gap-3 min-w-0">
+                      <SidebarIcon itemId={item.id} isActive={isParentActive} isDarkMode={isDarkMode} />
+                      <span className="truncate">{item.label}</span>
+                    </div>
+
                     {item.badge && (
                       <span
                         className={`text-[10px] font-bold px-2 py-0.5 rounded-full border shadow-sm ${getBadgeStyle(
@@ -705,59 +965,43 @@ export const Sidebar: React.FC<SidebarProps> = ({
                         {item.badge.text}
                       </span>
                     )}
-
-                    {/* Chevron icon for collapsible parent */}
-                    {hasSubItems && (
-                      <div
-                        className={`transition-transform duration-200 ${
-                          isDarkMode
-                            ? "text-slate-500 group-hover:text-white"
-                            : "text-slate-400 group-hover:text-purple-700"
-                        }`}
-                      >
-                        {isOpen ? (
-                          <ChevronDown className="w-3.5 h-3.5" />
-                        ) : (
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        )}
-                      </div>
-                    )}
-                  </div>
-                </button>
+                  </Link>
+                )}
 
                 {/* Sub-Items List */}
                 {hasSubItems && isOpen && (
                   <div
-                    className={`pl-6 space-y-1 border-l-2 ml-5 py-1 ${
-                      isDarkMode ? "border-white/[0.06]" : "border-slate-200"
+                    className={`pl-4 space-y-1 border-l-2 ml-5 py-1 ${
+                      isDarkMode ? "border-white/[0.06]" : "border-blue-200/80"
                     }`}
                   >
                     {item.subItems?.map((sub) => {
                       const isSubActive = activeItem === sub.id;
 
                       return (
-                        <button
+                        <Link
                           key={sub.id}
+                          href={`/?tab=${sub.id}`}
                           onClick={() => handleSelectItem(sub.id)}
-                          className={`w-full relative flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-md transition-all duration-150 group ${
+                          className={`w-full relative flex items-center gap-2.5 px-3 py-2 rounded-xl text-[14px] sm:text-[14.5px] font-semibold transition-all duration-150 group ${
                             isSubActive
-                              ? "bg-gradient-to-r from-[#2563EB] to-[#7C3AED] text-white font-semibold shadow-md shadow-purple-900/30"
+                              ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 text-white font-bold shadow-2xs"
                               : isDarkMode
                               ? "text-slate-400 hover:text-white hover:bg-white/[0.04]"
-                              : "text-slate-600 hover:text-purple-700 hover:bg-purple-50/60"
+                              : "text-slate-700 hover:text-blue-700 hover:bg-white/70 font-semibold"
                           }`}
                         >
                           <span
                             className={`w-1.5 h-1.5 rounded-full transition-colors ${
                               isSubActive
-                                ? "bg-cyan-400 shadow-[0_0_8px_#22D3EE]"
+                                ? "bg-white shadow-[0_0_8px_rgba(255,255,255,0.8)]"
                                 : isDarkMode
                                 ? "bg-slate-600 group-hover:bg-slate-300"
-                                : "bg-slate-300 group-hover:bg-purple-500"
+                                : "bg-blue-300 group-hover:bg-blue-600"
                             }`}
                           />
                           <span className="truncate">{sub.label}</span>
-                        </button>
+                        </Link>
                       );
                     })}
                   </div>
@@ -769,107 +1013,80 @@ export const Sidebar: React.FC<SidebarProps> = ({
       </div>
 
       {/* =================================================== */}
-      {/* BOTTOM SECTION: USER PROFILE CARD                   */}
+      {/* BOTTOM SECTION: BRAND LOGO (FULL WIDTH)            */}
       {/* =================================================== */}
       <div
-        className={`pt-4 border-t space-y-3 shrink-0 ${
-          isDarkMode ? "border-white/[0.06]" : "border-slate-200"
+        className={`shrink-0 mt-auto border-t transition-all ${
+          isCollapsed ? "-mx-3.5 -mb-3.5 p-3" : "-mx-2.5 -mb-2.5 p-3.5"
+        } ${
+          isDarkMode
+            ? "bg-[#06101E] border-white/[0.08]"
+            : "bg-[#E2EDFF]/90 border-blue-200/70 backdrop-blur-md"
         }`}
       >
         {isCollapsed ? (
-          <div
-            title="Rahul Sharma (HR Administrator)"
-            className="w-10 h-10 mx-auto rounded-full bg-gradient-to-tr from-blue-500 via-purple-500 to-cyan-400 p-0.5 relative cursor-pointer shadow-md"
-          >
-            <div
-              className={`w-full h-full rounded-full flex items-center justify-center font-bold text-xs ${
-                isDarkMode ? "bg-[#081425] text-white" : "bg-white text-slate-900"
-              }`}
-            >
-              RS
-            </div>
-            <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-[#081425]" />
+          <div className="flex items-center justify-center">
+            <Image
+              src="/images/logo/Clanio.png"
+              alt="Clanio Logo"
+              width={40}
+              height={40}
+              priority
+              className="h-9 w-9 object-contain rounded-xl shadow-md"
+            />
           </div>
         ) : (
-          <div
-            className={`backdrop-blur-md rounded-2xl p-3 flex items-center justify-between gap-2 border ${
-              isDarkMode
-                ? "bg-white/[0.03] border-white/[0.08]"
-                : "bg-slate-50 border-slate-200"
-            }`}
-          >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="relative shrink-0">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-tr from-blue-500 via-purple-500 to-cyan-400 p-0.5 shadow-md">
-                  <div
-                    className={`w-full h-full rounded-full flex items-center justify-center font-bold text-xs ${
-                      isDarkMode ? "bg-[#081425] text-white" : "bg-white text-slate-900"
-                    }`}
-                  >
-                    {initials}
-                  </div>
-                </div>
-                <span className="absolute bottom-0 right-0 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-white" />
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="shrink-0">
+                <Image
+                  src="/images/logo/Clanio.png"
+                  alt="Clanio Logo"
+                  width={140}
+                  height={40}
+                  priority
+                  className="h-10 w-auto object-contain rounded-xl"
+                />
               </div>
 
               <div className="min-w-0">
                 <div
-                  className={`text-xs font-bold truncate ${
+                  className={`text-lg font-bold tracking-tight flex items-center gap-1.5 leading-none ${
                     isDarkMode ? "text-white" : "text-slate-900"
                   }`}
                 >
-                  {userName}
+                  <span>Clanio</span>
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-blue-500/20 text-blue-400 border border-blue-500/30">
+                    HR
+                  </span>
                 </div>
-                <div
-                  className={`text-[10px] truncate ${
-                    isDarkMode ? "text-slate-400" : "text-slate-500"
-                  }`}
-                >
-                  {userRole}
+                <div className="text-[10px] font-medium tracking-tight flex items-center gap-1 mt-1 leading-none">
+                  <span className="text-[#2563EB]">Work.</span>
+                  <span className="text-[#7C3AED]">Manage.</span>
+                  <span className="text-[#22D3EE]">Grow.</span>
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-1 shrink-0">
+            {/* Mobile Close Button */}
+            {onToggle && (
               <button
-                onClick={() => handleSelectItem("admin-settings")}
-                className={`p-1.5 rounded-xl transition-colors ${
+                onClick={onToggle}
+                className={`p-1.5 rounded-xl md:hidden transition-colors cursor-pointer shrink-0 ${
                   isDarkMode
-                    ? "bg-white/[0.04] hover:bg-white/10 text-slate-400 hover:text-white"
-                    : "bg-white hover:bg-slate-200/60 border border-slate-200 text-slate-600 hover:text-slate-900 shadow-2xs"
+                    ? "text-slate-400 hover:text-white hover:bg-white/10"
+                    : "text-slate-600 hover:text-slate-900 hover:bg-blue-100/60"
                 }`}
-                title="Settings"
+                title="Close Sidebar"
               >
-                <Image
-                  src="/images/icons/administration.png"
-                  alt="Settings"
-                  width={16}
-                  height={16}
-                  className="w-4 h-4 object-contain"
-                />
+                <X className="w-5 h-5" />
               </button>
-              <Link
-                href="/login"
-                className={`p-1.5 rounded-xl transition-colors ${
-                  isDarkMode
-                    ? "bg-red-500/10 hover:bg-red-500/20 text-red-400 hover:text-red-300"
-                    : "bg-red-50 hover:bg-red-100 border border-red-100 text-red-600"
-                }`}
-                title="Logout"
-              >
-                <Image
-                  src="/images/icons/out.png"
-                  alt="Logout"
-                  width={16}
-                  height={16}
-                  className="w-4 h-4 object-contain"
-                />
-              </Link>
-            </div>
+            )}
           </div>
         )}
       </div>
     </aside>
+    </>
   );
 };
 

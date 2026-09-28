@@ -1,319 +1,137 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { useRouter } from "next/navigation";
-import { z } from "zod";
-import { ColumnDef } from "@tanstack/react-table";
 import Sidebar from "@/components/home/Sidebar";
 import Topbar from "@/components/home/Topbar";
 import { DataTable } from "@/components/common/DataTable";
 import { DynamicForm, FieldConfig } from "@/components/common/DynamicForm";
 import { ActionModal } from "@/components/common/ActionModal";
-import { fetchApi } from "@/lib/api";
+import { fetchApi, extractList } from "@/lib/api";
 import { getCookie } from "@/lib/cookies";
-import { UserPlus, Building, Briefcase, Eye, Pencil, Trash2, ShieldCheck } from "lucide-react";
-
-// ==========================================
-// 1. EMPLOYEES DATA & SCHEMAS
-// ==========================================
-interface Employee {
-  id: string;
-  name: string;
-  email: string;
-  department: string;
-  role: string;
-
-}
-
-const initialEmployees: Employee[] = [];
-
-const employeeSchema = z.object({
-  name: z.string().min(2, "Name must be at least 2 characters"),
-  email: z.string().email("Invalid email address"),
-  department: z.string().min(1, "Please select a department"),
-  role: z.string().min(2, "Role is required"),
-
-});
-
-type EmployeeFormData = z.infer<typeof employeeSchema>;
-
-// ==========================================
-// 2. DEPARTMENTS DATA & SCHEMAS
-// ==========================================
-interface Department {
-  id: string;
-  name: string;
-  code: string;
-  head: string;
-  employeesCount: number;
-}
-
-const initialDepartments: Department[] = [];
-
-const departmentSchema = z.object({
-  name: z.string().min(2, "Department name required").max(150, "Max 150 characters"),
-  code: z.string().min(2, "Code required (e.g. OPS)").max(30, "Max 30 characters"),
-  description: z.string().max(500, "Max 500 characters").optional(),
-});
-
-type DepartmentFormData = z.infer<typeof departmentSchema>;
-
-interface DesignationItem {
-  id: string;
-  code: string;
-  name: string;
-  departmentName: string;
-  employeesCount: number;
-  status: string;
-}
-
-const designationSchema = z.object({
-  name: z.string().min(2, "Designation name required").max(150, "Max 150 characters"),
-  code: z.string().min(2, "Code required (e.g. SR_ENG)").max(30, "Max 30 characters"),
-  description: z.string().max(500, "Max 500 characters").optional(),
-});
-
-type DesignationFormData = z.infer<typeof designationSchema>;
-
-// ==========================================
-// 3. COMPANIES DATA & SCHEMAS
-// ==========================================
-interface CompanyItem {
-  id: string;
-  name: string;
-  slug: string;
-  email: string;
-  phone?: string;
-  status: string;
-}
-
-const initialCompanies: CompanyItem[] = [];
-
-const companySchema = z.object({
-  name: z.string().min(2, "Company name required"),
-  email: z.string().email("Invalid email address"),
-  slug: z.string().min(2, "Slug required"),
-  phone: z.string().optional(),
-  admin_name: z.string().min(2, "Admin name required"),
-  admin_email: z.string().email("Invalid admin email"),
-  admin_password: z.string().min(8, "Password must be at least 8 characters"),
-});
-
-const companyEditSchema = z.object({
-  name: z.string().min(2, "Company name required"),
-  email: z.string().email("Invalid email address"),
-  slug: z.string().min(2, "Slug required"),
-  phone: z.string().optional(),
-});
-
-type CompanyFormData = z.infer<typeof companySchema>;
-
-// ==========================================
-// 4. BRANCHES DATA & SCHEMAS
-// ==========================================
-interface BranchItem {
-  id: string;
-  rawId?: number;
-  name: string;
-  code: string;
-  companyName?: string;
-  address?: string;
-  phone?: string;
-  email?: string;
-  usersCount?: number;
-  status?: string;
-}
-
-const initialBranches: BranchItem[] = [];
-
-const branchSchema = z.object({
-  name: z.string().min(2, "Branch name required").max(150, "Max 150 characters"),
-  code: z
-    .string()
-    .min(2, "Branch code required")
-    .max(30, "Max 30 characters")
-    .regex(/^[A-Za-z0-9_-]+$/, "Code must contain only letters, numbers, hyphens or underscores"),
-  address: z.string().max(500, "Max 500 characters").optional().or(z.literal("")),
-  phone: z.string().max(20, "Max 20 characters").optional().or(z.literal("")),
-  email: z.string().email("Invalid email address").optional().or(z.literal("")),
-});
-
-type BranchFormData = z.infer<typeof branchSchema>;
-
-// ==========================================
-// 5. TEAMS DATA & SCHEMAS
-// ==========================================
-interface TeamItem {
-  id: string;
-  rawId?: number;
-  name: string;
-  code: string;
-  departmentName?: string;
-  department_id?: number;
-  description?: string;
-  usersCount?: number;
-  status?: string;
-}
-
-const initialTeams: TeamItem[] = [];
-
-const teamSchema = z.object({
-  name: z.string().min(2, "Team name required").max(150, "Max 150 characters"),
-  code: z
-    .string()
-    .min(2, "Team code required")
-    .max(30, "Max 30 characters")
-    .regex(/^[A-Za-z0-9_-]+$/, "Code must contain only letters, numbers, hyphens or underscores"),
-  department: z.string().min(1, "Please select a department"),
-  description: z.string().max(500, "Max 500 characters").optional().or(z.literal("")),
-});
-
-type TeamFormData = z.infer<typeof teamSchema>;
-
-// ==========================================
-// 6. ROLES DATA & SCHEMAS
-// ==========================================
-interface RoleItem {
-  id: string;
-  rawId?: number;
-  name: string;
-  slug: string;
-  description?: string;
-  hierarchy_level?: number;
-  data_scope?: string;
-  is_system?: boolean;
-  is_active?: boolean;
-  usersCount?: number;
-  permissions?: string[];
-}
-
-const roleSchema = z.object({
-  name: z.string().min(2, "Role name required").max(100, "Max 100 characters"),
-  slug: z
-    .string()
-    .min(2, "Role slug required")
-    .max(100, "Max 100 characters")
-    .regex(/^[a-z0-9_]+$/, "Slug must be lowercase alphanumeric with underscores"),
-  hierarchy_level: z.coerce.number().min(2, "Level must be between 2 and 99").max(99, "Level must be between 2 and 99"),
-  data_scope: z.enum(["all_company", "branch", "department", "team", "self"]),
-  description: z.string().max(500, "Max 500 characters").optional().or(z.literal("")),
-});
-
-type RoleFormData = z.infer<typeof roleSchema>;
+import { UserPlus, Building, Briefcase, ShieldCheck } from "lucide-react";
+import { PermissionMatrix } from "@/components/permissions/PermissionMatrix";
+import { AttendanceModule } from "@/components/attendance/AttendanceModule";
+import { LeaveModule } from "@/components/leave/LeaveModule";
+import { TaskModule } from "@/components/task/TaskModule";
+import { TicketModule } from "@/components/ticket/TicketModule";
+import { AssetModule } from "@/components/asset/AssetModule";
+import { ProfileModule } from "@/components/profile/ProfileModule";
+import { OrgChartModule } from "@/components/org-chart/OrgChartModule";
+import { CompanyModulesModal } from "@/components/company/CompanyModulesModal";
+import { CompanySettingsModule } from "@/components/company/CompanySettingsModule";
+import { ExitModule } from "@/components/exit/ExitModule";
+import { ExpenseModule } from "@/components/expense/ExpenseModule";
+import { PayrollModule } from "@/components/payroll/PayrollModule";
+import { RecruitmentModule } from "@/components/recruitment/RecruitmentModule";
+import { ReportsModule } from "@/components/reports/ReportsModule";
+import { SelfServiceModule } from "@/components/self/SelfServiceModule";
+import { AuditModule } from "@/components/audit/AuditModule";
+import { PerformanceModule } from "@/components/performance/PerformanceModule";
+import { PolicyModule } from "@/components/policy/PolicyModule";
+import { NotificationModule } from "@/components/notification/NotificationModule";
+import {
+  Employee,
+  EmployeeFormData,
+  employeeSchema,
+  Department,
+  DepartmentFormData,
+  departmentSchema,
+  DesignationItem,
+  DesignationFormData,
+  designationSchema,
+  CompanyItem,
+  CompanyFormData,
+  companySchema,
+  companyEditSchema,
+  BranchItem,
+  BranchFormData,
+  branchSchema,
+  TeamItem,
+  TeamFormData,
+  teamSchema,
+  RoleItem,
+  RoleFormData,
+  roleSchema,
+} from "./types";
+import {
+  EntityType,
+  getEmployeeColumns,
+  getDepartmentColumns,
+  getDesignationColumns,
+  getCompanyColumns,
+  getBranchColumns,
+  getTeamColumns,
+  getRoleColumns,
+} from "./columns";
 
 export default function HomeContent() {
   const router = useRouter();
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-
-  useEffect(() => {
-    const token = getCookie("token") || (typeof window !== "undefined" ? localStorage.getItem("token") : null);
-    const auth = getCookie("isAuthenticated") === "true" || (typeof window !== "undefined" && localStorage.getItem("isAuthenticated") === "true");
-
-    if (!token && !auth) {
-      router.replace("/login");
-    } else {
-      setIsAuthenticated(true);
-    }
-  }, [router]);
-
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
-  const [activeNav, setActiveNav] = useState("employees");
-  const [userName, setUserName] = useState("Platform Super Admin");
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
+  const [activeNav, setActiveNav] = useState("dashboard");
 
-  // Restore active navigation tab from URL params or localStorage on refresh
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const params = new URLSearchParams(window.location.search);
-      const tabParam = params.get("tab");
-      const savedTab = localStorage.getItem("activeNav");
-      if (tabParam) {
-        setActiveNav(tabParam);
-      } else if (savedTab) {
-        setActiveNav(savedTab);
-      }
-    }
-  }, []);
-
-  const handleNavChange = (navId: string) => {
-    setActiveNav(navId);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("activeNav", navId);
+  const handleNavSelect = (id: string, updateUrl = true) => {
+    setActiveNav(id);
+    if (updateUrl && typeof window !== "undefined") {
       const url = new URL(window.location.href);
-      url.searchParams.set("tab", navId);
-      window.history.replaceState({}, "", url.toString());
+      if (url.searchParams.get("tab") !== id) {
+        url.searchParams.set("tab", id);
+        window.history.pushState({ tab: id }, "", url.toString());
+      }
     }
   };
 
-  const [companyName, setCompanyName] = useState("Clanio HR");
-  const [viewMode, setViewMode] = useState<"admin" | "employee">("admin");
-
+  // Sync active tab with URL query parameter on mount and browser back/forward navigation
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const storedMode = localStorage.getItem("view_mode") as "admin" | "employee";
-      if (storedMode === "admin" || storedMode === "employee") {
-        setViewMode(storedMode);
-      }
+    if (typeof window !== "undefined" && window.innerWidth < 768) {
+      setIsSidebarCollapsed(true);
     }
+
+    const syncTabFromUrl = () => {
+      if (typeof window !== "undefined") {
+        const params = new URLSearchParams(window.location.search);
+        const tabFromUrl = params.get("tab");
+        if (tabFromUrl) {
+          setActiveNav(tabFromUrl);
+        }
+      }
+    };
+
+    syncTabFromUrl();
+
+    const handlePopState = () => {
+      syncTabFromUrl();
+    };
+
+    window.addEventListener("popstate", handlePopState);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+    };
   }, []);
 
-  const handleToggleViewMode = (mode: "admin" | "employee") => {
-    setViewMode(mode);
-    if (typeof window !== "undefined") {
-      localStorage.setItem("view_mode", mode);
-    }
-  };
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const storedName = localStorage.getItem("user_name");
-      const isSuper = localStorage.getItem("is_super_admin") === "true";
-      const storedEmail = localStorage.getItem("user_email");
-      const storedCompany = localStorage.getItem("company_name");
-
-      if (storedName) {
-        setUserName(storedName);
-      } else if (isSuper || storedEmail === "superadmin@clanio.com") {
-        setUserName("Platform Super Admin");
-      }
-
-      if (storedCompany) {
-        setCompanyName(storedCompany);
-      }
-    }
-  }, []);
-
-  // State for Employees View
-  const [employees, setEmployees] = useState<Employee[]>(initialEmployees);
-  const [showAddEmpForm, setShowAddEmpForm] = useState(false);
-
-  // State for Departments View
-  const [departments, setDepartments] = useState<Department[]>(initialDepartments);
-  const [showAddDeptForm, setShowAddDeptForm] = useState(false);
-
-  // State for Companies View
-  const [companies, setCompanies] = useState<CompanyItem[]>(initialCompanies);
-  const [showAddCompanyForm, setShowAddCompanyForm] = useState(false);
-
-  // State for Designations View
+  // Primary Data Collections
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [departments, setDepartments] = useState<Department[]>([]);
   const [designations, setDesignations] = useState<DesignationItem[]>([]);
-  const [showAddDesignationForm, setShowAddDesignationForm] = useState(false);
-
-  // State for Branches View
-  const [branches, setBranches] = useState<BranchItem[]>(initialBranches);
-  const [showAddBranchForm, setShowAddBranchForm] = useState(false);
-
-  // State for Teams View
-  const [teams, setTeams] = useState<TeamItem[]>(initialTeams);
-  const [showAddTeamForm, setShowAddTeamForm] = useState(false);
-
-  // State for Roles View
+  const [companies, setCompanies] = useState<CompanyItem[]>([]);
+  const [branches, setBranches] = useState<BranchItem[]>([]);
+  const [teams, setTeams] = useState<TeamItem[]>([]);
   const [roles, setRoles] = useState<RoleItem[]>([]);
-  const [showAddRoleForm, setShowAddRoleForm] = useState(false);
 
-  // Unified Action Modal State
+  // Add Form Visibility States
+  const [showAddEmpForm, setShowAddEmpForm] = useState(false);
+  const [showAddDeptForm, setShowAddDeptForm] = useState(false);
+  const [showAddDesignationForm, setShowAddDesignationForm] = useState(false);
+  const [showAddCompanyForm, setShowAddCompanyForm] = useState(false);
+  const [showAddBranchForm, setShowAddBranchForm] = useState(false);
+  const [showAddTeamForm, setShowAddTeamForm] = useState(false);
+  const [showAddRoleForm, setShowAddRoleForm] = useState(false);
+  const [companyForModules, setCompanyForModules] = useState<CompanyItem | null>(null);
+
+  // Action Modal State
   type ActionType = "view" | "edit" | "delete" | null;
-  type EntityType = "employees" | "departments" | "designations" | "companies" | "branches" | "teams" | "roles";
 
   const [actionState, setActionState] = useState<{
     type: ActionType;
@@ -325,6 +143,18 @@ export default function HomeContent() {
     data: null,
   });
 
+  // Authentication check
+  useEffect(() => {
+    const authCookie = getCookie("isAuthenticated");
+    const authLocal = typeof window !== "undefined" ? localStorage.getItem("isAuthenticated") : null;
+    if (authCookie !== "true" && authLocal !== "true") {
+      router.push("/login");
+    } else {
+      setIsAuthenticated(true);
+    }
+  }, [router]);
+
+  // View Details Handler
   const handleViewDetails = async (item: any, entity: EntityType) => {
     const rawId = item.rawId || item.id;
     try {
@@ -336,6 +166,7 @@ export default function HomeContent() {
     }
   };
 
+  // Delete Record Handler
   const handleDeleteRecord = async (item: any) => {
     const { entity } = actionState;
     const rawId = item.rawId || item.id;
@@ -354,6 +185,7 @@ export default function HomeContent() {
     }
   };
 
+  // Edit Record Handler
   const handleEditRecord = async (updatedData: any) => {
     const { entity, data } = actionState;
     const rawId = data.rawId || data.id;
@@ -361,12 +193,17 @@ export default function HomeContent() {
     try {
       let payload: any = {};
       if (entity === "employees") {
-        const selectedDept = departments.find(
-          (d) => d.name === updatedData.department || String(d.id) === updatedData.department
+        const userId = data.userId || data.user_id || data.user?.id;
+        const selectedBranch = branches.find(
+          (b) => String(b.rawId) === updatedData.branch || b.id === updatedData.branch || b.name === updatedData.branch
         );
-        const deptId = selectedDept && !isNaN(Number((selectedDept as any).rawId || selectedDept.id))
-          ? Number((selectedDept as any).rawId || selectedDept.id)
-          : null;
+        const branchId = selectedBranch
+          ? Number(selectedBranch.rawId || selectedBranch.id)
+          : (updatedData.branch && !isNaN(Number(updatedData.branch)) ? Number(updatedData.branch) : null);
+
+        const newBranchName = selectedBranch
+          ? selectedBranch.name
+          : (branchId === null || updatedData.branch === "" ? "Corporate HQ" : data.branch || "Corporate HQ");
 
         const selectedDesig = designations.find(
           (d) => d.name === updatedData.role || String(d.id) === updatedData.role
@@ -375,16 +212,58 @@ export default function HomeContent() {
           ? Number((selectedDesig as any).rawId || selectedDesig.id)
           : null;
 
+        // Instant Optimistic Local UI Update (0ms)
+        setEmployees((prev) =>
+          prev.map((emp) =>
+            emp.rawId === rawId || emp.id === data.id
+              ? {
+                  ...emp,
+                  branch: newBranchName,
+                  branch_id: branchId ?? emp.branch_id,
+                  role: selectedDesig ? selectedDesig.name : emp.role,
+                  email: updatedData.email || emp.email,
+                }
+              : emp
+          )
+        );
+
         payload = {
           personal_email: updatedData.email,
           ...(desigId ? { designation_id: desigId } : {}),
-          user: {
-            name: updatedData.name,
-            email: updatedData.email,
-            ...(deptId ? { department_id: deptId } : {}),
-          },
         };
-      } else if (entity === "departments" || entity === "designations") {
+
+        const updatePromises: Promise<any>[] = [
+          fetchApi(`/${entity}/${rawId}`, {
+            method: "PUT",
+            body: JSON.stringify(payload),
+          }),
+        ];
+
+        if (userId) {
+          updatePromises.push(
+            fetchApi(`/users/${userId}`, {
+              method: "PUT",
+              body: JSON.stringify({ branch_id: branchId }),
+            })
+          );
+        }
+
+        await Promise.all(updatePromises);
+        fetchEmployeesData();
+        return;
+      } else if (entity === "departments") {
+        const selectedBranch = branches.find(
+          (b) => String(b.rawId) === updatedData.branch || b.id === updatedData.branch || b.name === updatedData.branch
+        );
+        const branchId = selectedBranch ? Number(selectedBranch.rawId || selectedBranch.id) : (updatedData.branch ? Number(updatedData.branch) : null);
+
+        payload = {
+          name: updatedData.name,
+          code: updatedData.code,
+          description: updatedData.description || null,
+          ...(branchId && !isNaN(branchId) ? { branch_id: branchId } : {}),
+        };
+      } else if (entity === "designations") {
         payload = {
           name: updatedData.name,
           code: updatedData.code,
@@ -407,9 +286,9 @@ export default function HomeContent() {
         };
       } else if (entity === "teams") {
         const selectedDept = departments.find(
-          (d) => d.name === updatedData.department || String(d.id) === updatedData.department
+          (d) => String((d as any).rawId || d.id) === updatedData.department || d.name === updatedData.department
         );
-        const deptId = selectedDept && !isNaN(Number((selectedDept as any).rawId || selectedDept.id))
+        const deptId = selectedDept
           ? Number((selectedDept as any).rawId || selectedDept.id)
           : Number(updatedData.department_id || 1);
 
@@ -435,7 +314,6 @@ export default function HomeContent() {
         body: JSON.stringify(payload),
       });
 
-      if (entity === "employees") fetchEmployeesData();
       if (entity === "departments") fetchDepartmentsData();
       if (entity === "designations") fetchDesignationsData();
       if (entity === "companies") fetchCompaniesData();
@@ -448,73 +326,120 @@ export default function HomeContent() {
     }
   };
 
-  const renderActionButtons = (item: any, entity: EntityType) => (
-    <div className="flex items-center gap-1.5">
-      <button
-        title="View Details"
-        onClick={() => handleViewDetails(item, entity)}
-        className={`p-1.5 rounded-lg border transition-all duration-200 cursor-pointer ${
-          isDarkMode
-            ? "bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-700 hover:text-white"
-            : "bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200 hover:text-slate-900"
-        }`}
-      >
-        <Eye className="w-3.5 h-3.5" />
-      </button>
-      <button
-        title="Edit"
-        onClick={() => setActionState({ type: "edit", entity, data: item })}
-        className={`p-1.5 rounded-lg border transition-all duration-200 cursor-pointer ${
-          isDarkMode
-            ? "bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/30 hover:text-blue-300"
-            : "bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200 hover:text-blue-700"
-        }`}
-      >
-        <Pencil className="w-3.5 h-3.5" />
-      </button>
-      <button
-        title="Delete"
-        onClick={() => setActionState({ type: "delete", entity, data: item })}
-        className={`p-1.5 rounded-lg border transition-all duration-200 cursor-pointer ${
-          isDarkMode
-            ? "bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border-rose-500/30 hover:text-rose-300"
-            : "bg-rose-50 hover:bg-rose-100 text-rose-600 border-rose-200 hover:text-rose-700"
-        }`}
-      >
-        <Trash2 className="w-3.5 h-3.5" />
-      </button>
-    </div>
+  // Helper Callbacks for Column Definitions
+  const columnCallbacks = useMemo(
+    () => ({
+      isDarkMode,
+      onViewDetails: (item: any, entity: EntityType) => handleViewDetails(item, entity),
+      onOpenEditModal: (item: any, entity: EntityType) => setActionState({ type: "edit", entity, data: item }),
+      onOpenDeleteModal: (item: any, entity: EntityType) => setActionState({ type: "delete", entity, data: item }),
+      onManageModules: (item: any) => setCompanyForModules(item),
+    }),
+    [isDarkMode]
   );
 
-  const fetchCompaniesData = async () => {
+  // Column Specs
+  const employeeColumns = useMemo(() => getEmployeeColumns(columnCallbacks), [columnCallbacks]);
+  const departmentColumns = useMemo(() => getDepartmentColumns(columnCallbacks), [columnCallbacks]);
+  const designationColumns = useMemo(() => getDesignationColumns(columnCallbacks), [columnCallbacks]);
+  const companyColumns = useMemo(() => getCompanyColumns(columnCallbacks), [columnCallbacks]);
+  const branchColumns = useMemo(() => getBranchColumns(columnCallbacks), [columnCallbacks]);
+  const teamColumns = useMemo(() => getTeamColumns(columnCallbacks), [columnCallbacks]);
+  const roleColumns = useMemo(() => getRoleColumns(columnCallbacks), [columnCallbacks]);
+
+  // Dynamic Options for Select Fields
+  const departmentOptions = useMemo(
+    () =>
+      departments.map((d) => ({
+        label: d.name,
+        value: String((d as any).rawId || d.id),
+      })),
+    [departments]
+  );
+
+  const designationOptions = useMemo(
+    () =>
+      designations.map((d) => ({
+        label: d.name,
+        value: String((d as any).rawId || d.id),
+      })),
+    [designations]
+  );
+
+  const roleSystemOptions = useMemo(
+    () =>
+      roles.map((r) => ({
+        label: r.name,
+        value: String(r.rawId || r.id),
+      })),
+    [roles]
+  );
+
+  const managerOptions = useMemo(
+    () =>
+      employees.map((e) => ({
+        label: `${e.name} (${e.role || "Employee"})`,
+        value: String(e.rawId || e.id),
+      })),
+    [employees]
+  );
+
+  const branchOptions = useMemo(() => {
+    const dynamicBranches = branches.map((b) => ({
+      label: `${b.name} (${b.code})`,
+      value: String(b.rawId || b.id),
+    }));
+    return [{ label: "Corporate HQ (Default)", value: "" }, ...dynamicBranches];
+  }, [branches]);
+
+  // Backend API Fetch Methods
+  const fetchEmployeesData = async () => {
     try {
-      const res = await fetchApi<any>("/companies");
-      const list = Array.isArray(res) ? res : Array.isArray(res?.data) ? res.data : [];
-      const formattedCompanies: CompanyItem[] = list.map((item: any) => ({
+      const res = await fetchApi<any>("/employees");
+      const list = extractList(res);
+
+      const formattedEmployees: Employee[] = list.map((item: any) => ({
         rawId: item.id,
-        id: item.uuid || String(item.id),
-        name: item.name || "Company",
-        slug: item.slug || item.name?.toLowerCase().replace(/\s+/g, "-") || "company",
-        email: item.email || "contact@company.com",
-        phone: item.phone || "-",
-        status: item.status || "active",
+        userId: item.user_id || item.user?.id,
+        id: item.employee_code || (item.id ? `EMP-${String(item.id).padStart(3, "0")}` : "EMP-001"),
+        name: item.user?.name || item.name || item.emergency_contact_name || "Employee",
+        email: item.user?.email || item.personal_email || item.email || "employee@clanoid.com",
+        department: item.user?.department?.name || item.department?.name || (typeof item.department === "string" ? item.department : null) || "-",
+        role: item.designation?.name || item.user?.roles?.[0]?.name || (typeof item.role === "string" ? item.role : null) || "-",
+        branch: branches.find((b) => Number(b.rawId || b.id) === Number(item.user?.branch_id ?? item.branch_id))?.name || item.user?.branch?.name || item.user?.branch_name || item.branch?.name || (typeof item.branch === "string" ? item.branch : null) || "Corporate HQ",
+        branch_id: item.user?.branch_id ?? item.branch_id ?? "",
       }));
-      setCompanies(formattedCompanies);
+      setEmployees(formattedEmployees);
     } catch (err) {
-      console.warn("Could not fetch real companies:", err);
-      setCompanies([]);
+      console.warn("Could not fetch real employees from backend:", err);
+      setEmployees([]);
     }
   };
 
-  // Fetch real designation data from backend API
+  const fetchDepartmentsData = async () => {
+    try {
+      const res = await fetchApi<any>("/departments");
+      const list = extractList(res);
+
+      const formattedDepartments: Department[] = list.map((item: any) => ({
+        rawId: item.id,
+        id: item.id ? String(item.id) : `DEPT-${item.code}`,
+        name: item.name || "Department",
+        code: item.code || "DEPT",
+        head: item.head || "Department Head",
+        employeesCount: item.users_count ?? item.employeesCount ?? 0,
+      }));
+      setDepartments(formattedDepartments);
+    } catch (err) {
+      console.warn("Could not fetch real departments from backend:", err);
+      setDepartments([]);
+    }
+  };
+
   const fetchDesignationsData = async () => {
     try {
       const res = await fetchApi<any>("/designations");
-      const list = Array.isArray(res)
-        ? res
-        : Array.isArray(res?.data)
-          ? res.data
-          : [];
+      const list = extractList(res);
 
       const formattedDesignations: DesignationItem[] = list.map((item: any) => ({
         rawId: item.id,
@@ -532,83 +457,10 @@ export default function HomeContent() {
     }
   };
 
-  // Fetch real employee data from backend API
-  const fetchEmployeesData = async () => {
-    try {
-      const res = await fetchApi<any>("/employees");
-      const list = Array.isArray(res)
-        ? res
-        : Array.isArray(res?.data)
-          ? res.data
-          : [];
-
-      const formattedEmployees: Employee[] = list.map((item: any) => ({
-        rawId: item.id,
-        id:
-          item.employee_code ||
-          (item.id ? `EMP-${String(item.id).padStart(3, "0")}` : "EMP-001"),
-        name:
-          item.user?.name ||
-          item.name ||
-          item.emergency_contact_name ||
-          "Employee",
-        email:
-          item.user?.email ||
-          item.personal_email ||
-          item.email ||
-          "employee@clanoid.com",
-        department:
-          item.user?.department?.name ||
-          item.department?.name ||
-          (typeof item.department === "string" ? item.department : null) ||
-          "-",
-        role:
-          item.designation?.name ||
-          item.user?.roles?.[0]?.name ||
-          (typeof item.role === "string" ? item.role : null) ||
-          "-",
-      }));
-      setEmployees(formattedEmployees);
-    } catch (err) {
-      console.warn("Could not fetch real employees from backend:", err);
-      setEmployees([]);
-    }
-  };
-
-  // Fetch real department data from backend API
-  const fetchDepartmentsData = async () => {
-    try {
-      const res = await fetchApi<any>("/departments");
-      const list = Array.isArray(res)
-        ? res
-        : Array.isArray(res?.data)
-          ? res.data
-          : [];
-
-      const formattedDepartments: Department[] = list.map((item: any) => ({
-        rawId: item.id,
-        id: item.id ? String(item.id) : `DEPT-${item.code}`,
-        name: item.name || "Department",
-        code: item.code || "DEPT",
-        head: item.head || "Department Head",
-        employeesCount: item.users_count ?? item.employeesCount ?? 0,
-      }));
-      setDepartments(formattedDepartments);
-    } catch (err) {
-      console.warn("Could not fetch real departments from backend:", err);
-      setDepartments([]);
-    }
-  };
-
-  // Fetch real branch data from backend API
   const fetchBranchesData = async () => {
     try {
       const res = await fetchApi<any>("/branches");
-      const list = Array.isArray(res)
-        ? res
-        : Array.isArray(res?.data)
-          ? res.data
-          : [];
+      const list = extractList(res);
 
       const formattedBranches: BranchItem[] = list.map((item: any) => ({
         rawId: item.id,
@@ -629,15 +481,10 @@ export default function HomeContent() {
     }
   };
 
-  // Fetch real team data from backend API
   const fetchTeamsData = async () => {
     try {
       const res = await fetchApi<any>("/teams");
-      const list = Array.isArray(res)
-        ? res
-        : Array.isArray(res?.data)
-          ? res.data
-          : [];
+      const list = extractList(res);
 
       const formattedTeams: TeamItem[] = list.map((item: any) => ({
         rawId: item.id,
@@ -645,6 +492,7 @@ export default function HomeContent() {
         name: item.name || "Team",
         code: item.code || "TEAM",
         departmentName: item.department?.name || "-",
+        department: String(item.department_id || item.department?.id || ""),
         department_id: item.department_id || item.department?.id,
         description: item.description || "-",
         usersCount: item.users_count ?? 0,
@@ -657,15 +505,10 @@ export default function HomeContent() {
     }
   };
 
-  // Fetch real role data from backend API
   const fetchRolesData = async () => {
     try {
       const res = await fetchApi<any>("/roles");
-      const list = Array.isArray(res)
-        ? res
-        : Array.isArray(res?.data)
-          ? res.data
-          : [];
+      const list = extractList(res);
 
       const formattedRoles: RoleItem[] = list.map((item: any) => ({
         rawId: item.id,
@@ -689,386 +532,240 @@ export default function HomeContent() {
     }
   };
 
-  // Sync with Laravel Backend API when nav items are selected
+  const fetchCompaniesData = async () => {
+    try {
+      const res = await fetchApi<any>("/companies");
+      const list = extractList(res);
+
+      const formattedCompanies: CompanyItem[] = list.map((item: any) => ({
+        id: String(item.id),
+        name: item.name || "Company",
+        slug: item.slug || "company",
+        email: item.email || "-",
+        phone: item.phone || "-",
+        status: item.is_active ? "active" : "inactive",
+      }));
+      setCompanies(formattedCompanies);
+    } catch (err) {
+      console.warn("Could not fetch real companies from backend:", err);
+      setCompanies([]);
+    }
+  };
+
+  // Sync Data on Nav selection
   useEffect(() => {
     fetchDepartmentsData();
     fetchDesignationsData();
-    if (activeNav === "employees") {
-      fetchEmployeesData();
-    }
-    if (activeNav === "companies") {
-      fetchCompaniesData();
-    }
-    if (activeNav === "branches") {
-      fetchBranchesData();
-    }
-    if (activeNav === "teams") {
-      fetchTeamsData();
-    }
-    if (activeNav === "roles") {
-      fetchRolesData();
-    }
+    fetchBranchesData();
+    fetchRolesData();
+    // Dashboard ke card employees ki ginti dikhate hain, isliye wahan bhi chahiye
+    if (activeNav === "employees" || activeNav === "dashboard") fetchEmployeesData();
+    if (activeNav === "companies") fetchCompaniesData();
+    if (activeNav === "dashboard") fetchTeamsData();
+    if (activeNav === "branches") fetchBranchesData();
+    if (activeNav === "teams") fetchTeamsData();
+    if (activeNav === "roles") fetchRolesData();
   }, [activeNav]);
 
-  // Column Configurations
-  const employeeColumns: ColumnDef<Employee>[] = [
-    {
-      accessorKey: "id",
-      header: "Employee ID",
-      cell: (info) => (
-        <span
-          className={`font-mono text-xs font-bold px-2.5 py-1 rounded-lg border shadow-2xs ${isDarkMode
-            ? "bg-purple-500/15 text-purple-300 border-purple-500/30"
-            : "bg-purple-50 text-purple-700 border-purple-200"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "name",
-      header: "Full Name",
-      cell: (info) => {
-        const name = info.getValue() as string;
-        const initials = name
-          .split(" ")
-          .map((n) => n[0])
-          .join("")
-          .substring(0, 2);
-        return (
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-full bg-gradient-to-tr from-blue-600 via-purple-600 to-cyan-400 p-0.5 shadow-sm shrink-0">
-              <div
-                className={`w-full h-full rounded-full flex items-center justify-center text-[10px] font-extrabold ${isDarkMode ? "bg-[#081425] text-white" : "bg-white text-slate-900"
-                  }`}
-              >
-                {initials}
-              </div>
-            </div>
-            <span
-              className={`font-bold text-xs sm:text-sm ${isDarkMode ? "text-white" : "text-slate-900"
-                }`}
-            >
-              {name}
-            </span>
-          </div>
+  // Re-resolve employee branch names as soon as both branches and employees finish loading from backend
+  useEffect(() => {
+    if (branches.length > 0 && employees.length > 0) {
+      const needsUpdate = employees.some((emp) => {
+        if (!emp.branch_id) return false;
+        const matched = branches.find(
+          (b) => String(b.rawId || b.id) === String(emp.branch_id)
         );
-      },
-    },
-    {
-      accessorKey: "email",
-      header: "Email",
-      cell: (info) => (
-        <span
-          className={`text-xs font-medium ${isDarkMode ? "text-slate-300" : "text-slate-600"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "department",
-      header: "Department",
-      cell: (info) => {
-        const dept = info.getValue() as string;
-        const colorClass =
-          dept === "Engineering"
-            ? isDarkMode
-              ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/30"
-              : "bg-cyan-50 text-cyan-700 border-cyan-200"
-            : dept === "Human Resources"
-              ? isDarkMode
-                ? "bg-purple-500/15 text-purple-300 border-purple-500/30"
-                : "bg-purple-50 text-purple-700 border-purple-200"
-              : dept === "Marketing"
-                ? isDarkMode
-                  ? "bg-amber-500/15 text-amber-300 border-amber-500/30"
-                  : "bg-amber-50 text-amber-700 border-amber-200"
-                : isDarkMode
-                  ? "bg-blue-500/15 text-blue-300 border-blue-500/30"
-                  : "bg-blue-50 text-blue-700 border-blue-200";
+        return matched && matched.name !== emp.branch;
+      });
 
-        return (
-          <span
-            className={``}
-          >
-            {dept}
-          </span>
+      if (needsUpdate) {
+        setEmployees((prev) =>
+          prev.map((emp) => {
+            if (!emp.branch_id) return emp;
+            const matched = branches.find(
+              (b) => String(b.rawId || b.id) === String(emp.branch_id)
+            );
+            return matched ? { ...emp, branch: matched.name } : emp;
+          })
         );
-      },
-    },
-    {
-      accessorKey: "role",
-      header: "Designation",
-      cell: (info) => (
-        <span
-          className={`font-semibold text-xs ${isDarkMode ? "text-slate-200" : "text-slate-800"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      id: "actions",
-      header: "Actions",
-      enableSorting: false,
-      cell: (info) => renderActionButtons(info.row.original, "employees"),
-    },
-  ];
+      }
+    }
+  }, [branches, employees]);
 
-  const departmentColumns: ColumnDef<Department>[] = [
-    {
-      accessorKey: "code",
-      header: "Code",
-      cell: (info) => (
-        <span
-          className={`font-mono text-xs font-extrabold px-2.5 py-1 rounded-lg border ${isDarkMode
-            ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
-            : "bg-indigo-50 text-indigo-700 border-indigo-200"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "name",
-      header: "Department Name",
-      cell: (info) => (
-        <span
-          className={`font-bold text-xs sm:text-sm ${isDarkMode ? "text-white" : "text-slate-900"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "head",
-      header: "Department Head",
-      cell: (info) => (
-        <span
-          className={`text-xs font-semibold ${isDarkMode ? "text-cyan-300" : "text-indigo-600"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "employeesCount",
-      header: "Total Members",
-      cell: (info) => (
-        <span
-          className={`font-semibold text-xs px-2.5 py-1 rounded-full border ${isDarkMode
-            ? "bg-purple-500/15 text-purple-300 border-purple-500/30"
-            : "bg-purple-50 text-purple-700 border-purple-200"
-            }`}
-        >
-          {info.getValue() as number} employees
-        </span>
-      ),
-    },
-    {
-      id: "actions",
-      header: "Actions",
-      enableSorting: false,
-      cell: (info) => renderActionButtons(info.row.original, "departments"),
-    },
-  ];
-
-  // Dynamic Department options for company user form
-  const departmentOptions = departments.length > 0
-    ? departments.map((d) => ({ label: d.name, value: String((d as any).rawId || d.id) }))
-    : [{ label: "No departments available", value: "" }];
-
-  // Dynamic Designation options for company user form
-  const designationOptions = designations.length > 0
-    ? designations.map((d) => ({ label: d.name, value: d.name }))
-    : [{ label: "No designations available", value: "" }];
-
-  // Form Fields Configs
+  // Dynamic Form Field Configs
   const employeeFields: FieldConfig<EmployeeFormData>[] = [
-    { name: "name", label: "Full Name", placeholder: "e.g. John Doe" },
-    { name: "email", label: "Email Address", type: "email", placeholder: "john@clanoid.com" },
+    { name: "name", label: "Full Name", placeholder: "e.g. Rahul Sharma" },
+    { name: "email", label: "Email Address", type: "email", placeholder: "rahul@company.com" },
+    { name: "branch", label: "Branch Location", type: "select", options: branchOptions },
+    { name: "department", label: "Department", type: "select", options: departmentOptions },
+    { name: "role", label: "Designation", type: "select", options: designationOptions },
+    { name: "system_role", label: "System Role", type: "select", options: roleSystemOptions },
+    { name: "reporting_manager", label: "Reporting Manager (Optional)", type: "select", options: managerOptions },
     {
-      name: "department",
-      label: "Department",
+      name: "employment_type",
+      label: "Employment Type",
       type: "select",
-      options: departmentOptions,
-    },
-    {
-      name: "role",
-      label: "Designation / Role",
-      type: "select",
-      options: designationOptions,
+      options: [
+        { label: "Full Time", value: "full_time" },
+        { label: "Part Time", value: "part_time" },
+        { label: "Intern", value: "intern" },
+        { label: "Contract", value: "contract" },
+        { label: "Consultant", value: "consultant" },
+      ],
     },
   ];
 
   const departmentFields: FieldConfig<DepartmentFormData>[] = [
     { name: "name", label: "Department Name", placeholder: "e.g. Operations & Logistics" },
     { name: "code", label: "Department Code", placeholder: "e.g. OPS" },
-    { name: "description", label: "Description (Optional)", placeholder: "Brief description of department..." },
-  ];
-
-  const companyColumns: ColumnDef<CompanyItem>[] = [
-    {
-      accessorKey: "name",
-      header: "Company Name",
-      cell: (info) => (
-        <span
-          className={`font-bold text-xs sm:text-sm ${isDarkMode ? "text-white" : "text-slate-900"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "slug",
-      header: "Slug",
-      cell: (info) => (
-        <span
-          className={`font-mono text-xs font-bold px-2.5 py-1 rounded-lg border ${isDarkMode
-            ? "bg-purple-500/15 text-purple-300 border-purple-500/30"
-            : "bg-purple-50 text-purple-700 border-purple-200"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "email",
-      header: "Company Email",
-      cell: (info) => (
-        <span
-          className={`text-xs font-medium ${isDarkMode ? "text-slate-300" : "text-slate-600"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: (info) => {
-        const status = (info.getValue() as string) || "active";
-        return (
-          <span
-            className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full border ${status === "active"
-              ? isDarkMode
-                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                : "bg-emerald-50 text-emerald-700 border-emerald-200"
-              : isDarkMode
-                ? "bg-rose-500/15 text-rose-400 border-rose-500/30"
-                : "bg-rose-50 text-rose-700 border-rose-200"
-              }`}
-          >
-            {status}
-          </span>
-        );
-      },
-    },
-    {
-      id: "actions",
-      header: "Actions",
-      enableSorting: false,
-      cell: (info) => renderActionButtons(info.row.original, "designations"),
-    },
-  ];
-
-  const designationColumns: ColumnDef<DesignationItem>[] = [
-    {
-      accessorKey: "code",
-      header: "Code",
-      cell: (info) => (
-        <span
-          className={`font-mono text-xs font-extrabold px-2.5 py-1 rounded-lg border ${isDarkMode
-            ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/30"
-            : "bg-cyan-50 text-cyan-700 border-cyan-200"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "name",
-      header: "Designation Name",
-      cell: (info) => (
-        <span
-          className={`font-bold text-xs sm:text-sm ${isDarkMode ? "text-white" : "text-slate-900"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "departmentName",
-      header: "Department",
-      cell: (info) => (
-        <span
-          className={`text-xs font-medium ${isDarkMode ? "text-slate-300" : "text-slate-600"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "employeesCount",
-      header: "Total Employees",
-      cell: (info) => (
-        <span
-          className={`font-semibold text-xs px-2.5 py-1 rounded-full border ${isDarkMode
-            ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
-            : "bg-indigo-50 text-indigo-700 border-indigo-200"
-            }`}
-        >
-          {info.getValue() as number} employees
-        </span>
-      ),
-    },
-    {
-      accessorKey: "status",
-      header: "Status",
-      cell: (info) => {
-        const status = (info.getValue() as string) || "active";
-        return (
-          <span
-            className={`text-[10px] font-extrabold uppercase px-2.5 py-1 rounded-full border ${status === "active"
-              ? isDarkMode
-                ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/30"
-                : "bg-emerald-50 text-emerald-700 border-emerald-200"
-              : isDarkMode
-                ? "bg-rose-500/15 text-rose-400 border-rose-500/30"
-                : "bg-rose-50 text-rose-700 border-rose-200"
-              }`}
-          >
-            {status}
-          </span>
-        );
-      },
-    },
-    {
-      id: "actions",
-      header: "Actions",
-      enableSorting: false,
-      cell: (info) => renderActionButtons(info.row.original, "companies"),
-    },
+    { name: "branch", label: "Branch (Optional)", type: "select", options: branchOptions },
+    { name: "description", label: "Description (Optional)", placeholder: "Brief description..." },
   ];
 
   const designationFields: FieldConfig<DesignationFormData>[] = [
     { name: "name", label: "Designation Name", placeholder: "e.g. Senior Full Stack Engineer" },
     { name: "code", label: "Designation Code", placeholder: "e.g. SR_ENG" },
-    { name: "description", label: "Description (Optional)", placeholder: "Brief description of role..." },
+    { name: "description", label: "Description (Optional)", placeholder: "Brief description..." },
   ];
+
+  const companyFields: FieldConfig<CompanyFormData>[] = [
+    { name: "name", label: "Company Name", placeholder: "e.g. Acme Technologies" },
+    { name: "email", label: "Company Email", type: "email", placeholder: "contact@acme.com" },
+    { name: "slug", label: "Company Slug", placeholder: "acme-tech" },
+    { name: "phone", label: "Phone Number", placeholder: "+91 98765 43210" },
+    { name: "admin_name", label: "Admin Name", placeholder: "John Administrator" },
+    { name: "admin_email", label: "Admin Email", type: "email", placeholder: "admin@acme.com" },
+    { name: "admin_password", label: "Admin Password", type: "password", placeholder: "Password123" },
+  ];
+
+  const companyEditFields: FieldConfig<any>[] = [
+    { name: "name", label: "Company Name", placeholder: "e.g. Acme Technologies" },
+    { name: "email", label: "Company Email", type: "email", placeholder: "contact@acme.com" },
+    { name: "slug", label: "Company Slug", placeholder: "acme-tech" },
+    { name: "phone", label: "Phone Number", placeholder: "+91 98765 43210" },
+  ];
+
+  const branchFields: FieldConfig<BranchFormData>[] = [
+    { name: "name", label: "Branch Name", placeholder: "e.g. Delhi Regional Office" },
+    { name: "code", label: "Branch Code", placeholder: "e.g. DEL-HQ" },
+    { name: "email", label: "Email Address (Optional)", type: "email", placeholder: "branch@clanio.com" },
+    { name: "phone", label: "Phone Number (Optional)", placeholder: "+91 98765 43210" },
+    { name: "address", label: "Address (Optional)", placeholder: "Full office address..." },
+  ];
+
+  const teamFields: FieldConfig<TeamFormData>[] = [
+    { name: "name", label: "Team Name", placeholder: "e.g. Frontend Engineering" },
+    { name: "code", label: "Team Code", placeholder: "e.g. ENG-FE" },
+    { name: "department", label: "Department", type: "select", options: departmentOptions },
+    { name: "description", label: "Description (Optional)", placeholder: "Brief description..." },
+  ];
+
+  const roleFields: FieldConfig<RoleFormData>[] = [
+    { name: "name", label: "Role Name", placeholder: "e.g. HR Manager" },
+    { name: "slug", label: "Role Slug", placeholder: "e.g. hr_manager" },
+    { name: "hierarchy_level", label: "Hierarchy Level (1-99)", type: "number", placeholder: "e.g. 5" },
+    {
+      name: "data_scope",
+      label: "Data Scope",
+      type: "select",
+      options: [
+        { label: "All Company Data", value: "all_company" },
+        { label: "Branch Level Data", value: "branch" },
+        { label: "Department Level Data", value: "department" },
+        { label: "Team Level Data", value: "team" },
+        { label: "Self Only Data", value: "self" },
+      ],
+    },
+    { name: "description", label: "Description (Optional)", placeholder: "Brief description..." },
+  ];
+
+  // Add Record Handlers
+  const handleAddEmployee = async (data: EmployeeFormData) => {
+    try {
+      const selectedDept = departments.find(
+        (d) => d.name === data.department || String(d.id) === data.department || String((d as any).rawId) === data.department
+      );
+      const deptId = selectedDept ? Number((selectedDept as any).rawId || selectedDept.id || null) : null;
+
+      const selectedDesig = designations.find(
+        (d) => d.name === data.role || String(d.id) === data.role || String((d as any).rawId) === data.role
+      );
+      const desigId = selectedDesig ? Number((selectedDesig as any).rawId || selectedDesig.id || null) : null;
+
+      const selectedRole = roles.find(
+        (r) => String(r.rawId) === data.system_role || r.id === data.system_role || r.name === data.system_role || r.slug === data.system_role
+      );
+      const defaultRole = roles.find((r) => r.slug === "employee" || r.slug === "member") || roles[0];
+      const parsedRoleInput = data.system_role ? Number(data.system_role) : NaN;
+      const roleId = selectedRole
+        ? Number(selectedRole.rawId || selectedRole.id)
+        : (!isNaN(parsedRoleInput) && parsedRoleInput > 0
+            ? parsedRoleInput
+            : Number(defaultRole?.rawId || defaultRole?.id || 8));
+
+      const selectedBranch = branches.find(
+        (b) => String(b.rawId) === data.branch || b.id === data.branch || b.name === data.branch
+      );
+      const branchId = selectedBranch ? Number(selectedBranch.rawId || selectedBranch.id) : (data.branch ? Number(data.branch) : null);
+
+      const selectedManager = employees.find(
+        (e) => e.name === data.reporting_manager || String(e.rawId) === data.reporting_manager || e.id === data.reporting_manager
+      );
+      const managerId = selectedManager ? Number(selectedManager.rawId || selectedManager.id) : (data.reporting_manager && !isNaN(Number(data.reporting_manager)) ? Number(data.reporting_manager) : null);
+
+      const payload: any = {
+        date_of_joining: data.date_of_joining || new Date().toISOString().split("T")[0],
+        employment_type: data.employment_type || "full_time",
+        personal_email: data.email,
+        ...(desigId && !isNaN(desigId) ? { designation_id: desigId } : {}),
+        ...(managerId && !isNaN(managerId) ? { reporting_manager_id: managerId } : {}),
+        user: {
+          name: data.name,
+          email: data.email,
+          password: "Password@2026",
+          role_ids: [roleId],
+          ...(deptId && !isNaN(deptId) ? { department_id: deptId } : {}),
+          ...(branchId && !isNaN(branchId) ? { branch_id: branchId } : {}),
+        },
+      };
+
+      await fetchApi<Employee>("/employees", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      fetchEmployeesData();
+      setShowAddEmpForm(false);
+    } catch (error: any) {
+      console.error("Error creating employee:", error);
+      alert(error.message || "Failed to create employee.");
+    }
+  };
+
+  const handleAddDepartment = async (data: DepartmentFormData) => {
+    try {
+      const selectedBranch = branches.find(
+        (b) => String(b.rawId) === data.branch || b.id === data.branch || b.name === data.branch
+      );
+      const branchId = selectedBranch ? Number(selectedBranch.rawId || selectedBranch.id) : (data.branch ? Number(data.branch) : null);
+
+      const payload = {
+        name: data.name,
+        code: data.code,
+        description: data.description || null,
+        ...(branchId && !isNaN(branchId) ? { branch_id: branchId } : {}),
+      };
+
+      await fetchApi<Department>("/departments", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+      fetchDepartmentsData();
+      setShowAddDeptForm(false);
+    } catch (error: any) {
+      console.error("Error creating department:", error);
+      alert(error.message || "Failed to create department.");
+    }
+  };
 
   const handleAddDesignation = async (data: DesignationFormData) => {
     try {
@@ -1089,130 +786,6 @@ export default function HomeContent() {
       alert(error.message || "Failed to create designation.");
     }
   };
-
-  const companyFields: FieldConfig<CompanyFormData>[] = [
-    { name: "name", label: "Company Name", placeholder: "e.g. Acme Technologies" },
-    { name: "email", label: "Company Email", type: "email", placeholder: "contact@acme.com" },
-    { name: "slug", label: "Company Slug", placeholder: "e.g. acme-technologies" },
-    { name: "phone", label: "Phone Number", placeholder: "e.g. +91 9876543210" },
-    { name: "admin_name", label: "Company Admin Name", placeholder: "e.g. John Administrator" },
-    { name: "admin_email", label: "Company Admin Email", type: "email", placeholder: "admin@acme.com" },
-    { name: "admin_password", label: "Company Admin Password", type: "password", placeholder: "Password123" },
-  ];
-
-  const companyEditFields: FieldConfig<any>[] = [
-    { name: "name", label: "Company Name", placeholder: "e.g. Acme Technologies" },
-    { name: "email", label: "Company Email", type: "email", placeholder: "contact@acme.com" },
-    { name: "slug", label: "Company Slug", placeholder: "e.g. acme-technologies" },
-    { name: "phone", label: "Phone Number", placeholder: "e.g. +91 9876543210" },
-  ];
-
-  const branchColumns: ColumnDef<BranchItem>[] = [
-    {
-      accessorKey: "code",
-      header: "Branch Code",
-      cell: (info) => (
-        <span
-          className={`font-mono text-xs font-extrabold px-2.5 py-1 rounded-lg border ${isDarkMode
-            ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/30"
-            : "bg-cyan-50 text-cyan-700 border-cyan-200"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "name",
-      header: "Branch Name",
-      cell: (info) => (
-        <span
-          className={`font-bold text-xs sm:text-sm ${isDarkMode ? "text-white" : "text-slate-900"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "companyName",
-      header: "Company",
-      cell: (info) => (
-        <span
-          className={`font-semibold text-xs px-2.5 py-1 rounded-lg border ${isDarkMode
-            ? "bg-purple-500/15 text-purple-300 border-purple-500/30"
-            : "bg-purple-50 text-purple-700 border-purple-200"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "email",
-      header: "Email",
-      cell: (info) => (
-        <span
-          className={`text-xs font-medium ${isDarkMode ? "text-slate-300" : "text-slate-600"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "phone",
-      header: "Phone",
-      cell: (info) => (
-        <span
-          className={`text-xs font-medium ${isDarkMode ? "text-slate-300" : "text-slate-600"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "address",
-      header: "Address",
-      cell: (info) => (
-        <span
-          className={`text-xs truncate max-w-[200px] block ${isDarkMode ? "text-slate-400" : "text-slate-500"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "usersCount",
-      header: "Total Members",
-      cell: (info) => (
-        <span
-          className={`font-semibold text-xs px-2.5 py-1 rounded-full border ${isDarkMode
-            ? "bg-purple-500/15 text-purple-300 border-purple-500/30"
-            : "bg-purple-50 text-purple-700 border-purple-200"
-            }`}
-        >
-          {info.getValue() as number} members
-        </span>
-      ),
-    },
-    {
-      id: "actions",
-      header: "Actions",
-      enableSorting: false,
-      cell: (info) => renderActionButtons(info.row.original, "branches"),
-    },
-  ];
-
-  const branchFields: FieldConfig<BranchFormData>[] = [
-    { name: "name", label: "Branch Name", placeholder: "e.g. Delhi Regional Office" },
-    { name: "code", label: "Branch Code", placeholder: "e.g. DEL-HQ" },
-    { name: "email", label: "Email Address (Optional)", type: "email", placeholder: "branch@clanio.com" },
-    { name: "phone", label: "Phone Number (Optional)", placeholder: "+91 98765 43210" },
-    { name: "address", label: "Address (Optional)", placeholder: "Full office address..." },
-  ];
 
   const handleAddBranch = async (data: BranchFormData) => {
     try {
@@ -1238,188 +811,32 @@ export default function HomeContent() {
     }
   };
 
-  const teamColumns: ColumnDef<TeamItem>[] = [
-    {
-      accessorKey: "code",
-      header: "Team Code",
-      cell: (info) => (
-        <span
-          className={`font-mono text-xs font-extrabold px-2.5 py-1 rounded-lg border ${isDarkMode
-            ? "bg-purple-500/15 text-purple-300 border-purple-500/30"
-            : "bg-purple-50 text-purple-700 border-purple-200"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "name",
-      header: "Team Name",
-      cell: (info) => (
-        <span
-          className={`font-bold text-xs sm:text-sm ${isDarkMode ? "text-white" : "text-slate-900"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "departmentName",
-      header: "Department",
-      cell: (info) => (
-        <span
-          className={`font-semibold text-xs px-2.5 py-1 rounded-lg border ${isDarkMode
-            ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/30"
-            : "bg-cyan-50 text-cyan-700 border-cyan-200"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "description",
-      header: "Description",
-      cell: (info) => (
-        <span
-          className={`text-xs truncate max-w-[200px] block ${isDarkMode ? "text-slate-400" : "text-slate-500"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "usersCount",
-      header: "Members",
-      cell: (info) => (
-        <span
-          className={`font-semibold text-xs px-2.5 py-1 rounded-full border ${isDarkMode
-            ? "bg-indigo-500/15 text-indigo-300 border-indigo-500/30"
-            : "bg-indigo-50 text-indigo-700 border-indigo-200"
-            }`}
-        >
-          {info.getValue() as number} members
-        </span>
-      ),
-    },
-    {
-      id: "actions",
-      header: "Actions",
-      enableSorting: false,
-      cell: (info) => renderActionButtons(info.row.original, "teams"),
-    },
-  ];
+  const handleAddTeam = async (data: TeamFormData) => {
+    try {
+      const selectedDept = departments.find(
+        (d) => String((d as any).rawId || d.id) === data.department || d.name === data.department
+      );
+      const deptId = selectedDept ? Number((selectedDept as any).rawId || selectedDept.id) : (data.department ? Number(data.department) : null);
 
-  const teamFields: FieldConfig<TeamFormData>[] = [
-    { name: "name", label: "Team Name", placeholder: "e.g. Frontend Engineering" },
-    { name: "code", label: "Team Code", placeholder: "e.g. ENG-FE" },
-    {
-      name: "department",
-      label: "Department",
-      type: "select",
-      options: departmentOptions,
-    },
-    { name: "description", label: "Description (Optional)", placeholder: "Brief description of team..." },
-  ];
+      const payload = {
+        name: data.name.trim(),
+        code: data.code.trim().toUpperCase(),
+        department_id: deptId,
+        description: data.description?.trim() || null,
+      };
 
-  const roleColumns: ColumnDef<RoleItem>[] = [
-    {
-      accessorKey: "slug",
-      header: "Role Slug",
-      cell: (info) => (
-        <span
-          className={`font-mono text-xs font-extrabold px-2.5 py-1 rounded-lg border ${isDarkMode
-            ? "bg-blue-500/15 text-blue-300 border-blue-500/30"
-            : "bg-blue-50 text-blue-700 border-blue-200"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "name",
-      header: "Role Name",
-      cell: (info) => (
-        <span
-          className={`font-bold text-xs sm:text-sm ${isDarkMode ? "text-white" : "text-slate-900"
-            }`}
-        >
-          {info.getValue() as string}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "hierarchy_level",
-      header: "Level",
-      cell: (info) => (
-        <span
-          className={`font-mono font-bold text-xs px-2.5 py-1 rounded-full border ${isDarkMode
-            ? "bg-purple-500/15 text-purple-300 border-purple-500/30"
-            : "bg-purple-50 text-purple-700 border-purple-200"
-            }`}
-        >
-          Level {info.getValue() as number}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "data_scope",
-      header: "Data Scope",
-      cell: (info) => (
-        <span
-          className={`font-semibold text-xs px-2.5 py-1 rounded-lg border capitalize ${isDarkMode
-            ? "bg-cyan-500/15 text-cyan-300 border-cyan-500/30"
-            : "bg-cyan-50 text-cyan-700 border-cyan-200"
-            }`}
-        >
-          {((info.getValue() as string) || "self").replace(/_/g, " ")}
-        </span>
-      ),
-    },
-    {
-      accessorKey: "usersCount",
-      header: "Assigned Users",
-      cell: (info) => (
-        <span
-          className={`font-semibold text-xs px-2.5 py-1 rounded-full border ${isDarkMode
-            ? "bg-emerald-500/15 text-emerald-300 border-emerald-500/30"
-            : "bg-emerald-50 text-emerald-700 border-emerald-200"
-            }`}
-        >
-          {info.getValue() as number} users
-        </span>
-      ),
-    },
-    {
-      id: "actions",
-      header: "Actions",
-      enableSorting: false,
-      cell: (info) => renderActionButtons(info.row.original, "roles"),
-    },
-  ];
+      await fetchApi<any>("/teams", {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
 
-  const roleFields: FieldConfig<RoleFormData>[] = [
-    { name: "name", label: "Role Name", placeholder: "e.g. HR Specialist" },
-    { name: "slug", label: "Role Slug", placeholder: "e.g. hr_specialist" },
-    { name: "hierarchy_level", label: "Hierarchy Level (2-99)", type: "number", placeholder: "e.g. 5" },
-    {
-      name: "data_scope",
-      label: "Data Scope Access",
-      type: "select",
-      options: [
-        { label: "All Company", value: "all_company" },
-        { label: "Branch Only", value: "branch" },
-        { label: "Department Only", value: "department" },
-        { label: "Team Only", value: "team" },
-        { label: "Self Only", value: "self" },
-      ],
-    },
-    { name: "description", label: "Description (Optional)", placeholder: "Role responsibilities..." },
-  ];
+      setShowAddTeamForm(false);
+      fetchTeamsData();
+    } catch (error: any) {
+      console.error("Failed to create team:", error);
+      alert(error.message || "Failed to create team.");
+    }
+  };
 
   const handleAddRole = async (data: RoleFormData) => {
     try {
@@ -1429,7 +846,6 @@ export default function HomeContent() {
         hierarchy_level: Number(data.hierarchy_level),
         data_scope: data.data_scope,
         description: data.description?.trim() || null,
-        is_active: true,
         permissions: ["employee.view", "branch.view", "department.view"],
       };
 
@@ -1446,53 +862,16 @@ export default function HomeContent() {
     }
   };
 
-  const handleAddTeam = async (data: TeamFormData) => {
-    try {
-      const selectedDept = departments.find(
-        (d) => String((d as any).rawId || d.id) === data.department || d.name === data.department
-      );
-      const deptId = selectedDept && !isNaN(Number((selectedDept as any).rawId || selectedDept.id))
-        ? Number((selectedDept as any).rawId || selectedDept.id)
-        : !isNaN(Number(data.department))
-          ? Number(data.department)
-          : departments[0] && !isNaN(Number((departments[0] as any).rawId || departments[0].id))
-            ? Number((departments[0] as any).rawId || departments[0].id)
-            : 1;
-
-      const payload = {
-        name: data.name.trim(),
-        code: data.code.trim().toUpperCase(),
-        department_id: deptId,
-        description: data.description?.trim() || null,
-        status: "active",
-      };
-
-      await fetchApi<any>("/teams", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-
-      setShowAddTeamForm(false);
-      fetchTeamsData();
-    } catch (error: any) {
-      console.error("Failed to create team:", error);
-      alert(error.message || "Failed to create team.");
-    }
-  };
-
-  // Add Record Handlers (Connected to Laravel API with local fallback)
   const handleAddCompany = async (data: CompanyFormData) => {
     try {
       const payload = {
         name: data.name,
-        slug: data.slug,
         email: data.email,
+        slug: data.slug,
         phone: data.phone || null,
-        admin: {
-          name: data.admin_name,
-          email: data.admin_email,
-          password: data.admin_password,
-        },
+        admin_name: data.admin_name,
+        admin_email: data.admin_email,
+        admin_password: data.admin_password,
       };
 
       await fetchApi<CompanyItem>("/companies", {
@@ -1507,439 +886,421 @@ export default function HomeContent() {
     }
   };
 
-  // Add Record Handlers (Connected to Laravel API with local fallback)
-  const handleAddEmployee = async (data: EmployeeFormData) => {
-    try {
-      const selectedDept = departments.find(
-        (d) => d.name === data.department || String(d.id) === data.department
-      );
-      const deptId = selectedDept && !isNaN(Number(selectedDept.id)) ? Number(selectedDept.id) : null;
-
-      const selectedDesig = designations.find(
-        (d) => d.name === data.role || String(d.id) === data.role
-      );
-      const desigId = selectedDesig && !isNaN(Number(selectedDesig.id)) ? Number(selectedDesig.id) : null;
-
-      const payload = {
-        date_of_joining: new Date().toISOString().split("T")[0],
-        personal_email: data.email,
-        ...(desigId ? { designation_id: desigId } : {}),
-        user: {
-          name: data.name,
-          email: data.email,
-          password: "Password123",
-          ...(deptId ? { department_id: deptId } : {}),
-        },
-      };
-
-      await fetchApi<Employee>("/employees", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      fetchEmployeesData();
-      setShowAddEmpForm(false);
-    } catch (error: any) {
-      console.error("Error creating employee:", error);
-      alert(error.message || "Failed to create employee.");
-    }
-  };
-
-  const handleAddDepartment = async (data: DepartmentFormData) => {
-    try {
-      const payload = {
-        name: data.name,
-        code: data.code,
-        description: data.description || null,
-      };
-
-      await fetchApi<Department>("/departments", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
-      fetchDepartmentsData();
-      setShowAddDeptForm(false);
-    } catch (error: any) {
-      console.error("Error creating department:", error);
-      alert(error.message || "Failed to create department.");
-    }
-  };
-
   if (!isAuthenticated) {
     return null;
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-100 text-slate-900 font-sans antialiased selection:bg-indigo-500/30 selection:text-indigo-900 overflow-hidden">
-      {/* Left Sidebar Component - Always kept dark */}
+    <div className={`flex h-screen overflow-hidden font-sans ${isDarkMode ? "bg-[#040D1A] text-slate-100" : "bg-[#EEF2F6] text-slate-900"}`}>
       <Sidebar
-        isCollapsed={!isSidebarOpen}
-        isDarkMode={true}
+        isCollapsed={isSidebarCollapsed}
+        isDarkMode={isDarkMode}
         activeItem={activeNav}
-        onSelectItem={handleNavChange}
-        viewMode={viewMode}
+        onSelectItem={(id) => {
+          handleNavSelect(id);
+          if (typeof window !== "undefined" && window.innerWidth < 768) {
+            setIsSidebarCollapsed(true);
+          }
+        }}
+        onToggle={() => setIsSidebarCollapsed((prev) => !prev)}
       />
 
-      {/* Main Layout Area */}
-      <div
-        className={`flex-1 flex flex-col min-w-0 h-screen overflow-hidden transition-colors duration-300 ${isDarkMode ? "bg-[#071326]" : "bg-slate-100"
-          }`}
-      >
-        {/* Top Navigation Bar Component - Always kept dark */}
+      <div className="flex-1 flex flex-col min-w-0 h-screen overflow-hidden">
         <Topbar
-          isSidebarOpen={isSidebarOpen}
-          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-          isDarkMode={true}
+          isSidebarOpen={!isSidebarCollapsed}
+          onToggleSidebar={() => setIsSidebarCollapsed((prev) => !prev)}
+          isDarkMode={isDarkMode}
           onToggleTheme={() => setIsDarkMode(!isDarkMode)}
-          onSelectItem={handleNavChange}
-          viewMode={viewMode}
-          onToggleViewMode={handleToggleViewMode}
+          onSelectItem={(id) => handleNavSelect(id)}
         />
 
-        {/* Dashboard Main Workspace Area */}
-        <main
-          className={`flex-1 p-6 sm:p-8 overflow-y-auto relative transition-colors duration-300 ${isDarkMode ? "bg-[#071326] text-white" : "bg-slate-100/90 text-slate-900"
-            }`}
-        >
-          <div className="max-w-7xl mx-auto space-y-6">
-            {/* Header Title Section */}
-            <div className="space-y-1.5 pb-1">
-              <div className="flex items-center gap-3">
-                <h1
-                  className={`text-2xl sm:text-3xl font-black tracking-tight leading-none capitalize ${isDarkMode
-                    ? "text-white"
-                    : "bg-gradient-to-r from-slate-900 via-indigo-950 to-purple-900 bg-clip-text text-transparent"
-                    }`}
-                >
-                  {activeNav.replace("-", " ")}
-                </h1>
-                <span
-                  className={`text-xs font-extrabold px-3 py-1 rounded-full border shrink-0 shadow-2xs ${
-                    viewMode === "admin"
-                      ? isDarkMode
-                        ? "bg-blue-500/20 text-blue-300 border-blue-500/30"
-                        : "bg-blue-50 text-blue-800 border-blue-200"
-                      : isDarkMode
-                        ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/30"
-                        : "bg-emerald-50 text-emerald-800 border-emerald-200"
-                  }`}
-                >
-                  {viewMode === "admin" ? "🛡️ Admin Mode" : "👤 Employee Mode"}
-                </span>
-              </div>
-
-              <div
-                className={`text-xs sm:text-sm font-medium flex flex-wrap items-center gap-2 pt-0.5 ${isDarkMode ? "text-slate-400" : "text-slate-500"
-                  }`}
-              >
-                <span>
-                  Logged in as{" "}
-                  <strong className={isDarkMode ? "text-slate-200" : "text-slate-800"}>
-                    {userName}
-                  </strong>
-                </span>
-                <span className={isDarkMode ? "text-slate-600" : "text-slate-300"}>•</span>
-                <span className={`font-semibold ${isDarkMode ? "text-cyan-300" : "text-indigo-600"}`}>
-                  {companyName}
-                </span>
-              </div>
+        <main className={`flex-1 p-3 sm:p-6 md:p-8 space-y-4 sm:space-y-6 overflow-y-auto ${isDarkMode ? "" : "bg-[#EEF2F6] shadow-inner"}`}>
+          {/* HEADER BAR */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-xl sm:text-2xl font-extrabold tracking-tight capitalize">
+                {activeNav.replace("-", " ")} Workspace
+              </h1>
             </div>
+          </div>
 
-            {/* DYNAMIC SIDEBAR SECTION VIEW */}
-            {activeNav === "companies" ? (
-              showAddCompanyForm ? (
-                <DynamicForm
-                  title="Add New Company"
-                  description="Register a new organization on CLANIO Platform."
-                  schema={companySchema}
-                  fields={companyFields}
-                  columns={2}
-                  onSubmit={handleAddCompany}
-                  onCancel={() => setShowAddCompanyForm(false)}
-                  submitText="Create Company"
-                  isDarkMode={isDarkMode}
-                />
-              ) : (
-                <DataTable
-                  title="Companies Directory"
-                  description="Manage registered companies and workspace accounts."
-                  columns={companyColumns}
-                  data={companies}
-                  searchPlaceholder="Search companies by name, email or slug..."
-                  isDarkMode={isDarkMode}
-                  actionButton={
-                    <button
-                      onClick={() => setShowAddCompanyForm(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 transition-all duration-200 active:scale-95 cursor-pointer"
-                    >
-                      <Building className="w-4 h-4" />
-                      <span>Add Company</span>
-                    </button>
-                  }
-                />
-              )
-            ) : activeNav === "employees" ? (
-              showAddEmpForm ? (
-                <DynamicForm
-                  title="Add New Employee"
-                  description="Fill in employee details to create a new profile."
-                  schema={employeeSchema}
-                  fields={employeeFields}
-                  columns={2}
-                  onSubmit={handleAddEmployee}
-                  onCancel={() => setShowAddEmpForm(false)}
-                  submitText="Create Employee"
-                  isDarkMode={isDarkMode}
-                />
-              ) : (
-                <DataTable
-                  title="Employee Directory"
-                  description="Manage all active and inactive employees across departments."
-                  columns={employeeColumns}
-                  data={employees}
-                  searchPlaceholder="Search employees by name, email or role..."
-                  isDarkMode={isDarkMode}
-                  actionButton={
-                    <button
-                      onClick={() => setShowAddEmpForm(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 transition-all duration-200 active:scale-95 cursor-pointer"
-                    >
-                      <UserPlus className="w-4 h-4" />
-                      <span>Add Employee</span>
-                    </button>
-                  }
-                />
-              )
-            ) : activeNav === "departments" ? (
-              showAddDeptForm ? (
-                <DynamicForm
-                  title="Add New Department"
-                  description="Define a new organizational department."
-                  schema={departmentSchema}
-                  fields={departmentFields}
-                  columns={2}
-                  onSubmit={handleAddDepartment}
-                  onCancel={() => setShowAddDeptForm(false)}
-                  submitText="Create Department"
-                  isDarkMode={isDarkMode}
-                />
-              ) : (
-                <DataTable
-                  title="Departments Overview"
-                  description="Organizational units and their leaders."
-                  columns={departmentColumns}
-                  data={departments}
-                  searchPlaceholder="Search departments..."
-                  isDarkMode={isDarkMode}
-                  actionButton={
-                    <button
-                      onClick={() => setShowAddDeptForm(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 transition-all duration-200 active:scale-95 cursor-pointer"
-                    >
-                      <Building className="w-4 h-4" />
-                      <span>Add Department</span>
-                    </button>
-                  }
-                />
-              )
-            ) : activeNav === "designations" ? (
-              showAddDesignationForm ? (
-                <DynamicForm
-                  title="Add New Designation"
-                  description="Define a new designation title and role."
-                  schema={designationSchema}
-                  fields={designationFields}
-                  columns={2}
-                  onSubmit={handleAddDesignation}
-                  onCancel={() => setShowAddDesignationForm(false)}
-                  submitText="Create Designation"
-                  isDarkMode={isDarkMode}
-                />
-              ) : (
-                <DataTable
-                  title="Designations Directory"
-                  description="Manage designations and job titles across departments."
-                  columns={designationColumns}
-                  data={designations}
-                  searchPlaceholder="Search designations by name, code..."
-                  isDarkMode={isDarkMode}
-                  actionButton={
-                    <button
-                      onClick={() => setShowAddDesignationForm(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 transition-all duration-200 active:scale-95 cursor-pointer"
-                    >
-                      <Briefcase className="w-4 h-4" />
-                      <span>Add Designation</span>
-                    </button>
-                  }
-                />
-              )
-            ) : activeNav === "branches" ? (
-              showAddBranchForm ? (
-                <DynamicForm
-                  title="Add New Branch Location"
-                  description="Register a new office branch or regional headquarters."
-                  schema={branchSchema}
-                  fields={branchFields}
-                  columns={2}
-                  onSubmit={handleAddBranch}
-                  onCancel={() => setShowAddBranchForm(false)}
-                  submitText="Create Branch"
-                  isDarkMode={isDarkMode}
-                />
-              ) : (
-                <DataTable
-                  title="Branch Locations Directory"
-                  description="Manage company offices and regional branch locations."
-                  columns={branchColumns}
-                  data={branches}
-                  searchPlaceholder="Search branches by name, code or address..."
-                  isDarkMode={isDarkMode}
-                  actionButton={
-                    <button
-                      onClick={() => setShowAddBranchForm(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 transition-all duration-200 active:scale-95 cursor-pointer"
-                    >
-                      <Building className="w-4 h-4" />
-                      <span>Add Branch</span>
-                    </button>
-                  }
-                />
-              )
-            ) : activeNav === "teams" ? (
-              showAddTeamForm ? (
-                <DynamicForm
-                  title="Add New Team"
-                  description="Form a new project or functional team."
-                  schema={teamSchema}
-                  fields={teamFields}
-                  columns={2}
-                  onSubmit={handleAddTeam}
-                  onCancel={() => setShowAddTeamForm(false)}
-                  submitText="Create Team"
-                  isDarkMode={isDarkMode}
-                />
-              ) : (
-                <DataTable
-                  title="Teams Directory"
-                  description="Functional units and project teams within departments."
-                  columns={teamColumns}
-                  data={teams}
-                  searchPlaceholder="Search teams by name, code or department..."
-                  isDarkMode={isDarkMode}
-                  actionButton={
-                    <button
-                      onClick={() => setShowAddTeamForm(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 transition-all duration-200 active:scale-95 cursor-pointer"
-                    >
-                      <Briefcase className="w-4 h-4" />
-                      <span>Add Team</span>
-                    </button>
-                  }
-                />
-              )
-            ) : activeNav === "roles" ? (
-              showAddRoleForm ? (
-                <DynamicForm
-                  title="Add New User Role"
-                  description="Define custom roles and access scope hierarchy."
-                  schema={roleSchema}
-                  fields={roleFields}
-                  columns={2}
-                  onSubmit={handleAddRole}
-                  onCancel={() => setShowAddRoleForm(false)}
-                  submitText="Create Role"
-                  isDarkMode={isDarkMode}
-                />
-              ) : (
-                <DataTable
-                  title="System Roles & Permissions"
-                  description="Manage organizational roles, hierarchy levels, and access scopes."
-                  columns={roleColumns}
-                  data={roles}
-                  searchPlaceholder="Search roles by name, slug or data scope..."
-                  isDarkMode={isDarkMode}
-                  actionButton={
-                    <button
-                      onClick={() => setShowAddRoleForm(true)}
-                      className="flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 transition-all duration-200 active:scale-95 cursor-pointer"
-                    >
-                      <ShieldCheck className="w-4 h-4" />
-                      <span>Add Role</span>
-                    </button>
-                  }
-                />
-              )
-            ) : activeNav === "attendance-list" || activeNav === "attendance" ? (
-              <DataTable
-                title="Today's Attendance Stream"
-                description="Real-time attendance logs recorded for today."
+          {/* DYNAMIC SIDEBAR SECTION VIEW */}
+          {activeNav === "companies" ? (
+            showAddCompanyForm ? (
+              <DynamicForm
+                title="Add New Company"
+                description="Register a new organization on CLANIO Platform."
+                schema={companySchema}
+                fields={companyFields}
+                columns={2}
+                onSubmit={handleAddCompany}
+                onCancel={() => setShowAddCompanyForm(false)}
+                submitText="Create Company"
                 isDarkMode={isDarkMode}
-                columns={[
-                  { accessorKey: "id", header: "Log ID" },
-                  { accessorKey: "name", header: "Employee" },
-                  { accessorKey: "timeIn", header: "Check In" },
-                  { accessorKey: "timeOut", header: "Check Out" },
-                  { accessorKey: "location", header: "Location" },
-                  {
-                    id: "actions",
-                    header: "Actions",
-                    enableSorting: false,
-                    cell: () => (
-                      <div className="flex items-center gap-1.5">
-                        <button
-                          title="View Details"
-                          className={`p-1.5 rounded-lg border transition-all duration-200 cursor-pointer ${isDarkMode
-                            ? "bg-slate-800/80 hover:bg-slate-700 text-slate-300 border-slate-700 hover:text-white"
-                            : "bg-slate-100 hover:bg-slate-200 text-slate-600 border-slate-200 hover:text-slate-900"
-                            }`}
-                        >
-                          <Eye className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          title="Edit"
-                          className={`p-1.5 rounded-lg border transition-all duration-200 cursor-pointer ${isDarkMode
-                            ? "bg-blue-500/10 hover:bg-blue-500/20 text-blue-400 border-blue-500/30 hover:text-blue-300"
-                            : "bg-blue-50 hover:bg-blue-100 text-blue-600 border-blue-200 hover:text-blue-700"
-                            }`}
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                        <button
-                          title="Delete"
-                          className={`p-1.5 rounded-lg border transition-all duration-200 cursor-pointer ${isDarkMode
-                            ? "bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border-rose-500/30 hover:text-rose-300"
-                            : "bg-rose-50 hover:bg-rose-100 text-rose-600 border-rose-200 hover:text-rose-700"
-                            }`}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
-                    ),
-                  },
-                ]}
-                data={[]}
-                searchPlaceholder="Filter logs..."
               />
             ) : (
-              <div
-                className={`rounded-2xl p-8 border text-center space-y-2 backdrop-blur-xl ${isDarkMode
+              <DataTable
+                title="Companies Directory"
+                description="Manage registered companies and workspace accounts."
+                columns={companyColumns}
+                data={companies}
+                searchPlaceholder="Search companies by name, email or slug..."
+                isDarkMode={isDarkMode}
+                actionButton={
+                  <button
+                    onClick={() => setShowAddCompanyForm(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 transition-all duration-200 active:scale-95 cursor-pointer"
+                  >
+                    <Building className="w-4 h-4" />
+                    <span>Add Company</span>
+                  </button>
+                }
+              />
+            )
+          ) : activeNav === "employees" ? (
+            showAddEmpForm ? (
+              <DynamicForm
+                title="Add New Employee"
+                description="Fill in employee details to create a new profile."
+                schema={employeeSchema}
+                fields={employeeFields}
+                columns={2}
+                onSubmit={handleAddEmployee}
+                onCancel={() => setShowAddEmpForm(false)}
+                submitText="Create Employee"
+                isDarkMode={isDarkMode}
+              />
+            ) : (
+              <DataTable
+                title="Employee Directory"
+                description="Manage all active and inactive employees across departments."
+                columns={employeeColumns}
+                data={employees}
+                searchPlaceholder="Search employees by name, email or role..."
+                isDarkMode={isDarkMode}
+                actionButton={
+                  <button
+                    onClick={() => setShowAddEmpForm(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 transition-all duration-200 active:scale-95 cursor-pointer"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>Add Employee</span>
+                  </button>
+                }
+              />
+            )
+          ) : activeNav === "departments" ? (
+            showAddDeptForm ? (
+              <DynamicForm
+                title="Add New Department"
+                description="Define a new organizational department."
+                schema={departmentSchema}
+                fields={departmentFields}
+                columns={2}
+                onSubmit={handleAddDepartment}
+                onCancel={() => setShowAddDeptForm(false)}
+                submitText="Create Department"
+                isDarkMode={isDarkMode}
+              />
+            ) : (
+              <DataTable
+                title="Departments Overview"
+                description="Organizational units and their leaders."
+                columns={departmentColumns}
+                data={departments}
+                searchPlaceholder="Search departments..."
+                isDarkMode={isDarkMode}
+                actionButton={
+                  <button
+                    onClick={() => setShowAddDeptForm(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 transition-all duration-200 active:scale-95 cursor-pointer"
+                  >
+                    <Building className="w-4 h-4" />
+                    <span>Add Department</span>
+                  </button>
+                }
+              />
+            )
+          ) : activeNav === "designations" ? (
+            showAddDesignationForm ? (
+              <DynamicForm
+                title="Add New Designation"
+                description="Define a new designation title and role."
+                schema={designationSchema}
+                fields={designationFields}
+                columns={2}
+                onSubmit={handleAddDesignation}
+                onCancel={() => setShowAddDesignationForm(false)}
+                submitText="Create Designation"
+                isDarkMode={isDarkMode}
+              />
+            ) : (
+              <DataTable
+                title="Designations Directory"
+                description="Manage designations and job titles across departments."
+                columns={designationColumns}
+                data={designations}
+                searchPlaceholder="Search designations by name, code..."
+                isDarkMode={isDarkMode}
+                actionButton={
+                  <button
+                    onClick={() => setShowAddDesignationForm(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 transition-all duration-200 active:scale-95 cursor-pointer"
+                  >
+                    <Briefcase className="w-4 h-4" />
+                    <span>Add Designation</span>
+                  </button>
+                }
+              />
+            )
+          ) : activeNav === "branches" ? (
+            showAddBranchForm ? (
+              <DynamicForm
+                title="Add New Branch Location"
+                description="Register a new office branch or regional headquarters."
+                schema={branchSchema}
+                fields={branchFields}
+                columns={2}
+                onSubmit={handleAddBranch}
+                onCancel={() => setShowAddBranchForm(false)}
+                submitText="Create Branch"
+                isDarkMode={isDarkMode}
+              />
+            ) : (
+              <DataTable
+                title="Branch Locations Directory"
+                description="Manage company offices and regional branch locations."
+                columns={branchColumns}
+                data={branches}
+                searchPlaceholder="Search branches by name, code or address..."
+                isDarkMode={isDarkMode}
+                actionButton={
+                  <button
+                    onClick={() => setShowAddBranchForm(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 transition-all duration-200 active:scale-95 cursor-pointer"
+                  >
+                    <Building className="w-4 h-4" />
+                    <span>Add Branch</span>
+                  </button>
+                }
+              />
+            )
+          ) : activeNav === "teams" ? (
+            showAddTeamForm ? (
+              <DynamicForm
+                title="Add New Team"
+                description="Form a new project or functional team."
+                schema={teamSchema}
+                fields={teamFields}
+                columns={2}
+                onSubmit={handleAddTeam}
+                onCancel={() => setShowAddTeamForm(false)}
+                submitText="Create Team"
+                isDarkMode={isDarkMode}
+              />
+            ) : (
+              <DataTable
+                title="Teams Directory"
+                description="Functional units and project teams within departments."
+                columns={teamColumns}
+                data={teams}
+                searchPlaceholder="Search teams by name, code or department..."
+                isDarkMode={isDarkMode}
+                actionButton={
+                  <button
+                    onClick={() => setShowAddTeamForm(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 transition-all duration-200 active:scale-95 cursor-pointer"
+                  >
+                    <Briefcase className="w-4 h-4" />
+                    <span>Add Team</span>
+                  </button>
+                }
+              />
+            )
+          ) : activeNav === "roles" || activeNav === "users-roles" ? (
+            showAddRoleForm ? (
+              <DynamicForm
+                title="Add New User Role"
+                description="Define custom roles and access scope hierarchy."
+                schema={roleSchema}
+                fields={roleFields}
+                columns={2}
+                onSubmit={handleAddRole}
+                onCancel={() => setShowAddRoleForm(false)}
+                submitText="Create Role"
+                isDarkMode={isDarkMode}
+              />
+            ) : (
+              <DataTable
+                title="System Roles & Permissions"
+                description="Manage organizational roles, hierarchy levels, and access scopes."
+                columns={roleColumns}
+                data={roles}
+                searchPlaceholder="Search roles by name, slug or data scope..."
+                isDarkMode={isDarkMode}
+                actionButton={
+                  <button
+                    onClick={() => setShowAddRoleForm(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md shadow-blue-500/20 transition-all duration-200 active:scale-95 cursor-pointer"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Add Role</span>
+                  </button>
+                }
+              />
+            )
+          ) : activeNav === "permissions" ? (
+            <PermissionMatrix isDarkMode={isDarkMode} />
+          ) : activeNav === "attendance-list" || activeNav === "attendance" || activeNav === "shift-management" || activeNav === "holidays" || activeNav === "regularization" ? (
+            <AttendanceModule isDarkMode={isDarkMode} activeTab={activeNav} />
+          ) : activeNav === "leave-requests" || activeNav === "leave" || activeNav === "leave-balance" || activeNav === "leave-policies" ? (
+            <LeaveModule isDarkMode={isDarkMode} activeTab={activeNav} />
+          ) : activeNav === "task-board" || activeNav === "tasks" || activeNav === "my-tasks" || activeNav === "daily-reports" || activeNav === "sod-eod" || activeNav === "work-record" || activeNav === "work-records" ? (
+            <TaskModule isDarkMode={isDarkMode} activeTab={activeNav} />
+          ) : activeNav === "tickets" || activeNav === "support-tickets" || activeNav === "ticket-categories" || activeNav === "helpdesk" ? (
+            <TicketModule isDarkMode={isDarkMode} activeTab={activeNav} />
+          ) : activeNav === "assets" || activeNav === "company-assets" || activeNav === "my-assets" || activeNav === "asset-requests" ? (
+            <AssetModule isDarkMode={isDarkMode} activeTab={activeNav} />
+          ) : activeNav === "profile" || activeNav === "employee-documents" || activeNav === "security" || activeNav === "account" ? (
+            <ProfileModule isDarkMode={isDarkMode} />
+          ) : activeNav === "organization-chart" || activeNav === "org-chart" ? (
+            <OrgChartModule isDarkMode={isDarkMode} />
+          ) : activeNav === "company-settings" ? (
+            <CompanySettingsModule isDarkMode={isDarkMode} />
+          ) : activeNav === "employee-exits" || activeNav === "exits" || activeNav === "clearance" || activeNav === "clearance-items" ? (
+            <ExitModule isDarkMode={isDarkMode} activeTab={activeNav} />
+          ) : activeNav === "payroll" || activeNav === "payroll-runs" || activeNav === "fnf" || activeNav === "advances" || activeNav === "salary-components" || activeNav === "company-bank" ? (
+            <PayrollModule isDarkMode={isDarkMode} activeTab={activeNav} />
+          ) : activeNav === "recruitment" || activeNav === "openings" || activeNav === "interviews" || activeNav === "joinings" ? (
+            <RecruitmentModule isDarkMode={isDarkMode} activeTab={activeNav === "recruitment" ? "openings" : activeNav} />
+          ) : activeNav === "reports" || activeNav === "statutory-returns" || activeNav === "billing" || activeNav === "revenue" || activeNav === "plans" ? (
+            <ReportsModule isDarkMode={isDarkMode} activeTab={activeNav} />
+          ) : activeNav === "my-space" || activeNav === "my-attendance" || activeNav === "my-leave" || activeNav === "my-payslips" || activeNav === "my-advance" || activeNav === "my-requests" || activeNav === "my-policies" ? (
+            <SelfServiceModule isDarkMode={isDarkMode} activeTab={activeNav === "my-space" ? "my-attendance" : activeNav} />
+          ) : activeNav === "users" || activeNav === "audit-log" ? (
+            <AuditModule isDarkMode={isDarkMode} activeTab={activeNav} />
+          ) : activeNav === "expenses" || activeNav === "expense-claims" ? (
+            <ExpenseModule isDarkMode={isDarkMode} />
+          ) : activeNav === "performance-goals" || activeNav === "performance" || activeNav === "appraisals" || activeNav === "incentives" || activeNav === "incentive-rules" || activeNav === "recognitions" || activeNav === "performance-score" ? (
+            <PerformanceModule isDarkMode={isDarkMode} activeTab={activeNav} />
+          ) : activeNav === "company-policies" || activeNav === "policies" ? (
+            <PolicyModule isDarkMode={isDarkMode} />
+          ) : activeNav === "notifications" || activeNav === "announcements" ? (
+            <NotificationModule isDarkMode={isDarkMode} />
+          ) : activeNav === "dashboard" ? (
+            <div className="space-y-6">
+              {/* Dashboard Metric Summary Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div
+                  onClick={() => setActiveNav("employees")}
+                  className={`p-5 rounded-2xl border backdrop-blur-xl transition-all cursor-pointer ${
+                    isDarkMode
+                      ? "bg-[#0B1A30]/90 border-white/[0.08] hover:border-blue-500/50"
+                      : "bg-white border-slate-200 shadow-xs hover:border-blue-500/50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Total Employees</span>
+                    <div className="p-2 rounded-xl bg-blue-500/15 text-blue-500">
+                      <UserPlus className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <p className={`text-2xl font-extrabold mt-3 ${isDarkMode ? "text-white" : "text-slate-900"}`}>{employees.length}</p>
+                  <p className="text-[11px] text-blue-500 font-semibold mt-1">Manage Directory →</p>
+                </div>
+
+                <div
+                  onClick={() => setActiveNav("departments")}
+                  className={`p-5 rounded-2xl border backdrop-blur-xl transition-all cursor-pointer ${
+                    isDarkMode
+                      ? "bg-[#0B1A30]/90 border-white/[0.08] hover:border-purple-500/50"
+                      : "bg-white border-slate-200 shadow-xs hover:border-purple-500/50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Departments</span>
+                    <div className="p-2 rounded-xl bg-purple-500/15 text-purple-500">
+                      <Building className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <p className={`text-2xl font-extrabold mt-3 ${isDarkMode ? "text-white" : "text-slate-900"}`}>{departments.length}</p>
+                  <p className="text-[11px] text-purple-500 font-semibold mt-1">View Departments →</p>
+                </div>
+
+                <div
+                  onClick={() => setActiveNav("attendance")}
+                  className={`p-5 rounded-2xl border backdrop-blur-xl transition-all cursor-pointer ${
+                    isDarkMode
+                      ? "bg-[#0B1A30]/90 border-white/[0.08] hover:border-emerald-500/50"
+                      : "bg-white border-slate-200 shadow-xs hover:border-emerald-500/50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Attendance Terminal</span>
+                    <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-500">
+                      <Briefcase className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <p className={`text-2xl font-extrabold mt-3 ${isDarkMode ? "text-white" : "text-slate-900"}`}>Live Check-In</p>
+                  <p className="text-[11px] text-emerald-500 font-semibold mt-1">Clock In / Out →</p>
+                </div>
+
+                <div
+                  onClick={() => setActiveNav("task-board")}
+                  className={`p-5 rounded-2xl border backdrop-blur-xl transition-all cursor-pointer ${
+                    isDarkMode
+                      ? "bg-[#0B1A30]/90 border-white/[0.08] hover:border-amber-500/50"
+                      : "bg-white border-slate-200 shadow-xs hover:border-amber-500/50"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-slate-400">Tasks & SOD/EOD</span>
+                    <div className="p-2 rounded-xl bg-amber-500/15 text-amber-500">
+                      <ShieldCheck className="w-5 h-5" />
+                    </div>
+                  </div>
+                  <p className={`text-2xl font-extrabold mt-3 ${isDarkMode ? "text-white" : "text-slate-900"}`}>Task Board</p>
+                  <p className="text-[11px] text-amber-500 font-semibold mt-1">View Work Terminal →</p>
+                </div>
+              </div>
+
+              {/* Main Quick Access Table for Employees */}
+              <DataTable
+                title="Company Employee Directory"
+                description="Overview of active company members, roles, and branch assignments."
+                columns={employeeColumns}
+                data={employees}
+                searchPlaceholder="Search employees by name, email, department..."
+                isDarkMode={isDarkMode}
+                actionButton={
+                  <button
+                    onClick={() => setShowAddEmpForm(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-[#2563EB] hover:bg-blue-700 text-white font-bold text-xs rounded-xl shadow-md transition-all cursor-pointer"
+                  >
+                    <UserPlus className="w-4 h-4" />
+                    <span>Add Employee</span>
+                  </button>
+                }
+              />
+            </div>
+          ) : (
+            <div
+              className={`rounded-2xl p-8 border text-center space-y-2 backdrop-blur-xl ${
+                isDarkMode
                   ? "bg-[#0B1A30]/90 border-white/[0.08] text-white"
                   : "bg-white border-slate-200 text-slate-900"
-                  }`}
-              >
-                <h3 className="text-lg font-bold capitalize">
-                  {activeNav.replace("-", " ")} Workspace
-                </h3>
-                <p className={`text-xs ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
-                  Select Employees, Departments, or Attendance in the sidebar to view common tables & forms.
-                </p>
-              </div>
-            )}
-          </div>
+              }`}
+            >
+              <h3 className="text-lg font-bold capitalize">{activeNav.replace("-", " ")} Workspace</h3>
+              <p className={`text-xs ${isDarkMode ? "text-slate-400" : "text-slate-500"}`}>
+                Select Employees, Departments, or Attendance in the sidebar to view common tables & forms.
+              </p>
+            </div>
+          )}
         </main>
       </div>
 
-      {/* Reusable Framer Motion Action Modal */}
+      {/* Action Modal for View / Edit / Delete operations */}
       <ActionModal
         isOpen={actionState.type !== null}
         type={actionState.type}
@@ -1958,8 +1319,10 @@ export default function HomeContent() {
             ? teamFields
             : actionState.entity === "roles"
             ? roleFields
-            : actionState.type === "edit"
-            ? companyEditFields
+            : actionState.entity === "companies"
+            ? actionState.type === "edit"
+              ? companyEditFields
+              : companyFields
             : companyFields
         }
         schema={
@@ -1975,13 +1338,23 @@ export default function HomeContent() {
             ? teamSchema
             : actionState.entity === "roles"
             ? roleSchema
-            : actionState.type === "edit"
-            ? companyEditSchema
+            : actionState.entity === "companies"
+            ? actionState.type === "edit"
+              ? companyEditSchema
+              : companySchema
             : companySchema
         }
         onClose={() => setActionState({ type: null, entity: "employees", data: null })}
         onConfirmDelete={handleDeleteRecord}
         onSaveEdit={handleEditRecord}
+        isDarkMode={isDarkMode}
+      />
+
+      <CompanyModulesModal
+        companyId={companyForModules?.id || ""}
+        companyName={companyForModules?.name || ""}
+        isOpen={Boolean(companyForModules)}
+        onClose={() => setCompanyForModules(null)}
         isDarkMode={isDarkMode}
       />
     </div>
