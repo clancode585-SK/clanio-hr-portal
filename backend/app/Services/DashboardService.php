@@ -20,13 +20,28 @@ use App\Models\AttendanceRegularization;
 use App\Support\CompanyTime;
 use App\Support\Scopes\CompanyScope;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
 class DashboardService
 {
+    /** Counts itni der purane chalte hain — 27 count har baar chalana mehenga hai */
+    private const TTL_SECONDS = 30;
+
     /** Ek hi call me saare tile ke counts — pehle har tile apni API maarti thi */
-    public function forUser(User $actor): array
+    public function forUser(User $actor, bool $fresh = false): array
+    {
+        $key = 'dashboard:' . $actor->id . ':' . ($actor->company_id ?? 'platform');
+
+        if ($fresh) {
+            Cache::forget($key);
+        }
+
+        return Cache::remember($key, self::TTL_SECONDS, fn (): array => $this->build($actor));
+    }
+
+    private function build(User $actor): array
     {
         $companyId = $actor->company_id === null ? null : (int) $actor->company_id;
         $employeeId = $this->employeeId($actor);

@@ -30,7 +30,7 @@ class CompanySettingController extends ApiController
         );
 
         if ($data === []) {
-            throw new ApiException('Badalne ke liye kuch bheja hi nahi.', 422, 'NOTHING_TO_UPDATE');
+            throw new ApiException('Nothing was sent to change.', 422, 'NOTHING_TO_UPDATE');
         }
 
         foreach (['sod_cutoff', 'eod_cutoff'] as $field) {
@@ -43,7 +43,7 @@ class CompanySettingController extends ApiController
 
         TenantCache::flush(TenantCache::COMPANIES);
 
-        return ApiResponse::success($this->payload($company->refresh()), 'Company settings update ho gayi');
+        return ApiResponse::success($this->payload($company->refresh()), 'Company settings updated');
     }
 
     public function payroll(): JsonResponse
@@ -66,14 +66,14 @@ class CompanySettingController extends ApiController
             'encashment_enabled' => ['nullable', 'boolean'],
             'notice_recovery_basis' => ['nullable', 'in:basic,gross'],
         ], [
-            'salary_pay_day.max' => 'Pay day 1 se 28 ke beech rakho — mahine ke aakhir me date badal jaati hai.',
+            'salary_pay_day.max' => 'Keep the pay day between 1 and 28 — the end of the month shifts.',
             'salary_pay_time.date_format' => 'Time aise do — 10:00',
         ]);
 
         $data = array_filter($data, static fn ($value): bool => $value !== null);
 
         if ($data === []) {
-            throw new ApiException('Badalne ke liye kuch bheja hi nahi.', 422, 'NOTHING_TO_UPDATE');
+            throw new ApiException('Nothing was sent to change.', 422, 'NOTHING_TO_UPDATE');
         }
 
         if (isset($data['salary_pay_time'])) {
@@ -82,7 +82,7 @@ class CompanySettingController extends ApiController
 
         if (isset($data['payroll_review_day'], $data['salary_pay_day'])
             && (int) $data['payroll_review_day'] > (int) $data['salary_pay_day'] + 20) {
-            throw new ApiException('Review day aur pay day ke beech itna fasla theek nahi.', 422, 'DAYS_APART');
+            throw new ApiException('That is too wide a gap between the review day and the pay day.', 422, 'DAYS_APART');
         }
 
         $company->forceFill($data + ['updated_by' => $request->user()->id])->save();
@@ -92,7 +92,7 @@ class CompanySettingController extends ApiController
 
         return ApiResponse::success(
             $this->payrollPayload($company->refresh()),
-            'Payroll settings update ho gayi'
+            'Payroll settings updated'
         );
     }
 
@@ -112,14 +112,14 @@ class CompanySettingController extends ApiController
                 'notice_recovery_basis' => (string) $company->notice_recovery_basis,
             ],
             'meaning' => [
-                'salary_pay_day' => 'Is tarikh ko salary account se katti hai',
-                'salary_pay_time' => 'Us din is time se transfer shuru hota hai',
-                'payroll_review_day' => 'Is tarikh ke baad HR sabki salary check karke approve karti hai',
-                'transfer_otp_enabled' => 'On rakho to paisa bhejne se pehle email par aaya code daalna padega',
+                'salary_pay_day' => 'Salary leaves the account on this date',
+                'salary_pay_time' => 'Transfers start at this time on that day',
+                'payroll_review_day' => 'After this date HR checks and approves everyone\'s salary',
+                'transfer_otp_enabled' => 'Keep it on and a code sent to your email is required before money goes out',
                 'transfer_otp_to' => 'Code kahan jaaye — admin ke email par ya bank account ke registered email par',
-                'transfer_early_block' => 'On rakho to pay date se pehle transfer nahi hoga, chahe approve ho gaya ho',
-                'gratuity_enabled' => 'Off hai to FnF me gratuity ki line nahi aayegi',
-                'encashment_enabled' => 'Off hai to FnF me bachi hui chhutti ka paisa nahi jodega',
+                'transfer_early_block' => 'Keep it on and no transfer happens before the pay date, even after approval',
+                'gratuity_enabled' => 'When off, no gratuity line appears in the full and final',
+                'encashment_enabled' => 'When off, unused leave is not paid out in the full and final',
                 'notice_recovery_basis' => 'Notice shortfall ka hisaab basic par ya poore gross par',
             ],
         ];
@@ -131,7 +131,7 @@ class CompanySettingController extends ApiController
 
         if ($id === null) {
             throw new ApiException(
-                'Company context nahi mila. Super admin ho to X-Company-Id header bhejo.',
+                'No company context. If you are a super admin, send the X-Company-Id header.',
                 422,
                 'TENANT_REQUIRED'
             );
@@ -167,14 +167,14 @@ class CompanySettingController extends ApiController
                 'currency' => $company->currency,
             ],
             'meaning' => [
-                'sod_cutoff' => 'Is time ke baad SOD bhara to late gina jayega',
-                'eod_cutoff' => 'Is time ke baad EOD bhara to late gina jayega',
-                'regularization_days' => 'Employee itne din peeche tak attendance correction maang sakta hai',
-                'expense_claim_days' => 'Itne din purana kharcha hi reimbursement mein claim ho sakta hai',
-                'notice_period_days' => 'Resignation par last working date isi hisab se apne aap banti hai',
-                'policy_gate_enabled' => 'On karo to naya employee saari policies accept karne tak tool nahi khol payega',
-                'geo_fence_mode' => 'off — location sirf save hoti hai · flag — office se bahar ka punch mark hota hai · block — bahar se punch hi nahi hoga',
-                'ticket_sla_enabled' => 'Off rakho to ticket par koi deadline nahi lagegi. On karo to priority ke hisaab se target lagega — sirf office hours ginte hue',
+                'sod_cutoff' => 'A start-of-day report filed after this time counts as late',
+                'eod_cutoff' => 'An end-of-day report filed after this time counts as late',
+                'regularization_days' => 'How many days back an employee may ask for an attendance correction',
+                'expense_claim_days' => 'How old an expense can be and still be claimed',
+                'notice_period_days' => 'The last working date on a resignation is worked out from this',
+                'policy_gate_enabled' => 'Switch it on and a new employee cannot open the app until they accept every policy',
+                'geo_fence_mode' => 'off — the location is only recorded · flag — a punch outside the office is flagged · block — punching from outside is refused',
+                'ticket_sla_enabled' => 'Leave it off and tickets carry no deadline. Switch it on and a target is set by priority, counting office hours only',
             ],
         ];
     }

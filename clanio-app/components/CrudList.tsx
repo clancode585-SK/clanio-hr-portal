@@ -26,6 +26,7 @@ import { EmptyState, ErrorState, Loader } from '@/components/ui/States'
 import { Toggle } from '@/components/ui/Toggle'
 import { api, apiList, ApiError } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { useSheetFrame } from '@/lib/useSheetFrame'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -319,6 +320,7 @@ export function CrudList<T extends Record<string, any>>({
   sheetExtra,
 }: Props<T>) {
   const theme = useTheme()
+  const sheetFrame = useSheetFrame()
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const { can } = useAuth()
@@ -806,7 +808,7 @@ export function CrudList<T extends Record<string, any>>({
         <Pressable style={styles.backdrop} onPress={close} />
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
+          <View style={[styles.sheet, sheetFrame, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
             <View style={[styles.grab, { backgroundColor: theme.line }]} />
 
             <ScrollView style={styles.sheetBody} keyboardShouldPersistTaps="handled">

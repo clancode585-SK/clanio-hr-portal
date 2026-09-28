@@ -25,7 +25,7 @@ final class FnfStatementService
         $company = Company::query()->withoutGlobalScopes()->find($settlement->company_id);
 
         if ($company === null) {
-            throw new ApiException('Company record nahi mila.', 404, 'NOT_FOUND');
+            throw new ApiException('Company record not found.', 404, 'NOT_FOUND');
         }
 
         $applied = $settlement->lines->filter(fn (FnfLine $line): bool => $line->counts());

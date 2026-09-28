@@ -230,7 +230,7 @@ final class UserPermissionService
         DB::transaction(function () use ($company, $modules, $known, $actor): void {
             foreach ($modules as $module => $enabled) {
                 if (! in_array($module, $known, true)) {
-                    throw new ApiException('Module nahi mila: ' . $module, 422, 'MODULE_INVALID');
+                    throw new ApiException('Module not found: ' . $module, 422, 'MODULE_INVALID');
                 }
 
                 DB::table('company_modules')->updateOrInsert(
@@ -283,7 +283,7 @@ final class UserPermissionService
             return;
         }
 
-        throw new ApiException('Aapke paas permission dene ka haq nahi hai.', 403, 'FORBIDDEN');
+        throw new ApiException('You are not allowed to grant permissions.', 403, 'FORBIDDEN');
     }
 
     private function effectBySlug(User $target): array
@@ -311,15 +311,15 @@ final class UserPermissionService
     private function assertManageable(User $target, User $actor): void
     {
         if (! $actor->isSuperAdmin() && ! $actor->hasPermission(self::MANAGE_PERMISSION)) {
-            throw new ApiException('Aapke paas permission dene ka haq nahi hai.', 403, 'FORBIDDEN');
+            throw new ApiException('You are not allowed to grant permissions.', 403, 'FORBIDDEN');
         }
 
         if ($target->isSuperAdmin() && ! $actor->isSuperAdmin()) {
-            throw new ApiException('Super admin ki permission nahi badal sakte.', 403, 'FORBIDDEN_TARGET');
+            throw new ApiException('A super admin\'s permissions cannot be changed.', 403, 'FORBIDDEN_TARGET');
         }
 
         if (! $actor->isSuperAdmin() && (int) $target->company_id !== (int) $actor->company_id) {
-            throw new ApiException('Ye user aapki company ka nahi hai.', 403, 'FORBIDDEN_TARGET');
+            throw new ApiException('This user does not belong to your company.', 403, 'FORBIDDEN_TARGET');
         }
     }
 
@@ -333,7 +333,7 @@ final class UserPermissionService
 
         if ($extra !== []) {
             throw new ApiException(
-                'Ye permission aapke paas hi nahi hai: ' . implode(', ', $extra),
+                'You do not hold this permission yourself: ' . implode(', ', $extra),
                 403,
                 'PERMISSION_ESCALATION'
             );
@@ -348,7 +348,7 @@ final class UserPermissionService
 
         if (in_array(self::MANAGE_PERMISSION, $revokes, true)) {
             throw new ApiException(
-                'Apne aap se permission dene ka haq nahi hata sakte.',
+                'You cannot take the grant-permission right away from yourself.',
                 409,
                 'PERMISSION_SELF_LOCK'
             );
@@ -358,7 +358,7 @@ final class UserPermissionService
     private function assertSuperAdmin(User $actor, string $what): void
     {
         if (! $actor->isSuperAdmin()) {
-            throw new ApiException('Sirf super admin ' . $what . ' ka haq rakhta hai.', 403, 'FORBIDDEN');
+            throw new ApiException('Only a super admin ' . $what . ' is permitted.', 403, 'FORBIDDEN');
         }
     }
 

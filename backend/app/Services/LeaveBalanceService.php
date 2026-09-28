@@ -211,7 +211,7 @@ final class LeaveBalanceService
             'balance' => $balance->refresh()->load('leaveType', 'employee.user'),
             'encashed_now' => $days,
             'encashed_total' => $alreadyAndNow,
-            'note' => 'Amount payroll module calculate karega. Yahan sirf din record hue hain.',
+            'note' => 'Payroll works out the amount. Only the days are recorded here.',
         ];
     }
 

@@ -250,10 +250,10 @@ class Ticket extends Model
     public function stageLabel(): string
     {
         return match ($this->status) {
-            self::OPEN => 'Abhi kisi ne uthaya nahi',
-            self::IN_PROGRESS => 'Kaam chal raha hai',
-            self::WAITING_ON_USER => 'Aapke jawab ka intezaar hai',
-            self::RESOLVED => 'Solve ho gaya — confirm karna baaki hai',
+            self::OPEN => 'Nobody has picked it up yet',
+            self::IN_PROGRESS => 'Work in progress',
+            self::WAITING_ON_USER => 'Waiting for your response',
+            self::RESOLVED => 'Resolved — waiting for confirmation',
             self::CLOSED => 'Band',
             self::CANCELLED => 'Cancel',
             default => $this->status,

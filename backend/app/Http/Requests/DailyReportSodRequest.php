@@ -28,7 +28,7 @@ class DailyReportSodRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'sod_plan.required_without' => 'Plan likho ya kam se kam ek task add karo.',
+            'sod_plan.required_without' => 'Write a plan, or add at least one task.',
         ];
     }
 }

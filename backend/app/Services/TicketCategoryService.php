@@ -64,7 +64,7 @@ final class TicketCategoryService
     public function delete(TicketCategory $category, User $actor): void
     {
         if ($category->is_system) {
-            throw new ApiException('Ye default category hai — hata nahi sakte, band kar sakte ho.', 409, 'TICKET_CATEGORY_SYSTEM');
+            throw new ApiException('This is a default category — it cannot be deleted, only closed.', 409, 'TICKET_CATEGORY_SYSTEM');
         }
 
         $open = $category->tickets()
@@ -72,7 +72,7 @@ final class TicketCategoryService
             ->count();
 
         if ($open > 0) {
-            throw new ApiException('Is category ke ' . $open . ' ticket abhi khule hain — pehle unhe band karo.', 409, 'TICKET_CATEGORY_IN_USE');
+            throw new ApiException('Is category ke ' . $open . ' tickets are still open — close them first.', 409, 'TICKET_CATEGORY_IN_USE');
         }
 
         DB::transaction(function () use ($category, $actor): void {
@@ -101,7 +101,7 @@ final class TicketCategoryService
             }
 
             if ($defaults > 1) {
-                throw new ApiException('Ek category me sirf ek default rasta ho sakta hai.', 422, 'TICKET_ROUTE_DEFAULT_DUPLICATE');
+                throw new ApiException('A category can have only one default route.', 422, 'TICKET_ROUTE_DEFAULT_DUPLICATE');
             }
 
             $this->assertTarget($row);
@@ -128,11 +128,11 @@ final class TicketCategoryService
         $target = $row['route_to'] ?? null;
 
         if ($target === TicketCategoryRoute::TO_DEPARTMENT && empty($row['department_id'])) {
-            throw new ApiException('Department wale raste me department chunna zaroori hai.', 422, 'TICKET_ROUTE_DEPARTMENT_REQUIRED');
+            throw new ApiException('A department must be chosen for a department route.', 422, 'TICKET_ROUTE_DEPARTMENT_REQUIRED');
         }
 
         if ($target === TicketCategoryRoute::TO_USER && empty($row['user_id'])) {
-            throw new ApiException('User wale raste me user chunna zaroori hai.', 422, 'TICKET_ROUTE_USER_REQUIRED');
+            throw new ApiException('A user must be chosen for a user route.', 422, 'TICKET_ROUTE_USER_REQUIRED');
         }
     }
 

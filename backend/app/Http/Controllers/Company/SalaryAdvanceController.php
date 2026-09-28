@@ -93,7 +93,7 @@ class SalaryAdvanceController extends ApiController
 
         return ApiResponse::created(
             new SalaryAdvanceResource($this->advances->request($employee, $data, $request->user())),
-            'Advance request bhej diya gaya'
+            'Advance request sent'
         );
     }
 
@@ -113,7 +113,7 @@ class SalaryAdvanceController extends ApiController
 
         return ApiResponse::success(
             new SalaryAdvanceResource($advance),
-            $data['approve'] ? 'Advance approve ho gaya — ab transfer karo' : 'Advance reject ho gaya'
+            $data['approve'] ? 'Advance approved — transfer it now' : 'Advance rejected'
         );
     }
 
@@ -126,7 +126,7 @@ class SalaryAdvanceController extends ApiController
 
         return ApiResponse::success(
             new SalaryAdvanceResource($this->advances->updatePlan($salaryAdvance, $data, $request->user())),
-            'EMI plan update ho gaya'
+            'EMI plan updated'
         );
     }
 
@@ -136,7 +136,7 @@ class SalaryAdvanceController extends ApiController
 
         return ApiResponse::success(
             new SalaryAdvanceResource($this->advances->hold($salaryAdvance, $data['reason'] ?? null, $request->user())),
-            'Advance transfer rok diya gaya'
+            'Advance transfers stopped'
         );
     }
 
@@ -144,7 +144,7 @@ class SalaryAdvanceController extends ApiController
     {
         return ApiResponse::success(
             new SalaryAdvanceResource($this->advances->release($salaryAdvance, $request->user())),
-            'Advance transfer khol diya gaya'
+            'Advance transfers opened'
         );
     }
 
@@ -152,7 +152,7 @@ class SalaryAdvanceController extends ApiController
     {
         return ApiResponse::success(
             new SalaryAdvanceResource($this->advances->cancel($salaryAdvance, $request->user())),
-            'Advance cancel ho gaya'
+            'Advance cancelled'
         );
     }
 
@@ -210,8 +210,8 @@ class SalaryAdvanceController extends ApiController
         if ($verification !== null && ! $verification->isVerified()) {
             return ApiResponse::success([
                 'verification' => $this->verifications->describe($verification),
-            ], 'Safety ke liye code ' . $verification->sent_masked
-                . ' par bheja gaya. Advance bhejne ke liye wahi code daalo.', 202);
+            ], 'For safety, a code ' . $verification->sent_masked
+                . '. Enter that code to release the advance.', 202);
         }
 
         $disbursement = $this->transfers->transferAdvance(
@@ -233,8 +233,8 @@ class SalaryAdvanceController extends ApiController
                 'failure_reason' => $disbursement->failure_reason,
             ],
         ], $disbursement->isSuccess()
-            ? 'Advance ka paisa bhej diya gaya — EMI agle mahine se katni shuru hogi'
-            : 'Transfer poora nahi hua — ' . ($disbursement->failure_reason ?? 'bank ne mana kiya'));
+            ? 'The advance has been paid out — EMI starts from next month'
+            : 'The transfer did not complete — ' . ($disbursement->failure_reason ?? 'bank ne mana kiya'));
     }
 
     private function targetEmployee(Request $request, ?string $uuid): Employee
@@ -243,20 +243,20 @@ class SalaryAdvanceController extends ApiController
             $employee = Employee::query()->where('user_id', $request->user()->id)->first();
 
             if ($employee === null) {
-                throw new ApiException('Aapka employee record nahi mila.', 422, 'EMPLOYEE_MISSING');
+                throw new ApiException('Your employee record was not found.', 422, 'EMPLOYEE_MISSING');
             }
 
             return $employee;
         }
 
         if (! $request->user()->hasPermission(SalaryAdvance::MANAGE_PERMISSION)) {
-            throw new ApiException('Kisi aur ke liye advance nahi daal sakte.', 403, 'FORBIDDEN');
+            throw new ApiException('You cannot raise an advance for someone else.', 403, 'FORBIDDEN');
         }
 
         $employee = Employee::query()->where('uuid', $uuid)->first();
 
         if ($employee === null) {
-            throw new ApiException('Ye employee nahi mila.', 404, 'EMPLOYEE_NOT_FOUND');
+            throw new ApiException('That employee was not found.', 404, 'EMPLOYEE_NOT_FOUND');
         }
 
         return $employee;

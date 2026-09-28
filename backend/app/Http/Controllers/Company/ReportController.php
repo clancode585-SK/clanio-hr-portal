@@ -76,7 +76,7 @@ class ReportController extends ApiController
 
         if ($id === null) {
             throw new ApiException(
-                'Report kisi company ki hoti hai. X-Company-Id header bhejo.',
+                'Reports belong to a company. Send the X-Company-Id header.',
                 422,
                 'TENANT_REQUIRED'
             );

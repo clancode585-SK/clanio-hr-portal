@@ -42,27 +42,27 @@ final class SalaryDisbursementService
         $blockers = [];
 
         if ($run === null || ! $run->isPayable()) {
-            $blockers[] = 'Payroll approve nahi hua hai.';
+            $blockers[] = 'Payroll has not been approved.';
         }
 
         if (! $item->isApproved()) {
-            $blockers[] = 'Is employee ki salary par final approval nahi hui.';
+            $blockers[] = 'This employee\'s salary has not had final approval.';
         }
 
         if ($item->isPaid()) {
-            $blockers[] = 'Is mahine ki salary already ja chuki hai.';
+            $blockers[] = 'This month\'s salary has already gone out.';
         }
 
         if ($item->isOnHold()) {
-            $blockers[] = 'Ye payslip hold par hai' . ($item->hold_reason ? ' — ' . $item->hold_reason : '') . '.';
+            $blockers[] = 'This payslip is on hold' . ($item->hold_reason ? ' — ' . $item->hold_reason : '') . '.';
         }
 
         if ((float) $item->net_payable <= 0) {
-            $blockers[] = 'Net amount zero hai.';
+            $blockers[] = 'The net amount is zero.';
         }
 
         if (! SalarySeal::holds($item->fingerprint, SalarySeal::forItem($item))) {
-            $blockers[] = 'Approval ke baad amount badal gaya hai — dobara approve karna padega.';
+            $blockers[] = 'The amount changed after approval — it must be approved again.';
         }
 
         if ($run !== null && ! TransferWindow::isOpen($run)) {
@@ -70,15 +70,15 @@ final class SalaryDisbursementService
 
             $blockers[] = $this->canSendEarly($actor, (int) $item->company_id)
                 ? null
-                : 'Transfer ' . $when . ' se pehle nahi hoga.';
+                : 'Transfer ' . $when . '.';
         }
 
         if ($payee === null) {
-            $blockers[] = 'Employee ka bank account nahi hai. Usse profile me daalne ko bolo.';
+            $blockers[] = 'The employee has no bank account. Ask them to add it to their profile.';
         }
 
         if ($from !== null && (float) $from->balance < (float) $item->net_payable) {
-            $blockers[] = 'Company account me paisa kam hai — balance ₹'
+            $blockers[] = 'The company account is short of funds — balance ₹'
                 . number_format((float) $from->balance, 2) . '.';
         }
 
@@ -123,7 +123,7 @@ final class SalaryDisbursementService
     {
         if (! $run->isApproved()) {
             throw new ApiException(
-                'Pehle payroll approve karo, phir date set karo.',
+                'Approve payroll first, then set the date.',
                 409,
                 'PAYROLL_NOT_APPROVED'
             );
@@ -132,16 +132,16 @@ final class SalaryDisbursementService
         $now = CompanyTime::now((int) $run->company_id);
 
         if ($when->lessThan($now->copy()->subMinutes(5))) {
-            throw new ApiException('Guzar chuki date par schedule nahi hota.', 422, 'SCHEDULE_IN_PAST');
+            throw new ApiException('You cannot schedule for a date that has passed.', 422, 'SCHEDULE_IN_PAST');
         }
 
         if ($when->greaterThan($now->copy()->addDays(60))) {
-            throw new ApiException('Itni door ki date par schedule nahi hota.', 422, 'SCHEDULE_TOO_FAR');
+            throw new ApiException('You cannot schedule that far ahead.', 422, 'SCHEDULE_TOO_FAR');
         }
 
         if ($when->lessThan(TransferWindow::payMoment($run)) && ! $this->canSendEarly($actor, (int) $run->company_id)) {
             throw new ApiException(
-                'Pay date se pehle bhejne ka haq aapke paas nahi hai.',
+                'You are not allowed to pay before the pay date.',
                 403,
                 'EARLY_NOT_ALLOWED'
             );
@@ -203,23 +203,23 @@ final class SalaryDisbursementService
 
         if (! $run->isPayable()) {
             $blockers[] = $run->isCalculated()
-                ? 'Pehle payroll approve karo, phir salary jaayegi.'
+                ? 'Approve payroll first, then salary can go out.'
                 : 'Ye payroll ' . $run->statusLabel() . ' hai.';
         }
 
         if ($readyCount === 0) {
-            $blockers[] = 'Bhejne ke liye koi approved salary nahi hai.';
+            $blockers[] = 'There is no approved salary to send.';
         }
 
         if ($from === null) {
-            $blockers[] = 'Pehle company ka bank account add karo — usi se salary jaayegi.';
+            $blockers[] = 'Add the company bank account first — salary goes out from it.';
         } elseif ((float) $from->balance < $amount) {
-            $blockers[] = 'Company account me paisa kam hai — balance ₹'
-                . number_format((float) $from->balance, 2) . ', chahiye ₹' . number_format($amount, 2) . '.';
+            $blockers[] = 'The company account is short of funds — balance ₹'
+                . number_format((float) $from->balance, 2) . ', needed ₹' . number_format($amount, 2) . '.';
         }
 
         if (! TransferWindow::isOpen($run) && ! $this->canSendEarly($actor, (int) $run->company_id)) {
-            $blockers[] = 'Transfer ' . TransferWindow::opensAt($run)->format('d M Y, g:i A') . ' se pehle nahi hoga.';
+            $blockers[] = 'Transfer ' . TransferWindow::opensAt($run)->format('d M Y, g:i A') . '.';
         }
 
         return [
@@ -255,7 +255,7 @@ final class SalaryDisbursementService
         if (! $run->isPayable()) {
             throw new ApiException(
                 $run->isCalculated()
-                    ? 'Pehle payroll approve karo, phir salary jaayegi.'
+                    ? 'Approve payroll first, then salary can go out.'
                     : 'Ye payroll ' . $run->statusLabel() . ' hai.',
                 409,
                 'PAYROLL_NOT_APPROVED'
@@ -264,7 +264,7 @@ final class SalaryDisbursementService
 
         if (! TransferWindow::isOpen($run) && ! $this->canSendEarly($actor, (int) $run->company_id)) {
             throw new ApiException(
-                'Transfer ' . TransferWindow::opensAt($run)->format('d M Y, g:i A') . ' se pehle nahi hoga.',
+                'Transfer ' . TransferWindow::opensAt($run)->format('d M Y, g:i A') . '.',
                 409,
                 'TRANSFER_WINDOW_CLOSED'
             );
@@ -274,7 +274,7 @@ final class SalaryDisbursementService
 
         if ($from === null) {
             throw new ApiException(
-                'Pehle company ka bank account add karo — usi se salary jaayegi.',
+                'Add the company bank account first — salary goes out from it.',
                 422,
                 'COMPANY_ACCOUNT_MISSING'
             );
@@ -302,7 +302,7 @@ final class SalaryDisbursementService
 
                     if (! SalarySeal::holds($item->fingerprint, SalarySeal::forItem($item))) {
                         $failed++;
-                        $reasons[$item->employee_code] = 'Approval ke baad amount badal gaya — skip kiya.';
+                        $reasons[$item->employee_code] = 'The amount changed after approval — skipped.';
 
                         continue;
                     }
@@ -363,14 +363,14 @@ final class SalaryDisbursementService
     {
         if (! BankManager::isMock()) {
             throw new ApiException(
-                'Balance sirf test wale mock bank me daala ja sakta hai.',
+                'Balance can only be topped up on the test mock bank.',
                 422,
                 'TOPUP_NOT_ALLOWED'
             );
         }
 
         if ($amount <= 0) {
-            throw new ApiException('Amount zero se zyada hona chahiye.', 422, 'AMOUNT_INVALID');
+            throw new ApiException('The amount must be more than zero.', 422, 'AMOUNT_INVALID');
         }
 
         return DB::transaction(function () use ($account, $amount, $actor, $narration): CompanyBankAccount {
@@ -407,36 +407,36 @@ final class SalaryDisbursementService
 
         if (! $settlement->isApproved()) {
             $blockers[] = $settlement->status === FnfSettlement::SETTLED
-                ? 'Ye settlement already settle ho chuka hai.'
-                : 'Settlement approve nahi hua hai.';
+                ? 'This settlement has already been settled.'
+                : 'The settlement has not been approved.';
         }
 
         if ($settlement->owesCompany()) {
             $blockers[] = 'Is settlement me employee par ₹' . number_format(abs($amount), 2)
-                . ' baaki hai — paisa bhejna nahi hai, lena hai.';
+                . ' is outstanding — money is owed to the company, not payable.';
         } elseif ($amount <= 0) {
-            $blockers[] = 'Net amount zero hai.';
+            $blockers[] = 'The net amount is zero.';
         }
 
         if ($settlement->payment_status === FnfSettlement::PAID) {
-            $blockers[] = 'Paisa already ja chuka hai.';
+            $blockers[] = 'The money has already gone out.';
         }
 
         if ($settlement->payment_status === FnfSettlement::ON_HOLD) {
-            $blockers[] = 'Ye settlement stop par hai'
+            $blockers[] = 'This settlement is on stop'
                 . ($settlement->hold_reason ? ' — ' . $settlement->hold_reason : '') . '.';
         }
 
         if (! SalarySeal::holds($settlement->fingerprint, SalarySeal::forSettlement($settlement->loadMissing('lines')))) {
-            $blockers[] = 'Approval ke baad amount badal gaya hai — dobara approve karna padega.';
+            $blockers[] = 'The amount changed after approval — it must be approved again.';
         }
 
         if ($payee === null) {
-            $blockers[] = $settlement->employee_name . ' ka bank account nahi hai.';
+            $blockers[] = $settlement->employee_name . ' has no bank account on file.';
         }
 
         if ($from !== null && (float) $from->balance < $amount) {
-            $blockers[] = 'Company account me paisa kam hai — balance ₹'
+            $blockers[] = 'The company account is short of funds — balance ₹'
                 . number_format((float) $from->balance, 2) . '.';
         }
 
@@ -472,14 +472,14 @@ final class SalaryDisbursementService
     private function pushSettlement(FnfSettlement $settlement, ?CompanyBankAccount $from, User $actor): SalaryDisbursement
     {
         if ($from === null) {
-            throw new ApiException('Company ka bank account nahi mila.', 422, 'COMPANY_ACCOUNT_MISSING');
+            throw new ApiException('The company bank account was not found.', 422, 'COMPANY_ACCOUNT_MISSING');
         }
 
         $payee = $this->payeeAccount((int) $settlement->employee_id);
 
         if ($payee === null) {
             throw new ApiException(
-                $settlement->employee_name . ' ka bank account nahi hai.',
+                $settlement->employee_name . ' has no bank account on file.',
                 422,
                 'EMPLOYEE_ACCOUNT_MISSING'
             );
@@ -610,11 +610,11 @@ final class SalaryDisbursementService
         $this->notifications->send((int) $userId, [
             'type' => $ok ? NotificationType::FNF_PAID : NotificationType::SALARY_FAILED,
             'title' => $ok
-                ? 'Full and final settle ho gaya'
-                : 'Full and final transfer nahi ho paya',
+                ? 'Full and final settled'
+                : 'The full and final could not be transferred',
             'body' => $ok
                 ? '₹' . number_format((float) $settlement->net_payable, 2) . ' aapke bank account me bhej diya gaya.'
-                : ($reason ?? 'Bank ne mana kiya.') . ' HR dekh raha hai.',
+                : ($reason ?? 'Bank ne mana kiya.') . ' HR is reviewing it.',
             'action_url' => '/my-payslips',
             'entity_type' => 'fnf_settlement',
             'entity_id' => $settlement->id,
@@ -624,14 +624,14 @@ final class SalaryDisbursementService
     private function push(PayrollItem $item, ?CompanyBankAccount $from, User $actor, string $mode): SalaryDisbursement
     {
         if ($from === null) {
-            throw new ApiException('Company ka bank account nahi mila.', 422, 'COMPANY_ACCOUNT_MISSING');
+            throw new ApiException('The company bank account was not found.', 422, 'COMPANY_ACCOUNT_MISSING');
         }
 
         $payee = $this->payeeAccount((int) $item->employee_id);
 
         if ($payee === null) {
             throw new ApiException(
-                $item->employee_name . ' ka bank account nahi hai.',
+                $item->employee_name . ' has no bank account on file.',
                 422,
                 'EMPLOYEE_ACCOUNT_MISSING'
             );
@@ -650,7 +650,7 @@ final class SalaryDisbursementService
 
             if ($current === null || $current->payment_status !== PayrollItem::PENDING && $current->payment_status !== PayrollItem::FAILED) {
                 throw new ApiException(
-                    $item->employee_name . ' ki salary abhi ' . ($current?->paymentLabel() ?? 'unknown') . ' hai.',
+                    $item->employee_name . ' salary is still ' . ($current?->paymentLabel() ?? 'unknown') . ' hai.',
                     409,
                     'ALREADY_IN_FLIGHT'
                 );
@@ -658,7 +658,7 @@ final class SalaryDisbursementService
 
             if ($current->approval_status !== PayrollItem::APPROVED) {
                 throw new ApiException(
-                    $item->employee_name . ' ki salary approve nahi hui.',
+                    $item->employee_name . ' salary is not approved.',
                     409,
                     'ITEM_NOT_APPROVED'
                 );
@@ -812,29 +812,29 @@ final class SalaryDisbursementService
 
         if (! $advance->isApproved()) {
             $blockers[] = $advance->isDisbursed()
-                ? 'Ye advance already transfer ho chuka hai.'
-                : 'Advance approve nahi hua hai.';
+                ? 'That advance has already been transferred.'
+                : 'The advance has not been approved.';
         }
 
         if ($amount <= 0) {
-            $blockers[] = 'Amount zero hai.';
+            $blockers[] = 'The amount is zero.';
         }
 
         if ($advance->payment_status === SalaryAdvance::PAY_PAID) {
-            $blockers[] = 'Paisa already ja chuka hai.';
+            $blockers[] = 'The money has already gone out.';
         }
 
         if ($advance->payment_status === SalaryAdvance::ON_HOLD) {
-            $blockers[] = 'Ye advance stop par hai'
+            $blockers[] = 'This advance is on stop'
                 . ($advance->hold_reason ? ' — ' . $advance->hold_reason : '') . '.';
         }
 
         if ($payee === null) {
-            $blockers[] = $advance->employee_name . ' ka bank account nahi hai.';
+            $blockers[] = $advance->employee_name . ' has no bank account on file.';
         }
 
         if ($from !== null && (float) $from->balance < $amount) {
-            $blockers[] = 'Company account me paisa kam hai — balance ₹'
+            $blockers[] = 'The company account is short of funds — balance ₹'
                 . number_format((float) $from->balance, 2) . '.';
         }
 
@@ -867,7 +867,7 @@ final class SalaryDisbursementService
         $from = $quote['from'];
 
         if ($from === null) {
-            throw new ApiException('Company ka bank account nahi mila.', 422, 'COMPANY_ACCOUNT_MISSING');
+            throw new ApiException('The company bank account was not found.', 422, 'COMPANY_ACCOUNT_MISSING');
         }
 
         $payee = $this->payeeAccount((int) $advance->employee_id);
@@ -1045,11 +1045,11 @@ final class SalaryDisbursementService
         $this->notifications->send((int) $userId, [
             'type' => $ok ? NotificationType::SALARY_PAID : NotificationType::SALARY_FAILED,
             'title' => $ok
-                ? $month . ' ki salary aa gayi'
-                : $month . ' ki salary transfer nahi ho payi',
+                ? $month . ' salary received'
+                : $month . ' salary could not be transferred',
             'body' => $ok
                 ? '₹' . number_format((float) $item->net_payable, 2) . ' aapke bank account me bhej diya gaya.'
-                : ($reason ?? 'Bank ne mana kiya.') . ' HR dekh raha hai.',
+                : ($reason ?? 'Bank ne mana kiya.') . ' HR is reviewing it.',
             'action_url' => '/my-payslips',
             'entity_type' => 'payroll_item',
             'entity_id' => $item->id,

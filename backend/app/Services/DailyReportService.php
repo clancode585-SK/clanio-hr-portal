@@ -248,7 +248,7 @@ final class DailyReportService
 
             if ($taskId !== null && ! in_array($taskId, $allowed, true)) {
                 throw new ApiException(
-                    'Task #' . $taskId . ' aapko assign nahi hai.',
+                    'Task #' . $taskId . ' is not assigned to you.',
                     422,
                     'REPORT_TASK_INVALID'
                 );
@@ -323,7 +323,7 @@ final class DailyReportService
 
         if (! $this->withinWindow($date)) {
             throw new ApiException(
-                'Report sirf aaj ya pichhle ' . DailyReport::BACKFILL_DAYS . ' din ke liye bhar sakte ho.',
+                'Reports can only cover today or the last ' . DailyReport::BACKFILL_DAYS . ' days can be filled in.',
                 422,
                 'REPORT_DATE_LOCKED'
             );
@@ -365,7 +365,7 @@ final class DailyReportService
 
         if ($employee === null) {
             throw new ApiException(
-                'SOD / EOD ke liye employee record chahiye. HR se onboarding karwao.',
+                'Start and end of day reports need an employee record. Ask HR to complete onboarding.',
                 422,
                 'EMPLOYEE_RECORD_MISSING'
             );

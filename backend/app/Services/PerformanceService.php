@@ -103,7 +103,7 @@ final class PerformanceService
 
         if ($period->greaterThanOrEqualTo(CompanyTime::day()->startOfMonth())) {
             throw new ApiException(
-                'Chalu mahina freeze nahi hota — month khatam hone ke baad karo.',
+                'The current month cannot be frozen — wait until it ends.',
                 422,
                 'PERFORMANCE_MONTH_OPEN'
             );
@@ -194,7 +194,7 @@ final class PerformanceService
 
         if ($delivery + $discipline !== 100) {
             throw new ApiException(
-                'Delivery aur discipline ka total 100 hona chahiye (abhi ' . ($delivery + $discipline) . ').',
+                'Delivery and discipline must add up to 100 (currently ' . ($delivery + $discipline) . ').',
                 422,
                 'PERFORMANCE_WEIGHT_INVALID'
             );
@@ -320,7 +320,7 @@ final class PerformanceService
 
             if ($employee === null) {
                 throw new ApiException(
-                    'Performance ke liye employee record chahiye. HR se onboarding karwao.',
+                    'Performance needs an employee record. Ask HR to complete onboarding.',
                     422,
                     'EMPLOYEE_RECORD_MISSING'
                 );
@@ -344,6 +344,6 @@ final class PerformanceService
             return;
         }
 
-        throw new ApiException('Aapke paas ' . $what . ' ka haq nahi hai.', 403, 'FORBIDDEN');
+        throw new ApiException('Aapke paas ' . $what . ' is not permitted.', 403, 'FORBIDDEN');
     }
 }

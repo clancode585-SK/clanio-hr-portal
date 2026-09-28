@@ -40,8 +40,8 @@ class AppraisalCycleRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'name.required' => 'Cycle ka naam likhna zaroori hai — jaise "Q3 2026".',
-            'period_end.after_or_equal' => 'Period end, start se pehle nahi ho sakta.',
+            'name.required' => 'A cycle name is required — for example "Q3 2026".',
+            'period_end.after_or_equal' => 'The period end cannot be before the start.',
         ];
     }
 }

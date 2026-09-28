@@ -15,6 +15,7 @@ type Props = {
   editable?: boolean
   multiline?: boolean
   maxLength?: number
+  hint?: string | null
 }
 
 export function Field({
@@ -29,6 +30,7 @@ export function Field({
   editable = true,
   multiline = false,
   maxLength,
+  hint,
 }: Props) {
   const theme = useTheme()
   const [focused, setFocused] = useState(false)
@@ -68,12 +70,20 @@ export function Field({
         ) : null}
       </View>
 
-      {error ? <Text style={[styles.error, { color: theme.danger }]}>{error}</Text> : null}
+      {error ? (
+        <Text style={[styles.error, { color: theme.danger }]}>{error}</Text>
+      ) : hint ? (
+        <Text style={[styles.hint, { color: theme.inkSubtle }]}>{hint}</Text>
+      ) : null}
     </View>
   )
 }
 
 const styles = StyleSheet.create({
+  hint: {
+    fontSize: font.xs,
+    lineHeight: 15,
+  },
   wrap: {
     gap: 6,
   },

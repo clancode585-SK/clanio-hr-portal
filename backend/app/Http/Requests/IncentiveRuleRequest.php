@@ -41,7 +41,7 @@ class IncentiveRuleRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'base_percent.required' => 'Base incentive % dena zaroori hai — jaise 10.',
+            'base_percent.required' => 'A base incentive percentage is required — for example 10.',
             'base_percent.between' => 'Base incentive 0 se 100 ke beech rakho.',
         ];
     }

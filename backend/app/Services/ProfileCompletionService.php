@@ -152,7 +152,7 @@ final class ProfileCompletionService
 
             if ($employee === null) {
                 throw new ApiException(
-                    'Profile completion ke liye employee record chahiye.',
+                    'Profile completion needs an employee record.',
                     422,
                     'EMPLOYEE_RECORD_MISSING'
                 );

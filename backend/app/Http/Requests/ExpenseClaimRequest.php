@@ -34,11 +34,11 @@ class ExpenseClaimRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'expense_date.before_or_equal' => 'Aane wale din ka kharcha claim nahi hota.',
-            'amount.min' => 'Amount 0 se zyada hona chahiye.',
-            'description.min' => 'Thoda detail mein likho kis cheez ka kharcha hai.',
-            'bills.max' => 'Ek claim mein 5 se zyada bill nahi.',
-            'bills.*.max' => 'Har bill 10 MB se chhota hona chahiye.',
+            'expense_date.before_or_equal' => 'Expenses cannot be claimed for a future date.',
+            'amount.min' => 'The amount must be more than zero.',
+            'description.min' => 'Describe the expense in a little more detail.',
+            'bills.max' => 'No more than five bills on a claim.',
+            'bills.*.max' => 'Each bill must be smaller than 10 MB.',
         ];
     }
 }

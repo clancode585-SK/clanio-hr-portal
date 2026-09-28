@@ -80,7 +80,7 @@ final class AuthService
         $current = $request->attributes->get('api_token');
 
         if (! $current instanceof ApiToken) {
-            throw new ApiException('Token nahi mila.', 401, 'AUTH_TOKEN_MISSING');
+            throw new ApiException('Token not found.', 401, 'AUTH_TOKEN_MISSING');
         }
 
         $fresh = ApiToken::issue(

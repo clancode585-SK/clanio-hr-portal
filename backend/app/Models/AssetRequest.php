@@ -29,10 +29,10 @@ class AssetRequest extends Model
     public const TYPE_RETURN = 'return';
 
     public const TYPES = [
-        self::TYPE_NEW => 'Naya asset chahiye',
-        self::TYPE_REPAIR => 'Issue hai — repair karwana hai',
-        self::TYPE_REPLACEMENT => 'Theek nahi ho raha — badal do',
-        self::TYPE_RETURN => 'Zarurat nahi — wapas le lo',
+        self::TYPE_NEW => 'A new asset is needed',
+        self::TYPE_REPAIR => 'Faulty — needs repair',
+        self::TYPE_REPLACEMENT => 'Beyond repair — replace it',
+        self::TYPE_RETURN => 'Not needed — take it back',
     ];
 
     public const PENDING = 'pending';
@@ -159,10 +159,10 @@ class AssetRequest extends Model
     public function stageLabel(): string
     {
         return match ($this->status) {
-            self::PENDING => 'IT ke paas hai',
-            self::APPROVED => 'Approve ho gaya — kaam shuru hona hai',
-            self::IN_PROGRESS => 'Kaam chal raha hai',
-            self::RESOLVED => 'Ho gaya',
+            self::PENDING => 'With IT',
+            self::APPROVED => 'Approved — work can start',
+            self::IN_PROGRESS => 'Work in progress',
+            self::RESOLVED => 'Done',
             self::REJECTED => 'Reject',
             self::CANCELLED => 'Cancel',
             default => $this->status,

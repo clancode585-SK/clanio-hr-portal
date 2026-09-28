@@ -20,6 +20,7 @@ import { api, ApiError } from '@/lib/api'
 import { downloadText } from '@/lib/download'
 import { useResource } from '@/lib/useResource'
 import { pickFile, toFormData, type PickedFile } from '@/lib/upload'
+import { useSheetFrame } from '@/lib/useSheetFrame'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -72,6 +73,7 @@ const icons: Record<string, IconName> = {
 
 export default function DataImportScreen() {
   const theme = useTheme()
+  const sheetFrame = useSheetFrame()
   const insets = useSafeAreaInsets()
 
   const [open, setOpen] = useState<Module | null>(null)
@@ -234,7 +236,7 @@ export default function DataImportScreen() {
         <Pressable style={styles.backdrop} onPress={close} />
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
+          <View style={[styles.sheet, sheetFrame, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
             <View style={[styles.grab, { backgroundColor: theme.line }]} />
 
             <ScrollView style={styles.sheetBody} keyboardShouldPersistTaps="handled">

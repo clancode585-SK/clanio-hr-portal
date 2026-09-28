@@ -18,7 +18,7 @@ class ReportService
     public function build(int $companyId, string $key, array $params): array
     {
         if (! ReportCatalog::has($key)) {
-            throw new ApiException('Ye report nahi mili.', 404, 'REPORT_UNKNOWN');
+            throw new ApiException('That report was not found.', 404, 'REPORT_UNKNOWN');
         }
 
         return match ($key) {
@@ -39,7 +39,7 @@ class ReportService
         $month = (string) ($params['month'] ?? '');
 
         if (! preg_match('/^\d{4}-\d{2}$/', $month)) {
-            throw new ApiException('Mahina YYYY-MM me do.', 422, 'MONTH_REQUIRED');
+            throw new ApiException('Give the month as YYYY-MM.', 422, 'MONTH_REQUIRED');
         }
 
         return $month;
@@ -50,7 +50,7 @@ class ReportService
         $year = (int) ($params['year'] ?? 0);
 
         if ($year < 2000 || $year > 2100) {
-            throw new ApiException('Saal sahi nahi hai.', 422, 'YEAR_REQUIRED');
+            throw new ApiException('That is not a valid year.', 422, 'YEAR_REQUIRED');
         }
 
         return $year;
@@ -62,11 +62,11 @@ class ReportService
         $to = (string) ($params['to'] ?? '');
 
         if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) || ! preg_match('/^\d{4}-\d{2}-\d{2}$/', $to)) {
-            throw new ApiException('From aur to date YYYY-MM-DD me do.', 422, 'RANGE_REQUIRED');
+            throw new ApiException('Give the from and to dates as YYYY-MM-DD.', 422, 'RANGE_REQUIRED');
         }
 
         if ($from > $to) {
-            throw new ApiException('From date, to date se baad ki hai.', 422, 'RANGE_INVALID');
+            throw new ApiException('The from date is later than the to date.', 422, 'RANGE_INVALID');
         }
 
         return [$from, $to];
@@ -144,7 +144,7 @@ class ReportService
             ->first(['id', 'status']);
 
         if ($run === null) {
-            throw new ApiException('Is mahine ka payroll nahi chala.', 404, 'RUN_NOT_FOUND');
+            throw new ApiException('Payroll was not run for this month.', 404, 'RUN_NOT_FOUND');
         }
 
         $items = DB::table('payroll_items')
@@ -206,7 +206,7 @@ class ReportService
             ->first(['id']);
 
         if ($run === null) {
-            throw new ApiException('Is mahine ka payroll nahi chala.', 404, 'RUN_NOT_FOUND');
+            throw new ApiException('Payroll was not run for this month.', 404, 'RUN_NOT_FOUND');
         }
 
         $rows = DB::table('payroll_items as i')
@@ -251,7 +251,7 @@ class ReportService
             ->first(['id']);
 
         if ($run === null) {
-            throw new ApiException('Is mahine ka payroll nahi chala.', 404, 'RUN_NOT_FOUND');
+            throw new ApiException('Payroll was not run for this month.', 404, 'RUN_NOT_FOUND');
         }
 
         $items = DB::table('payroll_items as i')

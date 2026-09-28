@@ -78,7 +78,7 @@ class EmployeeExitController extends ApiController
     {
         return ApiResponse::created(
             new EmployeeExitResource($this->exits->apply($request->user(), $request->validated())),
-            'Resignation bhej di gayi — ab manager approve karega'
+            'Resignation submitted — a manager will approve it'
         );
     }
 
@@ -98,7 +98,7 @@ class EmployeeExitController extends ApiController
             new EmployeeExitResource(
                 $this->exits->managerApprove($exit, $request->validated(), $request->user())
             ),
-            'Approve ho gaya — ab HR final approval degi'
+            'Approved — HR will give the final approval'
         );
     }
 
@@ -108,7 +108,7 @@ class EmployeeExitController extends ApiController
             new EmployeeExitResource(
                 $this->exits->hrApprove($exit, $request->validated(), $request->user())
             ),
-            'Final approval ho gaya — notice period shuru'
+            'Final approval given — the notice period starts'
         );
     }
 
@@ -118,7 +118,7 @@ class EmployeeExitController extends ApiController
             new EmployeeExitResource(
                 $this->exits->changeLastWorkingDate($exit, $request->validated(), $request->user())
             ),
-            'Last working date update ho gayi'
+            'Last working date updated'
         );
     }
 
@@ -128,7 +128,7 @@ class EmployeeExitController extends ApiController
             new EmployeeExitResource(
                 $this->exits->reject($exit, $request->validated(), $request->user())
             ),
-            'Resignation reject kar di gayi'
+            'Resignation rejected'
         );
     }
 
@@ -136,7 +136,7 @@ class EmployeeExitController extends ApiController
     {
         return ApiResponse::success(
             new EmployeeExitResource($this->exits->complete($exit, $request->validated(), $request->user())),
-            'Exit complete — login band kar diya gaya'
+            'Exit complete — login has been disabled'
         );
     }
 
@@ -144,7 +144,7 @@ class EmployeeExitController extends ApiController
     {
         return ApiResponse::success(
             new EmployeeExitResource($this->exits->withdraw($exit, $request->user())),
-            'Resignation wapas le li gayi'
+            'Resignation withdrawn'
         );
     }
 

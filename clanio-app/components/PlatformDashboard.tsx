@@ -1,4 +1,4 @@
-import { useCallback } from 'react'
+import { useCallback, useState } from 'react'
 import { useRouter } from 'expo-router'
 import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Screen } from '@/components/Screen'
@@ -23,26 +23,54 @@ type Billing = {
 
 type Loaded = {
   companies: Company[]
-  unread: number
   billing: Billing | null
+  plans: number
+}
+
+type Range = 'today' | 'month' | 'year' | 'all'
+
+const RANGES: { key: Range; label: string }[] = [
+  { key: 'today', label: 'Today' },
+  { key: 'month', label: 'This month' },
+  { key: 'year', label: 'This year' },
+  { key: 'all', label: 'All time' },
+]
+
+function rangeQuery(range: Range): string {
+  if (range === 'all') {
+    return ''
+  }
+
+  const now = new Date()
+  const iso = (d: Date) => d.toISOString().slice(0, 10)
+
+  const from =
+    range === 'today'
+      ? iso(now)
+      : range === 'month'
+        ? iso(new Date(now.getFullYear(), now.getMonth(), 1))
+        : iso(new Date(now.getFullYear(), 0, 1))
+
+  return `?from=${from}&to=${iso(now)}`
 }
 
 export function PlatformDashboard() {
   const theme = useTheme()
   const router = useRouter()
   const { profile } = useAuth()
+  const [range, setRange] = useState<Range>('all')
 
   const load = useCallback(async (): Promise<Loaded> => {
-    const [companies, summary, billing] = await Promise.all([
+    const [companies, billing, plans] = await Promise.all([
       apiList<Company>('/companies?per_page=200'),
-      api<{ unread_count?: number }>('/notifications/unread-count').catch(() => ({}) as { unread_count?: number }),
-      api<Billing>('/invoices/summary').catch(() => null),
+      api<Billing>(`/invoices/summary${rangeQuery(range)}`).catch(() => null),
+      apiList<Record<string, unknown>>('/plans').catch(() => ({ data: [], meta: null })),
     ])
 
-    return { companies: companies.data, unread: Number(summary.unread_count ?? 0), billing }
-  }, [])
+    return { companies: companies.data, billing, plans: plans.data.length }
+  }, [range])
 
-  const record = useResource<Loaded>(load, [])
+  const record = useResource<Loaded>(load, [range])
 
   if (record.loading) {
     return (
@@ -60,30 +88,37 @@ export function PlatformDashboard() {
     )
   }
 
-  const { companies, unread, billing } = record.data
+  const { companies, billing, plans } = record.data
   const active = companies.filter((row) => (row.status ?? 'active') === 'active')
-  const suspended = companies.filter((row) => row.status === 'suspended')
-  const archived = companies.filter((row) => row.status === 'archived')
   const seatsUsed = companies.reduce((sum, row) => sum + Number(row.employee_count ?? 0), 0)
-  const seatsSold = companies.reduce((sum, row) => sum + Number(row.max_employees ?? 0), 0)
+
+  const newest = [...companies]
+    .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))
+    .slice(0, 4)
+
+  // Seat cap ka tile hata diya, par warning kaam ki hai — wo yahin rehti hai
   const nearingCap = companies.filter((row) => {
     const cap = Number(row.max_employees ?? 0)
 
     return cap > 0 && Number(row.employee_count ?? 0) / cap >= 0.8
   })
 
-  const newest = [...companies]
-    .sort((a, b) => String(b.created_at ?? '').localeCompare(String(a.created_at ?? '')))
-    .slice(0, 4)
+  const hue = (bad: boolean, danger = false) =>
+    bad
+      ? danger
+        ? { ink: theme.danger, soft: theme.dangerSoft }
+        : { ink: theme.warning, soft: theme.warningSoft }
+      : { ink: theme.brand, soft: theme.brandSoft }
+
+  const outstanding = billing?.awaited ?? 0
 
   const tiles = [
-    { key: 'active', label: 'Active', hint: 'Companies signed in', value: active.length, tone: theme.brand, icon: 'business-outline' as const, href: '/companies' },
-    { key: 'seats', label: 'People', hint: `of ${seatsSold || '—'} seats sold`, value: seatsUsed, tone: theme.ink, icon: 'people-outline' as const, href: '/companies' },
-    { key: 'suspended', label: 'Suspended', hint: 'Logins blocked', value: suspended.length, tone: suspended.length > 0 ? theme.warning : theme.inkSubtle, icon: 'pause-circle-outline' as const, href: '/companies' },
-    { key: 'archived', label: 'Archived', hint: 'Kept for records', value: archived.length, tone: theme.inkSubtle, icon: 'archive-outline' as const, href: '/companies' },
-    { key: 'capacity', label: 'Near seat cap', hint: '80% or more used', value: nearingCap.length, tone: nearingCap.length > 0 ? theme.danger : theme.inkSubtle, icon: 'alert-circle-outline' as const, href: '/companies' },
-    { key: 'unpaid', label: 'Unpaid invoices', hint: billing ? money(billing.awaited) + ' awaited' : 'Billing', value: billing?.pending ?? 0, tone: (billing?.pending ?? 0) > 0 ? theme.warning : theme.inkSubtle, icon: 'receipt-outline' as const, href: '/billing' },
-    { key: 'unread', label: 'Unread', hint: 'Notifications', value: unread, tone: unread > 0 ? theme.brand : theme.inkSubtle, icon: 'notifications-outline' as const, href: '/notifications' },
+    { key: 'active', label: 'Active companies', hint: 'Signed in and running', text: String(active.length), live: active.length > 0, hue: hue(false), icon: 'business-outline' as const, href: '/companies' },
+    { key: 'companies', label: 'Total companies', hint: 'Every workspace on Clanio', text: String(companies.length), live: companies.length > 0, hue: hue(false), icon: 'layers-outline' as const, href: '/companies' },
+    { key: 'users', label: 'Total users', hint: 'People across all companies', text: String(seatsUsed), live: seatsUsed > 0, hue: hue(false), icon: 'people-outline' as const, href: '/companies' },
+    { key: 'revenue', label: 'Total revenue', hint: 'Collected from paid invoices', text: money(billing?.collected ?? 0), live: (billing?.collected ?? 0) > 0, hue: hue(false), icon: 'trending-up-outline' as const, href: '/revenue' },
+    { key: 'plans', label: 'Total plans', hint: 'Plans you sell', text: String(plans), live: plans > 0, hue: hue(false), icon: 'pricetags-outline' as const, href: '/plans' },
+    { key: 'outstanding', label: 'Outstanding payment', hint: `${billing?.pending ?? 0} invoice${(billing?.pending ?? 0) === 1 ? '' : 's'} unpaid`, text: money(outstanding), live: outstanding > 0, hue: hue(outstanding > 0), icon: 'receipt-outline' as const, href: '/billing' },
   ]
 
   return (
@@ -106,26 +141,65 @@ export function PlatformDashboard() {
           </Text>
         </View>
 
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filters}>
+          {RANGES.map((option) => {
+            const on = option.key === range
+
+            return (
+              <Pressable
+                key={option.key}
+                onPress={() => setRange(option.key)}
+                style={({ pressed }) => [
+                  styles.chip,
+                  {
+                    backgroundColor: on ? theme.brand : pressed ? theme.canvas : theme.surface,
+                    borderColor: on ? theme.brand : theme.line,
+                  },
+                ]}
+              >
+                <Text style={[styles.chipText, { color: on ? theme.onBrand : theme.inkMuted }]}>
+                  {option.label}
+                </Text>
+              </Pressable>
+            )
+          })}
+        </ScrollView>
+
         <View style={styles.grid}>
-          {tiles.map((tile) => (
-            <Pressable
-              key={tile.key}
-              onPress={() => router.push(tile.href as never)}
-              style={({ pressed }) => [
-                styles.tile,
-                { backgroundColor: pressed ? theme.canvas : theme.surface, borderColor: theme.line },
-              ]}
-            >
-              <View style={styles.tileHead}>
-                <View style={[styles.tileIcon, { backgroundColor: theme.brandSoft }]}>
-                  <Icon name={tile.icon} size={18} color={theme.brand} />
+          {tiles.map((tile) => {
+            const live = tile.live
+
+            return (
+              <Pressable
+                key={tile.key}
+                onPress={() => router.push(tile.href as never)}
+                style={({ pressed }) => [
+                  styles.tile,
+                  {
+                    backgroundColor: pressed ? theme.canvas : theme.surface,
+                    borderColor: live ? tile.hue.soft : theme.line,
+                  },
+                ]}
+              >
+                <View style={styles.tileHead}>
+                  <Icon name={tile.icon} size={22} color={tile.hue.ink} />
+
+                  {live ? (
+                    <View style={[styles.pill, { backgroundColor: tile.hue.soft }]}>
+                      <Text style={[styles.pillText, { color: tile.hue.ink }]}>{tile.text}</Text>
+                    </View>
+                  ) : (
+                    <Text style={[styles.zero, { color: theme.inkSubtle }]}>{tile.text}</Text>
+                  )}
                 </View>
-                <Text style={[styles.tileValue, { color: tile.tone }]}>{tile.value}</Text>
-              </View>
-              <Text style={[styles.tileLabel, { color: theme.ink }]}>{tile.label}</Text>
-              <Text style={[styles.tileHint, { color: theme.inkSubtle }]}>{tile.hint}</Text>
-            </Pressable>
-          ))}
+
+                <Text style={[styles.tileLabel, { color: theme.ink }]}>{tile.label}</Text>
+                <Text numberOfLines={2} style={[styles.tileHint, { color: theme.inkSubtle }]}>
+                  {tile.hint}
+                </Text>
+              </Pressable>
+            )
+          })}
         </View>
 
         {nearingCap.length > 0 ? (
@@ -177,6 +251,21 @@ const styles = StyleSheet.create({
   heroMeta: {
     fontSize: font.sm,
   },
+  filters: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    paddingBottom: spacing.xs,
+  },
+  chip: {
+    borderWidth: 1,
+    borderRadius: radius.pill,
+    paddingVertical: 7,
+    paddingHorizontal: spacing.md,
+  },
+  chipText: {
+    fontSize: font.xs,
+    fontWeight: '700',
+  },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -184,36 +273,44 @@ const styles = StyleSheet.create({
   },
   tile: {
     flexGrow: 1,
-    flexBasis: '30%',
+    flexBasis: '45%',
+    minHeight: 132,
     borderWidth: 1,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     padding: spacing.lg,
-    gap: 3,
   },
   tileHead: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
-  tileIcon: {
-    width: 32,
-    height: 32,
-    borderRadius: radius.md,
+  pill: {
+    minWidth: 26,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tileValue: {
-    fontSize: 24,
+  pillText: {
+    fontSize: font.sm,
     fontWeight: '800',
-    letterSpacing: -0.8,
   },
-  tileLabel: {
+  zero: {
     fontSize: font.sm,
     fontWeight: '700',
+    paddingTop: 3,
+  },
+  tileLabel: {
+    fontSize: font.md,
+    fontWeight: '700',
+    letterSpacing: -0.2,
+    marginBottom: 3,
   },
   tileHint: {
     fontSize: font.xs,
+    lineHeight: 16,
   },
   group: {
     fontSize: font.xs,

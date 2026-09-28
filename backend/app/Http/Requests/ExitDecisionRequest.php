@@ -42,8 +42,8 @@ class ExitDecisionRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'reason.required' => 'Reject karne ki wajah likhni zaroori hai.',
-            'last_working_date.required' => 'Nayi last working date deni zaroori hai.',
+            'reason.required' => 'A reason for rejecting is required.',
+            'last_working_date.required' => 'A new last working date is required.',
         ];
     }
 }

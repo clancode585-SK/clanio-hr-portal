@@ -23,6 +23,7 @@ import { EmptyState, ErrorState, Loader } from '@/components/ui/States'
 import { api, apiList, ApiError } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { downloadFile } from '@/lib/download'
+import { useSheetFrame } from '@/lib/useSheetFrame'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -102,6 +103,7 @@ export function ApprovalList<T>({
   filters,
 }: Props<T>) {
   const theme = useTheme()
+  const sheetFrame = useSheetFrame()
   const insets = useSafeAreaInsets()
 
   const [items, setItems] = useState<T[] | null>(null)
@@ -454,7 +456,7 @@ export function ApprovalList<T>({
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <View
-            style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}
+            style={[styles.sheet, sheetFrame, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}
           >
             <View style={[styles.grab, { backgroundColor: theme.line }]} />
 

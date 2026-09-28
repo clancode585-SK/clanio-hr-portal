@@ -31,7 +31,7 @@ final class TicketService
 
         if ($category->isPlatform() && ! $actor->hasPermission(Ticket::PLATFORM_PERMISSION)) {
             throw new ApiException(
-                'Clanio support ko ticket sirf company admin bhej sakta hai.',
+                'Only a company admin can raise a ticket with Clanio support.',
                 403,
                 'TICKET_PLATFORM_FORBIDDEN'
             );
@@ -78,7 +78,7 @@ final class TicketService
             $target['notify'],
             $actor,
             NotificationType::TICKET_RAISED,
-            'Nayi request aayi hai',
+            'A new request has come in',
             $ticket->ticket_no . ' — ' . $ticket->subject
         );
 
@@ -90,7 +90,7 @@ final class TicketService
         $this->assertHandler($ticket, $actor);
 
         if (! $ticket->isOpenStage()) {
-            throw new ApiException('Ye ticket ab ' . $ticket->stageLabel() . ' — assign nahi ho sakta.', 409, 'TICKET_WRONG_STAGE');
+            throw new ApiException('Ye ticket ab ' . $ticket->stageLabel() . ' — it cannot be assigned.', 409, 'TICKET_WRONG_STAGE');
         }
 
         $ticket->forceFill([
@@ -115,16 +115,16 @@ final class TicketService
 
     public function assign(Ticket $ticket, User $actor, int $userId): Ticket
     {
-        $this->assertPermission($actor, Ticket::ASSIGN_PERMISSION, 'ticket kisi aur ko dene');
+        $this->assertPermission($actor, Ticket::ASSIGN_PERMISSION, 'handing the ticket to someone else');
 
         if (! $ticket->isOpenStage()) {
-            throw new ApiException('Ye ticket ab ' . $ticket->stageLabel() . ' — assign nahi ho sakta.', 409, 'TICKET_WRONG_STAGE');
+            throw new ApiException('Ye ticket ab ' . $ticket->stageLabel() . ' — it cannot be assigned.', 409, 'TICKET_WRONG_STAGE');
         }
 
         $assignee = User::query()->whereKey($userId)->first();
 
         if ($assignee === null) {
-            throw new ApiException('Jise assign kar rahe ho wo mila nahi.', 404, 'NOT_FOUND');
+            throw new ApiException('The person you are assigning to was not found.', 404, 'NOT_FOUND');
         }
 
         $ticket->forceFill([
@@ -140,7 +140,7 @@ final class TicketService
             [(int) $assignee->id],
             $actor,
             NotificationType::TICKET_ASSIGNED,
-            'Ek ticket aapke naam par hai',
+            'A ticket is assigned to you',
             $ticket->ticket_no . ' — ' . $ticket->subject
         );
 
@@ -150,13 +150,13 @@ final class TicketService
     public function comment(Ticket $ticket, User $actor, array $data): TicketComment
     {
         if ($ticket->isFinished()) {
-            throw new ApiException('Band ticket par reply nahi kar sakte.', 409, 'TICKET_CLOSED');
+            throw new ApiException('You cannot reply on a closed ticket.', 409, 'TICKET_CLOSED');
         }
 
         $internal = (bool) ($data['is_internal'] ?? false);
 
         if ($internal && $ticket->isRaiser($actor) && ! $this->canHandle($ticket, $actor)) {
-            throw new ApiException('Internal note sirf handle karne wala likh sakta hai.', 403, 'TICKET_INTERNAL_FORBIDDEN');
+            throw new ApiException('Only the person handling this can add an internal note.', 403, 'TICKET_INTERNAL_FORBIDDEN');
         }
 
         $comment = DB::transaction(function () use ($ticket, $actor, $data, $internal): TicketComment {
@@ -225,7 +225,7 @@ final class TicketService
             [(int) $ticket->raised_by],
             $actor,
             NotificationType::TICKET_INFO_NEEDED,
-            'Aapse kuch information chahiye',
+            'Some information is needed from you',
             $ticket->ticket_no . ' — ' . $data['body']
         );
 
@@ -266,7 +266,7 @@ final class TicketService
             [(int) $ticket->raised_by],
             $actor,
             NotificationType::TICKET_RESOLVED,
-            'Aapki request solve ho gayi',
+            'Your request has been resolved',
             $ticket->ticket_no . ' — ' . $data['resolution_note']
         );
 
@@ -276,12 +276,12 @@ final class TicketService
     public function reopen(Ticket $ticket, User $actor, array $data): Ticket
     {
         if (! $ticket->isRaiser($actor)) {
-            throw new ApiException('Ticket sirf raise karne wala reopen kar sakta hai.', 403, 'TICKET_NOT_RAISER');
+            throw new ApiException('Only the person who raised it can reopen the ticket.', 403, 'TICKET_NOT_RAISER');
         }
 
         if (! $ticket->canReopen()) {
             throw new ApiException(
-                'Reopen ki ' . Ticket::REOPEN_WINDOW_DAYS . ' din ki window nikal gayi — nayi request banao.',
+                'Reopen ki ' . Ticket::REOPEN_WINDOW_DAYS . ' day window has closed — raise a new request.',
                 409,
                 'TICKET_REOPEN_WINDOW_OVER'
             );
@@ -323,7 +323,7 @@ final class TicketService
             $this->counterparts($ticket, $actor),
             $actor,
             NotificationType::TICKET_REOPENED,
-            'Ticket dobara khul gaya',
+            'Ticket reopened',
             $ticket->ticket_no . ' — ' . $data['body']
         );
 
@@ -333,11 +333,11 @@ final class TicketService
     public function close(Ticket $ticket, User $actor): Ticket
     {
         if (! $ticket->isRaiser($actor) && ! $actor->hasPermission(Ticket::RESOLVE_PERMISSION)) {
-            throw new ApiException('Ticket band karne ka haq raise karne wale ka hai.', 403, 'TICKET_NOT_RAISER');
+            throw new ApiException('Only the person who raised it can close the ticket.', 403, 'TICKET_NOT_RAISER');
         }
 
         if ($ticket->status !== Ticket::RESOLVED) {
-            throw new ApiException('Pehle resolve hona chahiye, phir band hoga.', 409, 'TICKET_NOT_RESOLVED');
+            throw new ApiException('It must be resolved before it can be closed.', 409, 'TICKET_NOT_RESOLVED');
         }
 
         $ticket->forceFill([
@@ -355,7 +355,7 @@ final class TicketService
             $this->counterparts($ticket, $actor),
             $actor,
             NotificationType::TICKET_CLOSED,
-            'Ticket band ho gaya',
+            'Ticket closed',
             $ticket->ticket_no . ' — ' . $ticket->subject
         );
 
@@ -365,11 +365,11 @@ final class TicketService
     public function cancel(Ticket $ticket, User $actor): Ticket
     {
         if (! $ticket->isRaiser($actor)) {
-            throw new ApiException('Sirf raise karne wala apni request cancel kar sakta hai.', 403, 'TICKET_NOT_RAISER');
+            throw new ApiException('Only the person who raised it can cancel the request.', 403, 'TICKET_NOT_RAISER');
         }
 
         if (! $ticket->isOpenStage()) {
-            throw new ApiException('Ye ticket ab ' . $ticket->stageLabel() . ' — cancel nahi hoga.', 409, 'TICKET_WRONG_STAGE');
+            throw new ApiException('Ye ticket ab ' . $ticket->stageLabel() . ' — it cannot be cancelled.', 409, 'TICKET_WRONG_STAGE');
         }
 
         $ticket->forceFill([
@@ -409,7 +409,7 @@ final class TicketService
 
             $this->notifications->sendMany($recipients, [
                 'type' => NotificationType::TICKET_BREACHED,
-                'title' => 'Ticket time se late ho gaya',
+                'title' => 'The ticket has missed its deadline',
                 'body' => $ticket->ticket_no . ' — ' . $ticket->subject,
                 'action_url' => '/tickets/' . $ticket->uuid,
                 'meta' => ['ticket_id' => (int) $ticket->id, 'ticket_no' => $ticket->ticket_no],
@@ -591,14 +591,14 @@ final class TicketService
     private function assertHandler(Ticket $ticket, User $actor): void
     {
         if (! $this->canHandle($ticket, $actor)) {
-            throw new ApiException('Ye ticket aapke paas nahi hai.', 403, 'TICKET_NOT_HANDLER');
+            throw new ApiException('This ticket is not assigned to you.', 403, 'TICKET_NOT_HANDLER');
         }
     }
 
     private function assertPermission(User $actor, string $slug, string $action): void
     {
         if (! $actor->hasPermission($slug)) {
-            throw new ApiException('Aapke paas ' . $action . ' ka access nahi hai.', 403, 'FORBIDDEN');
+            throw new ApiException('Aapke paas ' . $action . ' is not allowed.', 403, 'FORBIDDEN');
         }
     }
 
@@ -607,7 +607,7 @@ final class TicketService
         $category = TicketCategory::query()->whereKey($categoryId)->first();
 
         if ($category === null) {
-            throw new ApiException('Category mili nahi.', 404, 'NOT_FOUND');
+            throw new ApiException('Category not found.', 404, 'NOT_FOUND');
         }
 
         return $category;
@@ -618,14 +618,14 @@ final class TicketService
         $routes = $category->routes()->get();
 
         if ($routes->isEmpty()) {
-            throw new ApiException('Is category ka koi rasta set nahi hai — HR se kehkar set karwao.', 409, 'TICKET_ROUTE_MISSING');
+            throw new ApiException('This category has no route set — ask HR to set one.', 409, 'TICKET_ROUTE_MISSING');
         }
 
         if ($routeId === null) {
             $route = $routes->firstWhere('is_default', true);
 
             if ($route === null) {
-                throw new ApiException('Batao ye request kisko bhejni hai.', 422, 'TICKET_ROUTE_REQUIRED');
+                throw new ApiException('Say who this request should go to.', 422, 'TICKET_ROUTE_REQUIRED');
             }
 
             return $route;
@@ -634,7 +634,7 @@ final class TicketService
         $route = $routes->firstWhere('id', $routeId);
 
         if ($route === null) {
-            throw new ApiException('Ye rasta is category ka nahi hai.', 422, 'TICKET_ROUTE_MISMATCH');
+            throw new ApiException('This route does not belong to that category.', 422, 'TICKET_ROUTE_MISMATCH');
         }
 
         return $route;

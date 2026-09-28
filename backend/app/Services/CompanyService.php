@@ -42,7 +42,7 @@ final class CompanyService
         ]],
         ['Leave / Attendance', 'leave', 'internal', 'medium', [
             ['manager', 'Mera Manager', 'Approval, adjustment ya planning ka sawal', true],
-            ['department', 'HR', 'Balance galat hai ya policy ka sawal hai', false],
+            ['department', 'HR', 'The balance looks wrong, or it is a policy question', false],
         ]],
         ['Work / Task / Project', 'work', 'internal', 'medium', [
             ['manager', 'Mera Manager', null, true],
@@ -56,7 +56,7 @@ final class CompanyService
         ['Office / Facility', 'facility', 'internal', 'medium', [
             ['department', 'Admin', null, true],
         ]],
-        ['Kuch aur', 'other', 'internal', 'low', [
+        ['Something else', 'other', 'internal', 'low', [
             ['manager', 'Mera Manager', null, false],
             ['department', 'HR', null, false],
             ['department', 'IT', null, false],

@@ -37,7 +37,7 @@ class IncentiveController extends ApiController
             new IncentiveRuleResource(
                 $this->incentives->createRule($request->validated(), $request->user(), $this->tenantId())
             ),
-            'Incentive rule ban gaya'
+            'Incentive rule created'
         );
     }
 
@@ -53,7 +53,7 @@ class IncentiveController extends ApiController
     {
         return ApiResponse::success(
             new IncentiveRuleResource($this->incentives->updateRule($rule, $request->validated(), $request->user())),
-            'Incentive rule update ho gaya'
+            'Incentive rule updated'
         );
     }
 
@@ -61,7 +61,7 @@ class IncentiveController extends ApiController
     {
         $this->incentives->deleteRule($rule, $request->user());
 
-        return ApiResponse::success(null, 'Incentive rule hata diya gaya');
+        return ApiResponse::success(null, 'Incentive rule removed');
     }
 
     public function index(Request $request): JsonResponse
@@ -105,7 +105,7 @@ class IncentiveController extends ApiController
                 new IncentiveRecordResource(
                     $this->incentives->calculate($employee, $periodType, $periodLabel, $request->user())
                 ),
-                'Incentive calculate ho gaya'
+                'Incentive calculated'
             );
         }
 
@@ -118,7 +118,7 @@ class IncentiveController extends ApiController
 
         return ApiResponse::success(
             ['period_label' => $periodLabel, 'calculated' => $count],
-            $count . ' employee ka incentive calculate ho gaya'
+            $count . ' employee incentives calculated'
         );
     }
 
@@ -134,7 +134,7 @@ class IncentiveController extends ApiController
     {
         return ApiResponse::success(
             new IncentiveRecordResource($this->incentives->approve($incentive, $request->validated(), $request->user())),
-            'Incentive approve ho gaya'
+            'Incentive approved'
         );
     }
 
@@ -142,7 +142,7 @@ class IncentiveController extends ApiController
     {
         return ApiResponse::success(
             new IncentiveRecordResource($this->incentives->reject($incentive, $request->validated(), $request->user())),
-            'Incentive reject kar diya gaya'
+            'Incentive rejected'
         );
     }
 

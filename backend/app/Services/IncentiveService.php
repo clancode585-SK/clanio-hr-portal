@@ -35,7 +35,7 @@ final class IncentiveService
         $this->assertPermission($actor, IncentiveRule::MANAGE_PERMISSION, 'incentive rule banane');
 
         if ($companyId === null) {
-            throw new ApiException('Rule company ka hota hai. X-Company-Id bhejo.', 422, 'TENANT_REQUIRED');
+            throw new ApiException('Rules belong to a company. Send the X-Company-Id header.', 422, 'TENANT_REQUIRED');
         }
 
         return DB::transaction(function () use ($data, $actor, $companyId): IncentiveRule {
@@ -106,7 +106,7 @@ final class IncentiveService
 
         if ($record !== null && $record->isApproved()) {
             throw new ApiException(
-                'Ye incentive approve ho chuka hai, dobara calculate nahi hoga.',
+                'This incentive is approved, so it cannot be recalculated.',
                 409,
                 'INCENTIVE_ALREADY_APPROVED'
             );
@@ -176,7 +176,7 @@ final class IncentiveService
         $this->assertPermission($actor, IncentiveRule::APPROVE_PERMISSION, 'incentive approve karne');
 
         if ($record->isApproved()) {
-            throw new ApiException('Ye already approve ho chuka hai.', 409, 'INCENTIVE_ALREADY_APPROVED');
+            throw new ApiException('This is already approved.', 409, 'INCENTIVE_ALREADY_APPROVED');
         }
 
         $record->forceFill([
@@ -200,7 +200,7 @@ final class IncentiveService
         $this->assertPermission($actor, IncentiveRule::APPROVE_PERMISSION, 'incentive reject karne');
 
         if ($record->isApproved()) {
-            throw new ApiException('Approve hone ke baad reject nahi hota.', 409, 'INCENTIVE_ALREADY_APPROVED');
+            throw new ApiException('It cannot be rejected once approved.', 409, 'INCENTIVE_ALREADY_APPROVED');
         }
 
         $record->forceFill([
@@ -300,13 +300,13 @@ final class IncentiveService
                     'start' => Carbon::parse(explode('..', $label)[0]),
                     'end' => Carbon::parse(explode('..', $label)[1] ?? explode('..', $label)[0]),
                 ],
-                default => throw new ApiException('Period type galat hai.', 422, 'PERIOD_INVALID'),
+                default => throw new ApiException('Invalid period type.', 422, 'PERIOD_INVALID'),
             };
         } catch (ApiException $e) {
             throw $e;
         } catch (\Throwable) {
             throw new ApiException(
-                'Period label galat hai. Month ke liye YYYY-MM, baaki ke liye YYYY-MM-DD..YYYY-MM-DD.',
+                'Invalid period label. Use YYYY-MM for a month, or YYYY-MM-DD..YYYY-MM-DD otherwise.',
                 422,
                 'PERIOD_INVALID'
             );
@@ -351,7 +351,7 @@ final class IncentiveService
 
             if ($to < $from) {
                 throw new ApiException(
-                    'Slab galat hai — ' . $from . ' se ' . $to . ' nahi ho sakta.',
+                    'Invalid slab — ' . $from . ' se ' . $to . ' nahi ho sakta.',
                     422,
                     'SLAB_INVALID'
                 );
@@ -359,7 +359,7 @@ final class IncentiveService
 
             if ($previousTo !== null && $from <= $previousTo) {
                 throw new ApiException(
-                    'Slab aapas me overlap kar rahe hain (' . $from . ' pehle wale ke andar hai).',
+                    'The slabs overlap each other (' . $from . ' overlaps an existing one).',
                     422,
                     'SLAB_OVERLAP'
                 );
@@ -374,7 +374,7 @@ final class IncentiveService
         return [
             ['from_percent' => 0, 'to_percent' => 69, 'payout_factor' => 0, 'label' => 'Target se bahut peeche'],
             ['from_percent' => 70, 'to_percent' => 89, 'payout_factor' => 50, 'label' => 'Aadha incentive'],
-            ['from_percent' => 90, 'to_percent' => 100, 'payout_factor' => 100, 'label' => 'Pura incentive'],
+            ['from_percent' => 90, 'to_percent' => 100, 'payout_factor' => 100, 'label' => 'Full incentive'],
             ['from_percent' => 101, 'to_percent' => 999, 'payout_factor' => 120, 'label' => 'Target se upar, bonus'],
         ];
     }
@@ -390,7 +390,7 @@ final class IncentiveService
             return;
         }
 
-        throw new ApiException('Aapke paas ' . $what . ' ka haq nahi hai.', 403, 'FORBIDDEN');
+        throw new ApiException('Aapke paas ' . $what . ' is not permitted.', 403, 'FORBIDDEN');
     }
 
     private function flush(): void

@@ -9,6 +9,7 @@ import { Select, type Option } from '@/components/ui/Select'
 import { Stepper } from '@/components/ui/Stepper'
 import { api, ApiError } from '@/lib/api'
 import { loadPlans, money, priceOrder, type Plan } from '@/lib/plans'
+import { lookupPincode } from '@/lib/pincode'
 import { useAuth } from '@/lib/auth'
 import { useTheme } from '@/theme/useTheme'
 import { font, spacing } from '@/theme/tokens'
@@ -17,12 +18,7 @@ type Values = Record<string, string>
 
 const steps = ['Company', 'Statutory', 'Admin', 'Plan', 'Payment']
 
-const currencies: Option[] = [
-  { value: 'INR', label: 'Indian Rupee (INR)' },
-  { value: 'USD', label: 'US Dollar (USD)' },
-  { value: 'AED', label: 'UAE Dirham (AED)' },
-  { value: 'GBP', label: 'Pound Sterling (GBP)' },
-]
+// Currency INR par fix hai — payment abhi sirf rupee me hota hai
 
 const fiscalMonths: Option[] = [
   { value: '1', label: 'January' },
@@ -36,6 +32,15 @@ const slugPattern = /^[A-Za-z0-9_-]+$/
 const gstinPattern = /^[0-9A-Z]{15}$/
 const panPattern = /^[A-Z]{5}[0-9]{4}[A-Z]$/
 const tanPattern = /^[A-Z]{4}[0-9]{5}[A-Z]$/
+
+/** "Ichelon Consulting Pvt Ltd" → "ichelon-consulting-pvt-ltd" */
+function slugify(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 100)
+}
 
 const stepOf: Record<string, number> = {
   name: 0,
@@ -99,6 +104,8 @@ export default function CompanyCreateScreen() {
   const [errors, setErrors] = useState<Record<string, string>>({})
   const [problem, setProblem] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [looking, setLooking] = useState(false)
+  const [slugTouched, setSlugTouched] = useState(false)
 
   const set = (key: string, value: string) => {
     setValues((current) => ({ ...current, [key]: value }))
@@ -115,6 +122,58 @@ export default function CompanyCreateScreen() {
   }
 
   const get = (key: string) => values[key] ?? ''
+
+  // Company name se slug bana dete hain, jab tak user ne khud slug na chheda ho
+  const onName = (value: string) => {
+    setValues((current) => ({
+      ...current,
+      name: value,
+      slug: slugTouched ? current.slug : slugify(value),
+    }))
+
+    setErrors((current) => {
+      if (!current.name && !current.slug) {
+        return current
+      }
+
+      const next = { ...current }
+      delete next.name
+      delete next.slug
+
+      return next
+    })
+  }
+
+  const onSlug = (value: string) => {
+    setSlugTouched(true)
+    set('slug', value)
+  }
+
+  // Pincode poora hote hi city/state/country bhar dete hain — jo user ne khud likha hai use chhedte nahi
+  const onPincode = (value: string) => {
+    set('pincode', value)
+
+    if (!/^\d{6}$/.test(value.trim())) {
+      return
+    }
+
+    setLooking(true)
+
+    void lookupPincode(value)
+      .then((place) => {
+        if (place === null) {
+          return
+        }
+
+        setValues((current) => ({
+          ...current,
+          city: current.city?.trim() ? current.city : place.city,
+          state: current.state?.trim() ? current.state : place.state,
+          country: current.country?.trim() ? current.country : place.country,
+        }))
+      })
+      .finally(() => setLooking(false))
+  }
 
   const validateStep = (index: number): Record<string, string> => {
     const next: Record<string, string> = {}
@@ -334,17 +393,29 @@ export default function CompanyCreateScreen() {
 
           {step === 0 ? (
             <View style={styles.form}>
-              <Field label="Company name" value={get('name')} onChangeText={(v) => set('name', v)} placeholder="Acme Technologies" autoCapitalize="words" maxLength={200} error={errors.name} editable={!busy} />
+              <Field label="Company name" value={get('name')} onChangeText={onName} placeholder="Acme Technologies" autoCapitalize="words" maxLength={200} error={errors.name} editable={!busy} />
               <Field label="Legal name" value={get('legal_name')} onChangeText={(v) => set('legal_name', v)} placeholder="Acme Technologies Private Limited" autoCapitalize="words" maxLength={200} error={errors.legal_name} editable={!busy} />
-              <Field label="Workspace slug" value={get('slug')} onChangeText={(v) => set('slug', v)} placeholder="acme" maxLength={100} error={errors.slug} editable={!busy} />
+              <Field label="Workspace slug" value={get('slug')} onChangeText={onSlug} placeholder="acme" maxLength={100} error={errors.slug} editable={!busy} hint="Used in the careers page link. Made from the name — change it if you like." />
               <Field label="Company email" value={get('email')} onChangeText={(v) => set('email', v)} placeholder="hello@acme.com" keyboardType="email-address" maxLength={255} error={errors.email} editable={!busy} />
               <Field label="Phone" value={get('phone')} onChangeText={(v) => set('phone', v)} placeholder="Optional" keyboardType="phone-pad" maxLength={20} error={errors.phone} editable={!busy} />
-              <Field label="Website" value={get('website')} onChangeText={(v) => set('website', v)} placeholder="https://acme.com" maxLength={255} error={errors.website} editable={!busy} />
+
+              <Field
+                label="Pincode"
+                value={get('pincode')}
+                onChangeText={onPincode}
+                placeholder="400001"
+                keyboardType="number-pad"
+                maxLength={10}
+                error={errors.pincode}
+                editable={!busy}
+                hint={looking ? 'Looking up the area…' : 'City, state and country fill in on their own'}
+              />
+
               <Field label="Address" value={get('address')} onChangeText={(v) => set('address', v)} placeholder="Street, area" autoCapitalize="sentences" maxLength={500} error={errors.address} editable={!busy} multiline />
               <Field label="City" value={get('city')} onChangeText={(v) => set('city', v)} placeholder="Mumbai" autoCapitalize="words" maxLength={100} error={errors.city} editable={!busy} />
               <Field label="State" value={get('state')} onChangeText={(v) => set('state', v)} placeholder="Maharashtra" autoCapitalize="words" maxLength={100} error={errors.state} editable={!busy} />
               <Field label="Country" value={get('country')} onChangeText={(v) => set('country', v)} placeholder="India" autoCapitalize="words" maxLength={100} error={errors.country} editable={!busy} />
-              <Field label="Pincode" value={get('pincode')} onChangeText={(v) => set('pincode', v)} placeholder="400001" keyboardType="number-pad" maxLength={10} error={errors.pincode} editable={!busy} />
+              <Field label="Website" value={get('website')} onChangeText={(v) => set('website', v)} placeholder="https://acme.com" maxLength={255} error={errors.website} editable={!busy} />
             </View>
           ) : null}
 
@@ -356,7 +427,6 @@ export default function CompanyCreateScreen() {
               <Field label="TAN" value={get('tan_number')} onChangeText={(v) => set('tan_number', v)} placeholder="ABCD12345E" autoCapitalize="characters" maxLength={10} error={errors.tan_number} editable={!busy} />
               <Field label="CIN" value={get('cin_number')} onChangeText={(v) => set('cin_number', v)} placeholder="Optional" autoCapitalize="characters" maxLength={21} error={errors.cin_number} editable={!busy} />
               <Field label="Industry" value={get('industry')} onChangeText={(v) => set('industry', v)} placeholder="Software" autoCapitalize="words" maxLength={100} error={errors.industry} editable={!busy} />
-              <Select label="Currency" value={get('currency') || null} options={currencies} onChange={(v) => set('currency', v ?? '')} error={errors.currency} disabled={busy} />
               <Select label="Financial year starts" value={get('fiscal_year_start') || null} options={fiscalMonths} onChange={(v) => set('fiscal_year_start', v ?? '')} error={errors.fiscal_year_start} disabled={busy} />
               <Field label="Timezone" value={get('timezone')} onChangeText={(v) => set('timezone', v)} placeholder="Asia/Kolkata" maxLength={64} error={errors.timezone} editable={!busy} />
             </View>

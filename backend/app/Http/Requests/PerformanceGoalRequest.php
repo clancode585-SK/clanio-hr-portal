@@ -52,8 +52,8 @@ class PerformanceGoalRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'title.required' => 'Goal ka title likhna zaroori hai.',
-            'due_date.after_or_equal' => 'Due date start date se pehle nahi ho sakti.',
+            'title.required' => 'A goal title is required.',
+            'due_date.after_or_equal' => 'The due date cannot be before the start date.',
         ];
     }
 }

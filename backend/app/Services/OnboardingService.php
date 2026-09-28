@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Exceptions\ApiException;
 use App\Models\Employee;
+use App\Models\Role;
 use App\Models\User;
 use App\Support\CompanyTime;
 use App\Support\Scopes\CompanyScope;
@@ -54,10 +55,14 @@ final class OnboardingService
         $complete = $completion['percent'] >= 100;
         $tourNeeded = $actor->tour_done_at === null;
 
+        // Ye gate HR ke jode hue employee ke liye hai. Company admin khud HR hai —
+        // usse Aadhaar/PAN maang kar workspace band karna galat hai.
+        $ownsWorkspace = $actor->primaryRole() === Role::COMPANY_ADMIN;
+
         return [
             'step' => match (true) {
                 $gate['blocked'] => self::STEP_POLICIES,
-                ! $seen && ! $complete => self::STEP_PROFILE,
+                ! $ownsWorkspace && ! $seen && ! $complete => self::STEP_PROFILE,
                 $tourNeeded => self::STEP_TOUR,
                 default => null,
             },

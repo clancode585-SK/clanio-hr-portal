@@ -19,17 +19,17 @@ class OrgChartController extends ApiController
         $companyId = $this->tenantId();
 
         if ($companyId === null) {
-            return ApiResponse::error('Company context nahi mila', 400, 'TENANT_MISSING');
+            return ApiResponse::error('No company context', 400, 'TENANT_MISSING');
         }
 
         $depth = $request->string('depth', OrgChartService::DEPTH_EMPLOYEE)->toString();
 
         if (! in_array($depth, OrgChartService::DEPTHS, true)) {
             return ApiResponse::error(
-                'Depth galat hai, sirf ye chalega: ' . implode(', ', OrgChartService::DEPTHS),
+                'Invalid depth, only these are allowed: ' . implode(', ', OrgChartService::DEPTHS),
                 422,
                 'VALIDATION_FAILED',
-                ['depth' => ['Depth galat hai']]
+                ['depth' => ['Invalid depth']]
             );
         }
 

@@ -202,14 +202,15 @@ export default function LoginScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <View style={styles.brandRow}>
-          <Logo size={44} />
+          <Logo size={52} />
           <Text style={[styles.brandName, { color: theme.ink }]}>{config.appName}</Text>
+          <Text style={[styles.brandTag, { color: theme.inkSubtle }]}>HR, payroll and people</Text>
         </View>
 
         <View style={styles.headings}>
           <Text style={[styles.title, { color: theme.ink }]}>Welcome back</Text>
           <Text style={[styles.subtitle, { color: theme.inkMuted }]}>
-            Sign in to your workspace
+            Sign in to continue to your workspace
           </Text>
         </View>
 
@@ -286,25 +287,31 @@ const styles = StyleSheet.create({
     gap: spacing.xl,
   },
   brandRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
   },
   brandName: {
     fontSize: font.xl,
-    fontWeight: '700',
+    fontWeight: '800',
     letterSpacing: -0.4,
+    marginTop: spacing.xs,
+  },
+  brandTag: {
+    fontSize: font.xs,
+    letterSpacing: 0.3,
   },
   headings: {
+    alignItems: 'center',
     gap: 6,
   },
   title: {
-    fontSize: font.xxxl,
-    fontWeight: '700',
+    fontSize: font.xxl,
+    fontWeight: '800',
     letterSpacing: -0.8,
   },
   subtitle: {
-    fontSize: font.md,
+    fontSize: font.sm,
+    textAlign: 'center',
   },
   card: {
     borderWidth: 1,

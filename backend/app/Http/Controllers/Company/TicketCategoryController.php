@@ -31,7 +31,7 @@ class TicketCategoryController extends ApiController
     {
         return ApiResponse::created(
             new TicketCategoryResource($this->categories->create($request->validated(), $request->user(), $this->tenantId())),
-            'Category ban gayi'
+            'Category created'
         );
     }
 
@@ -47,7 +47,7 @@ class TicketCategoryController extends ApiController
     {
         return ApiResponse::success(
             new TicketCategoryResource($this->categories->update($category, $request->validated(), $request->user())),
-            'Category update ho gayi'
+            'Category updated'
         );
     }
 
@@ -55,6 +55,6 @@ class TicketCategoryController extends ApiController
     {
         $this->categories->delete($category, $request->user());
 
-        return ApiResponse::success(null, 'Category band kar di gayi');
+        return ApiResponse::success(null, 'Category closed');
     }
 }

@@ -17,7 +17,7 @@ class SendPolicyReminders extends Command
 {
     protected $signature = 'policy:reminders';
 
-    protected $description = 'Pending policy acceptance ka reminder bhejta hai';
+    protected $description = 'Reminds people about policies they have not accepted';
 
     public function __construct(private readonly NotificationService $notifications)
     {
@@ -49,8 +49,8 @@ class SendPolicyReminders extends Command
                 $this->notifications->send((int) $ack->employee->user_id, [
                     'type' => NotificationType::POLICY_REMINDER,
                     'title' => $overdue
-                        ? 'Policy accept karna baaki hai — date nikal chuki'
-                        : 'Policy accept karna baaki hai',
+                        ? 'A policy is still unaccepted — the date has passed'
+                        : 'A policy is still waiting to be accepted',
                     'body' => $ack->policy->title . ' (v' . $ack->policy->version . ')'
                         . ($ack->due_on === null ? '' : ' · due ' . $ack->due_on->format('d M Y')),
                     'action_url' => '/my-policies',
@@ -69,7 +69,7 @@ class SendPolicyReminders extends Command
 
         app(TenantContext::class)->forget();
 
-        $this->info($sent . ' policy reminder bheje gaye.');
+        $this->info($sent . ' policy reminders sent.');
 
         return self::SUCCESS;
     }

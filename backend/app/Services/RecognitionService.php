@@ -25,7 +25,7 @@ final class RecognitionService
         $employee = $this->employeeFor((int) $data['employee_id'], $actor);
 
         if ((int) $employee->user_id === (int) $actor->id && ! $actor->isSuperAdmin()) {
-            throw new ApiException('Khud ko recognition nahi de sakte.', 403, 'RECOGNITION_SELF');
+            throw new ApiException('You cannot give yourself recognition.', 403, 'RECOGNITION_SELF');
         }
 
         $recognition = new Recognition([
@@ -69,7 +69,7 @@ final class RecognitionService
 
         $recognition = new Recognition([
             'type' => Recognition::BADGE,
-            'title' => 'Target pura kiya',
+            'title' => 'Target met',
             'message' => $goal->title . ' — ' . $goal->achievement_percent . '% achievement',
             'points' => max(10, (int) $goal->weight),
             'awarded_on' => CompanyTime::date(),
@@ -96,7 +96,7 @@ final class RecognitionService
         if (! $actor->isSuperAdmin()
             && (int) $recognition->given_by !== (int) $actor->id
             && ! $actor->hasPermission(Recognition::GIVE_PERMISSION)) {
-            throw new ApiException('Ye recognition aapne nahi di thi.', 403, 'FORBIDDEN');
+            throw new ApiException('You did not give this recognition.', 403, 'FORBIDDEN');
         }
 
         $recognition->deactivate();
@@ -110,7 +110,7 @@ final class RecognitionService
             : Employee::query()->visibleTo($actor)->whereKey($employeeId)->first();
 
         if ($employee === null) {
-            throw new ApiException('Employee record nahi mila.', 404, 'NOT_FOUND');
+            throw new ApiException('Employee record not found.', 404, 'NOT_FOUND');
         }
 
         $row = DB::table('recognitions')
@@ -153,7 +153,7 @@ final class RecognitionService
             return;
         }
 
-        throw new ApiException('Aapke paas ' . $what . ' ka haq nahi hai.', 403, 'FORBIDDEN');
+        throw new ApiException('Aapke paas ' . $what . ' is not permitted.', 403, 'FORBIDDEN');
     }
 
     private function flush(): void

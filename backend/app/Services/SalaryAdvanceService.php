@@ -26,7 +26,7 @@ class SalaryAdvanceService
         $company = Company::query()->findOrFail($employee->company_id);
 
         if (! $company->advance_enabled) {
-            throw new ApiException('Is company me advance salary band hai.', 422, 'ADVANCE_DISABLED');
+            throw new ApiException('Salary advance is switched off for this company.', 422, 'ADVANCE_DISABLED');
         }
 
         $open = SalaryAdvance::query()
@@ -36,7 +36,7 @@ class SalaryAdvanceService
 
         if ($open !== null) {
             throw new ApiException(
-                'Ek advance already chal raha hai (' . $open->reference . ') — pehle wo pura karo.',
+                'An advance is already running (' . $open->reference . ') — finish that first.',
                 422,
                 'ADVANCE_ALREADY_OPEN'
             );
@@ -80,7 +80,7 @@ class SalaryAdvanceService
     {
         if (! $advance->isPending()) {
             throw new ApiException(
-                'Ye request pehle hi ' . $advance->statusLabel() . ' hai.',
+                'This request is already ' . $advance->statusLabel() . ' hai.',
                 409,
                 'ADVANCE_DECIDED'
             );
@@ -97,10 +97,10 @@ class SalaryAdvanceService
         $this->tellEmployee(
             $advance,
             $approve ? NotificationType::ADVANCE_APPROVED : NotificationType::ADVANCE_REJECTED,
-            $approve ? 'Advance approve ho gaya' : 'Advance reject ho gaya',
+            $approve ? 'Advance approved' : 'Advance rejected',
             $approve
-                ? 'Aapka ₹' . number_format((float) $advance->amount, 2) . ' ka advance approve ho gaya hai. Transfer ka intezaar karo.'
-                : 'Aapka advance request reject ho gaya' . ($note ? ' — ' . $note : '.'),
+                ? 'Aapka ₹' . number_format((float) $advance->amount, 2) . ' advance has been approved. Wait for the transfer.'
+                : 'Your advance request was rejected' . ($note ? ' — ' . $note : '.'),
             $actor
         );
 
@@ -111,20 +111,20 @@ class SalaryAdvanceService
     public function updatePlan(SalaryAdvance $advance, array $data, User $actor): SalaryAdvance
     {
         if (in_array($advance->status, [SalaryAdvance::REJECTED, SalaryAdvance::CLOSED, SalaryAdvance::CANCELLED], true)) {
-            throw new ApiException('Ye advance band ho chuka hai.', 409, 'ADVANCE_CLOSED');
+            throw new ApiException('That advance is closed.', 409, 'ADVANCE_CLOSED');
         }
 
         $emi = round((float) $data['emi_amount'], 2);
 
         if ($emi <= 0) {
-            throw new ApiException('EMI zero se zyada honi chahiye.', 422, 'EMI_INVALID');
+            throw new ApiException('The EMI must be more than zero.', 422, 'EMI_INVALID');
         }
 
         $remaining = $advance->isDisbursed() ? (float) $advance->outstanding : (float) $advance->amount;
 
         if ($emi > $remaining) {
             throw new ApiException(
-                'EMI baaki amount (₹' . number_format($remaining, 2) . ') se zyada nahi ho sakti.',
+                'EMI baaki amount (₹' . number_format($remaining, 2) . ').',
                 422,
                 'EMI_TOO_BIG'
             );
@@ -166,14 +166,14 @@ class SalaryAdvanceService
     {
         if ($advance->isDisbursed() && (float) $advance->recovered > 0) {
             throw new ApiException(
-                'Iski EMI kat chuki hai — cancel nahi hoga.',
+                'An EMI has already been recovered — it cannot be cancelled.',
                 409,
                 'ADVANCE_IN_RECOVERY'
             );
         }
 
         if ($advance->payment_status === SalaryAdvance::PAY_PAID) {
-            throw new ApiException('Paisa ja chuka hai — cancel nahi hoga.', 409, 'ADVANCE_PAID');
+            throw new ApiException('The money has gone out — it cannot be cancelled.', 409, 'ADVANCE_PAID');
         }
 
         $advance->forceFill([
@@ -202,9 +202,9 @@ class SalaryAdvanceService
         $this->tellEmployee(
             $advance,
             NotificationType::ADVANCE_PAID,
-            'Advance transfer ho gaya',
+            'Advance transferred',
             '₹' . number_format((float) $advance->amount, 2) . ' aapke account me bhej diya gaya hai. EMI '
-                . $advance->start_period . ' se shuru hogi.',
+                . $advance->start_period . '.',
             $actor
         );
 
@@ -395,12 +395,12 @@ class SalaryAdvanceService
     private function assertWithinCap(Employee $employee, Company $company, float $amount, int $tenure): void
     {
         if ($amount <= 0) {
-            throw new ApiException('Amount zero se zyada hona chahiye.', 422, 'AMOUNT_INVALID');
+            throw new ApiException('The amount must be more than zero.', 422, 'AMOUNT_INVALID');
         }
 
         if ($tenure < 1 || $tenure > (int) $company->advance_max_tenure) {
             throw new ApiException(
-                'EMI 1 se ' . $company->advance_max_tenure . ' mahine ke beech honi chahiye.',
+                'EMI 1 se ' . $company->advance_max_tenure . ' months.',
                 422,
                 'TENURE_INVALID'
             );
@@ -410,7 +410,7 @@ class SalaryAdvanceService
 
         if ($structure === null) {
             throw new ApiException(
-                'Iska salary structure nahi bana — advance ki limit nikal nahi sakte.',
+                'They have no salary structure, so an advance limit cannot be worked out.',
                 422,
                 'STRUCTURE_MISSING'
             );
@@ -420,7 +420,7 @@ class SalaryAdvanceService
 
         if ($amount > $cap) {
             throw new ApiException(
-                'Zyada se zyada ₹' . number_format($cap, 2) . ' mil sakta hai ('
+                'Zyada se zyada ₹' . number_format($cap, 2) . ' is available ('
                     . rtrim(rtrim((string) $company->advance_max_multiplier, '0'), '.') . 'x monthly gross).',
                 422,
                 'ADVANCE_OVER_CAP'
@@ -458,7 +458,7 @@ class SalaryAdvanceService
                 'type' => NotificationType::ADVANCE_REQUESTED,
                 'title' => 'Naya advance request',
                 'body' => $advance->employee_name . ' ne ₹' . number_format((float) $advance->amount, 2)
-                    . ' ka advance manga hai.',
+                    . ' advance requested.',
                 'action_url' => '/advances',
                 'entity_type' => 'salary_advance',
                 'entity_id' => $advance->id,

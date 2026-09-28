@@ -67,7 +67,7 @@ class PolicyController extends ApiController
                 $request->user(),
                 $this->tenantId()
             )),
-            'Policy draft ban gaya'
+            'Policy draft created'
         );
     }
 
@@ -88,7 +88,7 @@ class PolicyController extends ApiController
                 $request->file('file'),
                 $request->user()
             )),
-            'Policy update ho gayi'
+            'Policy updated'
         );
     }
 
@@ -99,14 +99,14 @@ class PolicyController extends ApiController
         return ApiResponse::success([
             'policy' => new PolicyResource($result['policy']),
             'assigned' => $result['assigned'],
-        ], 'Policy publish ho gayi — ' . $result['assigned'] . ' employee ko bhej di gayi');
+        ], 'Policy published — ' . $result['assigned'] . ' employees notified');
     }
 
     public function archive(Request $request, Policy $policy): JsonResponse
     {
         return ApiResponse::success(
             new PolicyResource($this->policies->archive($policy, $request->user())),
-            'Policy archive ho gayi'
+            'Policy archived'
         );
     }
 
@@ -116,7 +116,7 @@ class PolicyController extends ApiController
             new PolicyAcknowledgementResource(
                 $this->policies->acknowledge($policy, $request->validated(), $request->user(), $request->ip())
             ),
-            'Policy accept ho gayi'
+            'Policy accepted'
         );
     }
 
@@ -137,6 +137,6 @@ class PolicyController extends ApiController
     {
         $this->policies->delete($policy, $request->user());
 
-        return ApiResponse::success(null, 'Policy draft hata diya gaya');
+        return ApiResponse::success(null, 'Policy draft removed');
     }
 }

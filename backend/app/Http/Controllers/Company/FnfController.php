@@ -84,12 +84,12 @@ class FnfController extends ApiController
             ->first();
 
         if ($exit === null) {
-            throw new ApiException('Ye exit nahi mila.', 404, 'EXIT_NOT_FOUND');
+            throw new ApiException('That exit was not found.', 404, 'EXIT_NOT_FOUND');
         }
 
         return ApiResponse::created(
             new FnfSettlementResource($this->fnf->open($exit, $request->user())->load('lines')),
-            'Settlement ban gaya — suggestions dekh lo, phir approve karo'
+            'Settlement built — review the suggestions, then approve'
         );
     }
 
@@ -97,7 +97,7 @@ class FnfController extends ApiController
     {
         return ApiResponse::success(
             new FnfSettlementResource($this->fnf->calculate($fnfSettlement, $request->user())->load('lines')),
-            'Settlement dobara calculate ho gaya'
+            'Settlement recalculated'
         );
     }
 
@@ -117,7 +117,7 @@ class FnfController extends ApiController
 
         return ApiResponse::success(
             new FnfSettlementResource($settlement),
-            $data['is_applied'] ? 'Line lagaa di gayi' : 'Line hata di gayi'
+            $data['is_applied'] ? 'Line applied' : 'Line removed'
         );
     }
 
@@ -133,7 +133,7 @@ class FnfController extends ApiController
 
         return ApiResponse::created(
             new FnfSettlementResource($this->fnf->addLine($fnfSettlement, $data, $request->user())),
-            'Line add ho gayi'
+            'Line added'
         );
     }
 
@@ -141,7 +141,7 @@ class FnfController extends ApiController
     {
         return ApiResponse::success(
             new FnfSettlementResource($this->fnf->removeLine($fnfLine, $request->user())),
-            'Line hata di gayi'
+            'Line removed'
         );
     }
 
@@ -149,7 +149,7 @@ class FnfController extends ApiController
     {
         return ApiResponse::success(
             new FnfSettlementResource($this->fnf->approve($fnfSettlement, $request->user())->load('lines')),
-            'Settlement approve ho gaya — ab paisa bheja ja sakta hai'
+            'Settlement approved — the money can now be paid'
         );
     }
 
@@ -162,8 +162,8 @@ class FnfController extends ApiController
 
         $result = $this->fnf->approveMany($data['uuids'], $request->user());
 
-        return ApiResponse::success($result, $result['approved'] . ' settlement approve ho gaye'
-            . (count($result['skipped']) > 0 ? ', ' . count($result['skipped']) . ' chhod diye' : ''));
+        return ApiResponse::success($result, $result['approved'] . ' settlements approved'
+            . (count($result['skipped']) > 0 ? ', ' . count($result['skipped']) . ' skipped' : ''));
     }
 
     public function hold(Request $request, FnfSettlement $fnfSettlement): JsonResponse
@@ -174,7 +174,7 @@ class FnfController extends ApiController
 
         return ApiResponse::success(
             new FnfSettlementResource($this->fnf->hold($fnfSettlement, $data['reason'] ?? null, $request->user())),
-            'Settlement stop kar diya'
+            'Settlement put on stop'
         );
     }
 
@@ -182,7 +182,7 @@ class FnfController extends ApiController
     {
         return ApiResponse::success(
             new FnfSettlementResource($this->fnf->release($fnfSettlement, $request->user())),
-            'Stop hata diya'
+            'Stop removed'
         );
     }
 
@@ -190,7 +190,7 @@ class FnfController extends ApiController
     {
         return ApiResponse::success(
             new FnfSettlementResource($this->fnf->cancel($fnfSettlement, $request->user())),
-            'Settlement cancel ho gaya'
+            'Settlement cancelled'
         );
     }
 
@@ -198,7 +198,7 @@ class FnfController extends ApiController
     {
         return ApiResponse::success(
             new FnfSettlementResource($this->fnf->markRecovered($fnfSettlement, $request->user())),
-            'Recovery poori maan li gayi'
+            'Recovery marked as complete'
         );
     }
 
@@ -253,8 +253,8 @@ class FnfController extends ApiController
         if ($verification !== null && ! $verification->isVerified()) {
             return ApiResponse::success([
                 'verification' => $this->verifications->describe($verification),
-            ], 'Safety ke liye code ' . $verification->sent_masked
-                . ' par bheja gaya. Settlement bhejne ke liye wahi code daalo.', 202);
+            ], 'For safety, a code ' . $verification->sent_masked
+                . '. Enter that code to release the settlement.', 202);
         }
 
         $disbursement = $this->transfers->transferSettlement(
@@ -277,8 +277,8 @@ class FnfController extends ApiController
                 'failure_reason' => $disbursement->failure_reason,
             ],
         ], $disbursement->isSuccess()
-            ? 'Settlement ka paisa bhej diya gaya'
-            : 'Transfer poora nahi hua — ' . ($disbursement->failure_reason ?? 'bank ne mana kiya'));
+            ? 'The settlement has been paid'
+            : 'The transfer did not complete — ' . ($disbursement->failure_reason ?? 'bank ne mana kiya'));
     }
 
     public function mine(Request $request): JsonResponse

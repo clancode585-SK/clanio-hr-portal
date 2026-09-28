@@ -47,7 +47,7 @@ class InvoiceController extends ApiController
 
     public function summary(Request $request): JsonResponse
     {
-        $base = $this->scoped($request);
+        $base = $this->withinRange($this->scoped($request), $request);
 
         $collected = (clone $base)->where('status', Invoice::STATUS_PAID)->sum('total');
         $awaited = (clone $base)->where('status', Invoice::STATUS_PENDING)->sum('total');
@@ -116,6 +116,14 @@ class InvoiceController extends ApiController
             new InvoiceResource($updated->load('company')),
             'Invoice ' . $updated->invoice_number . ' cancelled'
         );
+    }
+
+    /** Dashboard ka filter — from/to na aaye to poora data */
+    private function withinRange(Builder $query, Request $request): Builder
+    {
+        return $query
+            ->when($request->filled('from'), fn (Builder $q) => $q->whereDate('issued_at', '>=', $request->string('from')))
+            ->when($request->filled('to'), fn (Builder $q) => $q->whereDate('issued_at', '<=', $request->string('to')));
     }
 
     private function scoped(Request $request): Builder

@@ -25,6 +25,6 @@ class OkrVerifyRequest extends FormRequest
 
     public function messages(): array
     {
-        return ['achieved_value.required' => 'Kitna achieve kiya wo number dena zaroori hai.'];
+        return ['achieved_value.required' => 'A number for what was achieved is required.'];
     }
 }

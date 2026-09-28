@@ -13,6 +13,7 @@ import { ApiError, api, apiList } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { downloadFile } from '@/lib/download'
 import { useResource } from '@/lib/useResource'
+import { useSheetFrame } from '@/lib/useSheetFrame'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -80,6 +81,7 @@ const moveTo: Record<string, { value: string; label: string }[]> = {
 
 export default function OpeningDetailScreen() {
   const theme = useTheme()
+  const sheetFrame = useSheetFrame()
   const insets = useSafeAreaInsets()
   const { can } = useAuth()
   const { uuid } = useLocalSearchParams<{ uuid: string }>()

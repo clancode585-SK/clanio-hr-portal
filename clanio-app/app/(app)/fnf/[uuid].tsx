@@ -14,6 +14,7 @@ import { formatDate } from '@/lib/clock'
 import { downloadFile } from '@/lib/download'
 import { Money } from '@/lib/money'
 import { useResource } from '@/lib/useResource'
+import { useSheetFrame } from '@/lib/useSheetFrame'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -23,6 +24,7 @@ type Quote = Record<string, any>
 
 export default function FnfDetailScreen() {
   const theme = useTheme()
+  const sheetFrame = useSheetFrame()
   const insets = useSafeAreaInsets()
   const { uuid } = useLocalSearchParams<{ uuid: string }>()
   const { can } = useAuth()
@@ -102,7 +104,7 @@ export default function FnfDetailScreen() {
     const given = figure === undefined ? undefined : Number(figure)
 
     if (given !== undefined && (!Number.isFinite(given) || given < 0)) {
-      setProblem('Amount theek se daalo.')
+      setProblem('Enter a valid amount.')
 
       return
     }
@@ -165,7 +167,7 @@ export default function FnfDetailScreen() {
     const figure = Number(amount)
 
     if (name.trim().length < 2) {
-      found.name = 'Kis cheez ki deduction hai, likho.'
+      found.name = 'Say what this deduction is for.'
     }
 
     if (!Number.isFinite(figure) || figure <= 0) {
@@ -253,7 +255,7 @@ export default function FnfDetailScreen() {
     await act(
       `/fnf-settlements/${uuid}/hold`,
       { reason: stopReason.trim() || null },
-      'Settlement stop kar diya.'
+      'Settlement put on stop.'
     )
 
     setStopReason('')
@@ -340,7 +342,7 @@ export default function FnfDetailScreen() {
         {settlement.owes_company ? (
           <Notice
             tone="warning"
-            title="Employee par paisa baaki hai"
+            title="The employee still owes money"
             message={`${Money.rupee(settlement.recoverable)} recover karna hai. Transfer nahi hoga.`}
           />
         ) : null}
@@ -348,8 +350,8 @@ export default function FnfDetailScreen() {
         {settlement.is_stopped ? (
           <Notice
             tone="danger"
-            title="Ye settlement stop par hai"
-            message={settlement.hold_reason ?? 'HR ne roka hai. Stop hatane tak approve aur transfer dono band.'}
+            title="This settlement is on stop"
+            message={settlement.hold_reason ?? 'HR has put this on hold. Approval and transfer stay blocked until it is released.'}
           />
         ) : null}
 
@@ -407,8 +409,8 @@ export default function FnfDetailScreen() {
 
             <Notice
               tone="info"
-              title="Ye apne aap nahi katega"
-              message="Tool ne bas nikaal ke dikhaya hai. Jab tak aap Apply nahi karoge, amount zero rahega."
+              title="This is not deducted automatically"
+              message="These are only suggestions. The amount stays zero until you apply them."
             />
 
             {suggestions.map((line) => (
@@ -477,7 +479,7 @@ export default function FnfDetailScreen() {
             <Button
               label="Calculate again"
               variant="secondary"
-              onPress={() => void act(`/fnf-settlements/${uuid}/calculate`, undefined, 'Dobara calculate ho gaya.')}
+              onPress={() => void act(`/fnf-settlements/${uuid}/calculate`, undefined, 'Recalculated.')}
               disabled={busy}
               fullWidth
             />
@@ -489,17 +491,17 @@ export default function FnfDetailScreen() {
             <Button
               label="Stop hatao"
               variant="secondary"
-              onPress={() => void act(`/fnf-settlements/${uuid}/release`, undefined, 'Stop hata diya.')}
+              onPress={() => void act(`/fnf-settlements/${uuid}/release`, undefined, 'Stop removed.')}
               disabled={busy}
               fullWidth
             />
           ) : (
             <View style={styles.lines}>
               <Field
-                label="Settlement rokna hai kyunki"
+                label="Holding the settlement because"
                 value={stopReason}
                 onChangeText={setStopReason}
-                placeholder="Laptop wapas aane tak"
+                placeholder="Until the laptop comes back"
                 editable={!busy}
               />
               <Button
@@ -517,12 +519,12 @@ export default function FnfDetailScreen() {
           <>
             <Notice
               tone="info"
-              title="Approve ke baad amount lock ho jaayega"
-              message="Sujhaav lagana ya hatana, dono band ho jaayenge. Pehle sab check kar lo."
+              title="The amount locks once you approve"
+              message="Suggestions can no longer be applied or removed. Check everything first."
             />
             <Button
               label="Approve this settlement"
-              onPress={() => void act(`/fnf-settlements/${uuid}/approve`, undefined, 'Approve ho gaya.')}
+              onPress={() => void act(`/fnf-settlements/${uuid}/approve`, undefined, 'Approved.')}
               loading={busy}
               fullWidth
             />
@@ -549,8 +551,8 @@ export default function FnfDetailScreen() {
         {canPay && quote?.is_mock ? (
           <Notice
             tone="warning"
-            title="Test bank laga hai"
-            message="Asli paisa kahin nahi jaayega. Bank ki detail .env me daalne ke baad asli transfer hoga."
+            title="A test bank is wired up"
+            message="No real money moves. Add the bank details in .env to make transfers real."
           />
         ) : null}
 
@@ -565,12 +567,12 @@ export default function FnfDetailScreen() {
         ) : null}
 
         {canPay && quote && !quote.can_transfer ? (
-          <Notice tone="danger" title="Abhi nahi bhej sakte" message={(quote.blockers ?? []).join(' ')} />
+          <Notice tone="danger" title="Cannot send yet" message={(quote.blockers ?? []).join(' ')} />
         ) : null}
 
         {settlement.owes_company && settlement.status === 'approved' && canApprove ? (
           <Button
-            label="Paisa mil gaya — settle karo"
+            label="Money received — settle it"
             onPress={() =>
               void act(`/fnf-settlements/${uuid}/mark-recovered`, undefined, 'Recovery poori maan li.')
             }
@@ -585,7 +587,7 @@ export default function FnfDetailScreen() {
           <Button
             label="Cancel this settlement"
             variant="secondary"
-            onPress={() => void act(`/fnf-settlements/${uuid}/cancel`, undefined, 'Cancel kar diya.')}
+            onPress={() => void act(`/fnf-settlements/${uuid}/cancel`, undefined, 'Cancelled.')}
             disabled={busy}
             fullWidth
           />
@@ -595,7 +597,7 @@ export default function FnfDetailScreen() {
       <Modal visible={editing !== null} transparent animationType="slide" onRequestClose={closeLine}>
         <Pressable style={styles.backdrop} onPress={closeLine} />
 
-        <View style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
+        <View style={[styles.sheet, sheetFrame, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
           <View style={[styles.sheetHead, { borderBottomColor: theme.line }]}>
             <Text numberOfLines={1} style={[styles.sheetTitle, { color: theme.ink }]}>
               {editing?.name ?? ''}
@@ -658,7 +660,7 @@ export default function FnfDetailScreen() {
       <Modal visible={adding} transparent animationType="slide" onRequestClose={() => setAdding(false)}>
         <Pressable style={styles.backdrop} onPress={() => setAdding(false)} />
 
-        <View style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
+        <View style={[styles.sheet, sheetFrame, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
           <View style={[styles.sheetHead, { borderBottomColor: theme.line }]}>
             <Text style={[styles.sheetTitle, { color: theme.ink }]}>Add a deduction</Text>
             <Pressable onPress={() => setAdding(false)} hitSlop={10}>

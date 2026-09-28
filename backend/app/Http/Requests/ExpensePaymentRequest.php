@@ -36,8 +36,8 @@ class ExpensePaymentRequest extends FormRequest
     {
         return [
             'payment_mode.required' => 'Payment ka mode chuno — bank transfer, UPI, cash ya payroll.',
-            'paid_on.before_or_equal' => 'Payment ki date aane wale din ki nahi ho sakti.',
-            'claims.required' => 'Kaunsi claims pay karni hain wo bhejo.',
+            'paid_on.before_or_equal' => 'The payment date cannot be in the future.',
+            'claims.required' => 'Send which claims to pay.',
         ];
     }
 }

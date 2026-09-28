@@ -27,7 +27,7 @@ class RegularizationRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'attendance_date.before_or_equal' => 'Aane wale din ki regularization nahi hoti.',
+            'attendance_date.before_or_equal' => 'Attendance cannot be regularised for a future date.',
             'requested_check_in.date_format' => 'Time 24 ghante ke format mein do — jaise 09:30',
             'requested_check_out.date_format' => 'Time 24 ghante ke format mein do — jaise 18:45',
             'reason.min' => 'Reason thoda detail mein likho.',

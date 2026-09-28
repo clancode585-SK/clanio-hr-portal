@@ -32,7 +32,7 @@ class ExpenseBillController extends ApiController
     {
         return ApiResponse::created(
             new ExpenseBillResource($this->expenses->addBill($claim, $request->file('bill'), $request->user())),
-            'Bill upload ho gaya'
+            'Bill uploaded'
         );
     }
 
@@ -40,7 +40,7 @@ class ExpenseBillController extends ApiController
     {
         $this->expenses->deleteBill($bill, $request->user());
 
-        return ApiResponse::success(null, 'Bill hata diya');
+        return ApiResponse::success(null, 'Bill removed');
     }
 
     public function download(Request $request, ExpenseBill $bill): StreamedResponse
@@ -48,7 +48,7 @@ class ExpenseBillController extends ApiController
         $claim = ExpenseClaim::query()->visibleTo($request->user())->whereKey($bill->expense_claim_id)->first();
 
         if ($claim === null) {
-            throw new ApiException('Ye bill aap nahi dekh sakte.', 404, 'RESOURCE_NOT_FOUND');
+            throw new ApiException('You cannot view this bill.', 404, 'RESOURCE_NOT_FOUND');
         }
 
         return $this->expenses->downloadBill($bill);

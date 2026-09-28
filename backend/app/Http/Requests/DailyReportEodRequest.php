@@ -32,7 +32,7 @@ class DailyReportEodRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'eod_summary.required_without' => 'Summary likho ya kam se kam ek kaam add karo.',
+            'eod_summary.required_without' => 'Write a summary, or add at least one item of work.',
         ];
     }
 }

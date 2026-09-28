@@ -35,7 +35,7 @@ class StatutoryReturnService
             }
 
             if (blank($item->uan_number)) {
-                $skipped[] = $item->employee_code . ' — UAN nahi hai';
+                $skipped[] = $item->employee_code . ' — no UAN';
 
                 continue;
             }
@@ -113,7 +113,7 @@ class StatutoryReturnService
             }
 
             if (blank($item->esic_number)) {
-                $skipped[] = $item->employee_code . ' — ESIC number nahi hai';
+                $skipped[] = $item->employee_code . ' — no ESIC number';
 
                 continue;
             }
@@ -250,12 +250,12 @@ class StatutoryReturnService
             ->first(['id', 'status']);
 
         if ($run === null) {
-            throw new ApiException('Is mahine ka payroll nahi chala.', 404, 'RUN_NOT_FOUND');
+            throw new ApiException('Payroll was not run for this month.', 404, 'RUN_NOT_FOUND');
         }
 
         if (! in_array($run->status, [PayrollRun::APPROVED, PayrollRun::PAID], true)) {
             throw new ApiException(
-                'Ye payroll abhi approve nahi hua — return approve hone ke baad hi banta hai.',
+                'This payroll is not approved yet — the return is built only after approval.',
                 409,
                 'RUN_NOT_APPROVED'
             );

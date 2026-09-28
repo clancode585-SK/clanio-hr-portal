@@ -56,12 +56,12 @@ class TicketRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'category_id.required' => 'Category chunna zaroori hai.',
+            'category_id.required' => 'A category is required.',
             'subject.required' => 'Subject likho.',
             'message.required' => 'Problem detail me likho.',
-            'resolution_note.required' => 'Kya kiya wo likhna zaroori hai.',
-            'body.required' => 'Message khali nahi ho sakta.',
-            'user_id.required' => 'Kis ko assign karna hai wo chuno.',
+            'resolution_note.required' => 'Say what was done.',
+            'body.required' => 'The message cannot be empty.',
+            'user_id.required' => 'Choose who to assign it to.',
         ];
     }
 }

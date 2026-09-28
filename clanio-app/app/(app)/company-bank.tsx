@@ -11,6 +11,7 @@ import { useAuth } from '@/lib/auth'
 import { formatShortDateTime } from '@/lib/clock'
 import { Money } from '@/lib/money'
 import { useResource } from '@/lib/useResource'
+import { useSheetFrame } from '@/lib/useSheetFrame'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -30,6 +31,7 @@ type Statement = {
 
 export default function CompanyBankScreen() {
   const theme = useTheme()
+  const sheetFrame = useSheetFrame()
   const insets = useSafeAreaInsets()
   const { can } = useAuth()
 
@@ -67,11 +69,11 @@ export default function CompanyBankScreen() {
     const found: Record<string, string> = {}
 
     if (form.label.trim().length < 2) {
-      found.label = 'Isko koi naam do, jaise Salary account'
+      found.label = 'Give it a name, such as Salary account'
     }
 
     if (form.account_holder_name.trim().length < 3) {
-      found.account_holder_name = 'Account par jo naam hai wahi'
+      found.account_holder_name = 'Exactly as it appears on the account'
     }
 
     if (form.bank_name.trim().length < 3) {
@@ -79,11 +81,11 @@ export default function CompanyBankScreen() {
     }
 
     if (form.account_number.trim().length < 6) {
-      found.account_number = 'Poora account number daalo'
+      found.account_number = 'Enter the full account number'
     }
 
     if (!/^[A-Za-z]{4}0[A-Za-z0-9]{6}$/.test(form.ifsc_code.trim())) {
-      found.ifsc_code = 'IFSC aise hota hai — ICIC0000456'
+      found.ifsc_code = 'An IFSC looks like ICIC0000456'
     }
 
     setErrors(found)
@@ -111,7 +113,7 @@ export default function CompanyBankScreen() {
 
       setForm(blank())
       closeAdd()
-      setDone('Account add ho gaya. Isse salary jaayegi.')
+      setDone('Account added. Salary will go out from this one.')
       await record.refresh()
     } catch (caught) {
       if (caught instanceof ApiError && Object.keys(caught.fields).length > 0) {
@@ -153,7 +155,7 @@ export default function CompanyBankScreen() {
     const amount = Number(topUp)
 
     if (!Number.isFinite(amount) || amount <= 0) {
-      setProblem('Amount zero se zyada hona chahiye.')
+      setProblem('Amount must be more than zero.')
 
       return
     }
@@ -212,13 +214,13 @@ export default function CompanyBankScreen() {
         {done ? <Notice tone="success" title="Done" message={done} /> : null}
 
         {record.data.is_mock ? (
-          <Notice tone="warning" title="Test bank laga hai" message={record.data.note ?? ''} />
+          <Notice tone="warning" title="A test bank is wired up" message={record.data.note ?? ''} />
         ) : null}
 
         {accounts.length === 0 ? (
           <EmptyState
             title="No company account yet"
-            message="Salary isi account se jaayegi. Ek add karo, phir payroll approve karke bhej sakte ho."
+            message="Salary goes out from this account. Add one, then approve payroll and pay."
             action={canManage ? { label: 'Add an account', onPress: () => setAdding(true) } : undefined}
           />
         ) : null}
@@ -257,7 +259,7 @@ export default function CompanyBankScreen() {
       <Modal visible={adding} transparent animationType="slide" onRequestClose={closeAdd}>
         <Pressable style={styles.backdrop} onPress={closeAdd} />
 
-        <View style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
+        <View style={[styles.sheet, sheetFrame, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
           <View style={[styles.grab, { backgroundColor: theme.line }]} />
 
           <ScrollView style={styles.sheetBody} keyboardShouldPersistTaps="handled">
@@ -284,7 +286,7 @@ export default function CompanyBankScreen() {
       <Modal visible={open !== null} transparent animationType="slide" onRequestClose={() => setOpen(null)}>
         <Pressable style={styles.backdrop} onPress={() => setOpen(null)} />
 
-        <View style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
+        <View style={[styles.sheet, sheetFrame, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
           <View style={[styles.sheetHead, { borderBottomColor: theme.line }]}>
             <Text style={[styles.sheetTitle, { color: theme.ink, marginBottom: 0 }]}>{open?.label ?? ''}</Text>
             <Pressable onPress={() => setOpen(null)} hitSlop={10}>
@@ -320,7 +322,7 @@ export default function CompanyBankScreen() {
                 <Text style={[styles.blockTitle, { color: theme.inkMuted }]}>Statement</Text>
 
                 {(statement?.transactions ?? []).length === 0 ? (
-                  <Notice tone="info" title="Nothing yet" message="Jab salary jaayegi, har transfer yahan dikhega." />
+                  <Notice tone="info" title="Nothing yet" message="Every transfer shows up here once salary goes out." />
                 ) : null}
 
                 {(statement?.transactions ?? []).map((row) => (

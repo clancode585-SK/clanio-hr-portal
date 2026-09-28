@@ -12,6 +12,7 @@ import { useAuth } from '@/lib/auth'
 import { today } from '@/lib/clock'
 import { Money } from '@/lib/money'
 import { useResource } from '@/lib/useResource'
+import { useSheetFrame } from '@/lib/useSheetFrame'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -20,6 +21,7 @@ type Preview = Record<string, any>
 
 export default function EmployeeSalaryScreen() {
   const theme = useTheme()
+  const sheetFrame = useSheetFrame()
   const insets = useSafeAreaInsets()
   const { uuid } = useLocalSearchParams<{ uuid: string }>()
   const { can } = useAuth()
@@ -153,7 +155,7 @@ export default function EmployeeSalaryScreen() {
         {structures.length === 0 ? (
           <EmptyState
             title="No salary structure yet"
-            message="Iske bina payroll me ye employee nahi aayega. Annual CTC daalo, baaki breakup khud ban jaayega."
+            message="Without this the employee is left out of payroll. Enter the annual CTC and the breakup builds itself."
             action={canManage ? { label: 'Set the salary', onPress: () => setOpen(true) } : undefined}
           />
         ) : null}
@@ -218,7 +220,7 @@ export default function EmployeeSalaryScreen() {
       <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
         <Pressable style={styles.backdrop} onPress={close} />
 
-        <View style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
+        <View style={[styles.sheet, sheetFrame, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
           <View style={[styles.grab, { backgroundColor: theme.line }]} />
 
           <ScrollView style={styles.sheetBody} keyboardShouldPersistTaps="handled">

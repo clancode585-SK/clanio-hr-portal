@@ -41,9 +41,9 @@ class AttendanceRegularization extends Model
     public const TYPES = [self::MISSING_PUNCH, self::MISSING_CHECKOUT, self::SHORT_HOURS, self::WRONG_TIME];
 
     public const TYPE_LABELS = [
-        self::MISSING_PUNCH => 'Punch hi nahi laga',
-        self::MISSING_CHECKOUT => 'Check-in hai, check-out nahi',
-        self::SHORT_HOURS => 'Ghante kam hain',
+        self::MISSING_PUNCH => 'No punch was recorded',
+        self::MISSING_CHECKOUT => 'Checked in, not checked out',
+        self::SHORT_HOURS => 'Not enough hours',
         self::WRONG_TIME => 'Time galat laga tha',
     ];
 

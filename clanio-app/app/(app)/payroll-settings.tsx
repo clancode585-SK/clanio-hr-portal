@@ -71,7 +71,7 @@ export default function PayrollSettingsScreen() {
     const review = Number(reviewDay)
 
     if (!Number.isInteger(day) || day < 1 || day > 28) {
-      found.salary_pay_day = '1 se 28 ke beech koi date do'
+      found.salary_pay_day = 'Pick a date between 1 and 28'
     }
 
     if (!/^\d{2}:\d{2}$/.test(payTime.trim())) {
@@ -79,7 +79,7 @@ export default function PayrollSettingsScreen() {
     }
 
     if (!Number.isInteger(review) || review < 1 || review > 28) {
-      found.payroll_review_day = '1 se 28 ke beech koi date do'
+      found.payroll_review_day = 'Pick a date between 1 and 28'
     }
 
     setErrors(found)
@@ -108,7 +108,7 @@ export default function PayrollSettingsScreen() {
         },
       })
 
-      setDone('Settings save ho gayi.')
+      setDone('Settings saved.')
       await record.refresh()
     } catch (caught) {
       setProblem(caught instanceof ApiError ? caught.message : 'Could not save the settings.')
@@ -136,7 +136,7 @@ export default function PayrollSettingsScreen() {
   const meaning = record.data.meaning
 
   return (
-    <Screen title="Payroll Settings" subtitle="Salary kab aur kaise jaati hai">
+    <Screen title="Payroll Settings" subtitle="When and how salary goes out">
       <ScrollView
         contentContainerStyle={styles.scroll}
         refreshControl={
@@ -150,15 +150,15 @@ export default function PayrollSettingsScreen() {
         {!canEdit ? (
           <Notice
             tone="info"
-            title="Sirf dekh sakte ho"
-            message="Ye settings badalne ka haq admin ke paas hai."
+            title="View only"
+            message="Only an admin can change these settings."
           />
         ) : null}
 
         <Text style={[styles.section, { color: theme.inkMuted }]}>Salary ka din</Text>
 
         <Field
-          label="Deduction date (mahine ki tarikh)"
+          label="Deduction date (day of the month)"
           value={payDay}
           onChangeText={setPayDay}
           placeholder="7"
@@ -192,7 +192,7 @@ export default function PayrollSettingsScreen() {
         <Text style={[styles.section, { color: theme.inkMuted }]}>Paise ki safety</Text>
 
         <Toggle
-          label="Bhejne se pehle code maango"
+          label="Ask for a code before sending"
           value={codeOn}
           onChange={setCodeOn}
           hint={meaning.transfer_otp_enabled}
@@ -204,14 +204,14 @@ export default function PayrollSettingsScreen() {
           value={codeTo}
           options={[
             { value: 'admin', label: 'Admin ke email par', hint: 'Jo salary bhejne ka haq rakhta hai' },
-            { value: 'account', label: 'Bank account ke email par', hint: 'Company bank account me jo email diya hai' },
+            { value: 'account', label: 'Bank account ke email par', hint: 'The email saved on the company bank account' },
           ]}
           onChange={(value) => setCodeTo(value ?? 'admin')}
           disabled={!canEdit || busy}
         />
 
         <Toggle
-          label="Pay date se pehle transfer band"
+          label="Transfers blocked before the pay date"
           value={earlyBlock}
           onChange={setEarlyBlock}
           hint={meaning.transfer_early_block}
@@ -221,7 +221,7 @@ export default function PayrollSettingsScreen() {
         <Text style={[styles.section, { color: theme.inkMuted }]}>Full and final</Text>
 
         <Toggle
-          label="Gratuity dena hai"
+          label="Pay gratuity"
           value={gratuity}
           onChange={setGratuity}
           hint={meaning.gratuity_enabled}
@@ -229,7 +229,7 @@ export default function PayrollSettingsScreen() {
         />
 
         <Toggle
-          label="Bachi chhutti ka paisa dena hai"
+          label="Pay out the unused leave balance"
           value={encashment}
           onChange={setEncashment}
           hint={meaning.encashment_enabled}

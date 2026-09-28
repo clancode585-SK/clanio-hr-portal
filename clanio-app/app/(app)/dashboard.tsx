@@ -6,7 +6,7 @@ import { Screen } from '@/components/Screen'
 import { SetupChecklist } from '@/components/SetupChecklist'
 import { Icon } from '@/components/ui/Icon'
 import { Notice } from '@/components/ui/Notice'
-import { api, apiList } from '@/lib/api'
+import { ApiError, api, apiList } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { blocksFor, personaGreetings, personaLabels, personaOf, type Block } from '@/lib/dashboard'
 import { visibleSections } from '@/lib/nav'
@@ -71,7 +71,7 @@ export default function DashboardScreen() {
     }
   }, [])
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (fresh = false) => {
     const ticket = ++run.current
 
     setCounts({})
@@ -79,7 +79,7 @@ export default function DashboardScreen() {
 
     // Ek hi call me sab — pehle har tile apni API maarti thi
     try {
-      const result = await api<{ counts: Record<string, number> }>('/dashboard')
+      const result = await api<{ counts: Record<string, number> }>(fresh ? '/dashboard?fresh=1' : '/dashboard')
 
       if (run.current === ticket) {
         const next: Counts = {}
@@ -93,7 +93,16 @@ export default function DashboardScreen() {
 
         return
       }
-    } catch {
+    } catch (caught) {
+      // Net hi nahi mila to 27 alag call bhejne ka koi fayda nahi — wo bhi wahi fail hongi
+      if (caught instanceof ApiError && (caught.isNetwork || caught.status >= 500)) {
+        if (run.current === ticket) {
+          setRefreshing(false)
+        }
+
+        return
+      }
+
       // Purana tarika fallback — ek endpoint band ho to dashboard khaali na rahe
     }
 
@@ -115,20 +124,33 @@ export default function DashboardScreen() {
   useEffect(() => {
     void load()
   }, [load, companyId, profile?.id])
-  const sections = visibleSections(can)
+  const sections = visibleSections(can, profile?.roles?.[0]?.slug)
   const shortcuts = sections.flatMap((section) => section.items).slice(0, 8)
 
-  const toneOf = (block: Block, value: number | null) => {
-    if (value === null || value === 0) {
-      return theme.inkSubtle
+  // Icon ka rang tile ke tone se — sab neela hone par dashboard flat lagta tha
+  const hueOf = (block: Block) => {
+    if (block.tone === 'danger') return { ink: theme.danger, soft: theme.dangerSoft }
+    if (block.tone === 'warning') return { ink: theme.warning, soft: theme.warningSoft }
+    if (block.tone === 'success') return { ink: theme.success, soft: theme.successSoft }
+
+    return { ink: theme.brand, soft: theme.brandSoft }
+  }
+
+  const grouped = useMemo(() => {
+    const order: string[] = []
+    const map = new Map<string, Block[]>()
+
+    for (const block of tiles) {
+      if (!map.has(block.group)) {
+        map.set(block.group, [])
+        order.push(block.group)
+      }
+
+      map.get(block.group)?.push(block)
     }
 
-    if (block.tone === 'danger') return theme.danger
-    if (block.tone === 'warning') return theme.warning
-    if (block.tone === 'success') return theme.success
-
-    return theme.brand
-  }
+    return order.map((title) => ({ title, items: map.get(title) ?? [] }))
+  }, [tiles])
 
   if (onPlatform) {
     return <PlatformDashboard />
@@ -139,7 +161,7 @@ export default function DashboardScreen() {
       <ScrollView
         contentContainerStyle={styles.scroll}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={load} tintColor={theme.brand} />
+          <RefreshControl refreshing={refreshing} onRefresh={() => void load(true)} tintColor={theme.brand} />
         }
       >
         <View style={[styles.hero, { backgroundColor: theme.brand }]}>
@@ -160,38 +182,53 @@ export default function DashboardScreen() {
 
         {persona === 'admin' || persona === 'hr' ? <SetupChecklist /> : null}
 
-        {tiles.length > 0 ? (
-          <View style={styles.grid}>
-            {tiles.map((block) => {
-              const value = counts[block.key] ?? null
-              const pending = !(block.key in counts)
-              const tone = toneOf(block, value)
+        {grouped.map((section) => (
+          <View key={section.title} style={styles.section}>
+            <Text style={[styles.sectionTitle, { color: theme.ink }]}>{section.title}</Text>
 
-              return (
-                <Pressable
-                  key={block.key}
-                  onPress={() => router.push(block.href as never)}
-                  style={({ pressed }) => [
-                    styles.tile,
-                    { backgroundColor: pressed ? theme.canvas : theme.surface, borderColor: theme.line },
-                  ]}
-                >
-                  <View style={styles.tileHead}>
-                    <View style={[styles.tileIcon, { backgroundColor: theme.brandSoft }]}>
-                      <Icon name={block.icon} size={18} color={theme.brand} />
+            <View style={styles.grid}>
+              {section.items.map((block) => {
+                const value = counts[block.key] ?? null
+                const pending = !(block.key in counts)
+                const hue = hueOf(block)
+                const live = !pending && value !== null && value > 0
+
+                return (
+                  <Pressable
+                    key={block.key}
+                    onPress={() => router.push(block.href as never)}
+                    style={({ pressed }) => [
+                      styles.tile,
+                      {
+                        backgroundColor: pressed ? theme.canvas : theme.surface,
+                        borderColor: live ? hue.soft : theme.line,
+                      },
+                    ]}
+                  >
+                    <View style={styles.tileHead}>
+                      <Icon name={block.icon} size={22} color={hue.ink} />
+
+                      {live ? (
+                        <View style={[styles.pill, { backgroundColor: hue.soft }]}>
+                          <Text style={[styles.pillText, { color: hue.ink }]}>{value}</Text>
+                        </View>
+                      ) : (
+                        <Text style={[styles.zero, { color: theme.inkSubtle }]}>
+                          {pending ? '·' : value === null ? '—' : 0}
+                        </Text>
+                      )}
                     </View>
-                    <Text style={[styles.tileValue, { color: pending ? theme.line : tone }]}>
-                      {pending ? '·' : value === null ? '—' : value}
-                    </Text>
-                  </View>
 
-                  <Text style={[styles.tileLabel, { color: theme.ink }]}>{block.label}</Text>
-                  <Text style={[styles.tileHint, { color: theme.inkSubtle }]}>{block.hint}</Text>
-                </Pressable>
-              )
-            })}
+                    <Text style={[styles.tileLabel, { color: theme.ink }]}>{block.label}</Text>
+                    <Text numberOfLines={2} style={[styles.tileHint, { color: theme.inkSubtle }]}>
+                      {block.hint}
+                    </Text>
+                  </Pressable>
+                )
+              })}
+            </View>
           </View>
-        ) : null}
+        ))}
 
         {tiles.length === 0 ? (
           <Notice
@@ -253,6 +290,14 @@ const styles = StyleSheet.create({
     fontSize: font.sm,
     opacity: 0.9,
   },
+  section: {
+    gap: spacing.md,
+  },
+  sectionTitle: {
+    fontSize: font.lg,
+    fontWeight: '800',
+    letterSpacing: -0.4,
+  },
   grid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -260,36 +305,44 @@ const styles = StyleSheet.create({
   },
   tile: {
     flexGrow: 1,
-    flexBasis: '46%',
+    flexBasis: '45%',
+    minHeight: 132,
     borderWidth: 1,
-    borderRadius: radius.lg,
+    borderRadius: radius.xl,
     padding: spacing.lg,
-    gap: 3,
   },
   tileHead: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     justifyContent: 'space-between',
-    marginBottom: spacing.sm,
+    marginBottom: spacing.md,
   },
-  tileIcon: {
-    width: 34,
-    height: 34,
-    borderRadius: radius.md,
+  pill: {
+    minWidth: 26,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: radius.pill,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  tileValue: {
-    fontSize: 26,
+  pillText: {
+    fontSize: font.sm,
     fontWeight: '800',
-    letterSpacing: -0.8,
+  },
+  zero: {
+    fontSize: font.sm,
+    fontWeight: '700',
+    paddingTop: 3,
   },
   tileLabel: {
     fontSize: font.md,
     fontWeight: '700',
+    letterSpacing: -0.2,
+    marginBottom: 3,
   },
   tileHint: {
     fontSize: font.xs,
+    lineHeight: 16,
   },
   group: {
     fontSize: font.xs,

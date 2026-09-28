@@ -139,7 +139,7 @@ final class TransferVerificationService
             ->first();
 
         if ($verification === null) {
-            throw new ApiException('Ye code wali request nahi mili. Dobara code mangao.', 404, 'VERIFICATION_NOT_FOUND');
+            throw new ApiException('No request was found for that code. Ask for a new one.', 404, 'VERIFICATION_NOT_FOUND');
         }
 
         if (! $verification->matches(
@@ -149,15 +149,15 @@ final class TransferVerificationService
             $subject['settlement_id'] ?? null,
             (string) $subject['action']
         )) {
-            throw new ApiException('Ye code kisi dusri request ka hai.', 422, 'VERIFICATION_MISMATCH');
+            throw new ApiException('That code belongs to a different request.', 422, 'VERIFICATION_MISMATCH');
         }
 
         if ($verification->status === TransferVerification::CONSUMED) {
-            throw new ApiException('Ye code already use ho chuka hai.', 409, 'VERIFICATION_USED');
+            throw new ApiException('That code has already been used.', 409, 'VERIFICATION_USED');
         }
 
         if (! $verification->isUsable()) {
-            throw new ApiException('Code ka time nikal gaya. Naya code mangao.', 410, 'VERIFICATION_EXPIRED');
+            throw new ApiException('The code has expired. Ask for a new one.', 410, 'VERIFICATION_EXPIRED');
         }
 
         if ($verification->triesLeft() <= 0) {
@@ -173,8 +173,8 @@ final class TransferVerificationService
 
             throw new ApiException(
                 $left > 0
-                    ? 'Code galat hai. ' . $left . ' koshish bachi hai.'
-                    : 'Code galat hai aur koshish khatam. Naya code mangao.',
+                    ? 'That code is wrong. ' . $left . ' attempts left.'
+                    : 'The code is wrong and no attempts are left. Ask for a new one.',
                 422,
                 'VERIFICATION_WRONG'
             );
@@ -187,7 +187,7 @@ final class TransferVerificationService
             $verification->forceFill(['status' => TransferVerification::CANCELLED])->save();
 
             throw new ApiException(
-                'Code mangne ke baad amount badal gaya hai — safety ke liye roka. Dobara code mangao.',
+                'The amount changed after the code was issued, so this was blocked. Ask for a new code.',
                 409,
                 'VERIFICATION_STALE'
             );
@@ -221,9 +221,9 @@ final class TransferVerificationService
 
         $this->notifications->send($target['user'], [
             'type' => NotificationType::TRANSFER_CODE,
-            'title' => 'Salary release ka code aapke email par gaya',
+            'title' => 'The salary release code has been emailed to you',
             'body' => $actor->name . ' ne ₹' . Money::indian($verification->amount, 2)
-                . ' release karne ke liye code manga hai. Code sirf aapke email me hai.',
+                . ' A code has been requested to release this. The code goes only to your email.',
             'action_url' => '/payroll',
             'entity_type' => 'transfer_verification',
             'entity_id' => $verification->id,
@@ -281,7 +281,7 @@ final class TransferVerificationService
         $company = Company::query()->withoutGlobalScopes()->find($companyId);
 
         if ($company === null) {
-            throw new ApiException('Company record nahi mila.', 404, 'NOT_FOUND');
+            throw new ApiException('Company record not found.', 404, 'NOT_FOUND');
         }
 
         return $company;

@@ -28,8 +28,8 @@ class ExitDocumentRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'file.required' => 'Letter ki file upload karni zaroori hai.',
-            'file.max' => 'File 5 MB se badi nahi honi chahiye.',
+            'file.required' => 'The letter file must be uploaded.',
+            'file.max' => 'The file must not be larger than 5 MB.',
         ];
     }
 }

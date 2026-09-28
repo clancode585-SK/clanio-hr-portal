@@ -71,7 +71,7 @@ final class GoalService
         $this->assertOwnerOrManager($goal, $actor);
 
         if ($goal->isClosed()) {
-            throw new ApiException('Band goal edit nahi hoti.', 409, 'GOAL_CLOSED');
+            throw new ApiException('A closed goal cannot be edited.', 409, 'GOAL_CLOSED');
         }
 
         return DB::transaction(function () use ($goal, $data, $actor): PerformanceGoal {
@@ -117,8 +117,8 @@ final class GoalService
         $goal = $goal->refresh()->load('employee.user', 'keyResults');
 
         $this->notifyEmployee($goal, $actor, NotificationType::GOAL_APPROVED,
-            'Goal approve ho gaya',
-            $goal->title . ' — ab ye track hoga.');
+            'Goal approved',
+            $goal->title . ' — this is now being tracked.');
 
         return $goal;
     }
@@ -129,19 +129,19 @@ final class GoalService
 
         if ($goal->isObjective()) {
             throw new ApiException(
-                'Objective ka progress khud nahi lagta — key results se banta hai.',
+                'Progress on an objective cannot be set by hand — it comes from the key results.',
                 409,
                 'GOAL_PROGRESS_DERIVED'
             );
         }
 
         if ($goal->isClosed()) {
-            throw new ApiException('Band goal ka progress nahi badalta.', 409, 'GOAL_CLOSED');
+            throw new ApiException('Progress cannot be changed on a closed goal.', 409, 'GOAL_CLOSED');
         }
 
         if ($goal->tracksTasks()) {
             throw new ApiException(
-                'Is goal ka progress linked tasks se banta hai, manually nahi.',
+                'Progress on this goal comes from its linked tasks, not by hand.',
                 409,
                 'GOAL_PROGRESS_DERIVED'
             );
@@ -167,14 +167,14 @@ final class GoalService
 
         if (! $goal->isActive()) {
             throw new ApiException(
-                'Sirf active goal submit hota hai — abhi ' . $goal->status . '.',
+                'Only an active goal can be submitted — currently ' . $goal->status . '.',
                 409,
                 'GOAL_WRONG_STAGE'
             );
         }
 
         if ($goal->isFinalised()) {
-            throw new ApiException('Ye already final ho chuka hai.', 409, 'OKR_ALREADY_FINALISED');
+            throw new ApiException('This is already finalised.', 409, 'OKR_ALREADY_FINALISED');
         }
 
         $value = (float) $data['achieved_value'];
@@ -202,7 +202,7 @@ final class GoalService
 
         if (! $goal->isSubmitted()) {
             throw new ApiException(
-                'Pehle employee submit karega — abhi ' . $goal->verificationLabel() . '.',
+                'The employee submits it first — currently ' . $goal->verificationLabel() . '.',
                 409,
                 'OKR_WRONG_STAGE'
             );
@@ -228,8 +228,8 @@ final class GoalService
         $goal = $goal->refresh()->load('employee.user');
 
         $this->notifyEmployee($goal, $actor, NotificationType::OKR_VERIFIED,
-            'Manager ne aapka OKR verify kar diya',
-            $goal->title . ' — ab HR final karegi.');
+            'Your manager has verified your OKR',
+            $goal->title . ' — HR will finalise it now.');
         $this->notifyHr($goal, $actor);
 
         return $goal;
@@ -241,7 +241,7 @@ final class GoalService
 
         if (! $goal->isManagerVerified()) {
             throw new ApiException(
-                'Pehle manager verify karega — abhi ' . $goal->verificationLabel() . '.',
+                'A manager verifies it first — currently ' . $goal->verificationLabel() . '.',
                 409,
                 'OKR_WRONG_STAGE'
             );
@@ -270,7 +270,7 @@ final class GoalService
         app(RecognitionService::class)->autoForGoal($goal, $actor);
 
         $this->notifyEmployee($goal, $actor, NotificationType::OKR_FINALISED,
-            'Aapka OKR final ho gaya',
+            'Your OKR has been finalised',
             $goal->title . ' — achievement ' . $goal->achievement_percent . '%');
 
         return $goal;
@@ -291,13 +291,13 @@ final class GoalService
             return;
         }
 
-        throw new ApiException('Ye OKR aapka nahi hai.', 403, 'FORBIDDEN');
+        throw new ApiException('This OKR is not yours.', 403, 'FORBIDDEN');
     }
 
     private function assertCanVerify(PerformanceGoal $goal, User $actor): void
     {
         if ((int) $goal->employee->user_id === (int) $actor->id && ! $actor->isSuperAdmin()) {
-            throw new ApiException('Apna OKR khud verify nahi kar sakte.', 403, 'OKR_SELF_VERIFY');
+            throw new ApiException('You cannot verify your own OKR.', 403, 'OKR_SELF_VERIFY');
         }
 
         if ($actor->isSuperAdmin()
@@ -310,7 +310,7 @@ final class GoalService
             return;
         }
 
-        throw new ApiException('Aap is OKR ko verify nahi kar sakte.', 403, 'FORBIDDEN');
+        throw new ApiException('You cannot verify this OKR.', 403, 'FORBIDDEN');
     }
 
     private function assertPermission(User $actor, string $permission, string $what): void
@@ -319,7 +319,7 @@ final class GoalService
             return;
         }
 
-        throw new ApiException('Aapke paas ' . $what . ' ka haq nahi hai.', 403, 'FORBIDDEN');
+        throw new ApiException('Aapke paas ' . $what . ' is not permitted.', 403, 'FORBIDDEN');
     }
 
     private function notifyVerifier(PerformanceGoal $goal, User $actor): void
@@ -356,7 +356,7 @@ final class GoalService
         $this->notifications->sendMany($recipients, [
             'type' => NotificationType::OKR_VERIFIED,
             'title' => ($goal->employee->user?->name ?? $goal->employee->employee_code) . ' ka OKR final karna hai',
-            'body' => 'Manager verify kar chuka hai — ' . $goal->manager_value . ' / ' . $goal->target_value,
+            'body' => 'The manager has verified it — ' . $goal->manager_value . ' / ' . $goal->target_value,
             'action_url' => '/goals/' . $goal->uuid,
             'entity_type' => 'performance_goal',
             'entity_id' => $goal->id,
@@ -370,7 +370,7 @@ final class GoalService
         $this->assertCanApprove($goal, $actor);
 
         if ($goal->isClosed()) {
-            throw new ApiException('Ye goal already band hai.', 409, 'GOAL_CLOSED');
+            throw new ApiException('This goal is already closed.', 409, 'GOAL_CLOSED');
         }
 
         $status = $data['status'] ?? ($goal->progress_percent >= 100
@@ -388,7 +388,7 @@ final class GoalService
         $goal = $goal->refresh()->load('employee.user', 'keyResults');
 
         $this->notifyEmployee($goal, $actor, NotificationType::GOAL_CLOSED,
-            'Goal band ho gaya — ' . $status,
+            'Goal closed — ' . $status,
             $goal->title . ' · ' . $goal->progress_percent . '% complete');
 
         return $goal;
@@ -399,7 +399,7 @@ final class GoalService
         $this->assertOwnerOrManager($goal, $actor);
 
         if (! $goal->isDraft()) {
-            throw new ApiException('Approve hone ke baad goal hata nahi sakte, cancel karo.', 409, 'GOAL_WRONG_STAGE');
+            throw new ApiException('An approved goal cannot be deleted — cancel it instead.', 409, 'GOAL_WRONG_STAGE');
         }
 
         DB::transaction(function () use ($goal): void {
@@ -533,15 +533,15 @@ final class GoalService
         $parent = PerformanceGoal::query()->whereKey((int) $data['parent_id'])->first();
 
         if ($parent === null || (int) $parent->employee_id !== (int) $employee->id) {
-            throw new ApiException('Parent objective nahi mila.', 422, 'GOAL_PARENT_INVALID');
+            throw new ApiException('Parent objective not found.', 422, 'GOAL_PARENT_INVALID');
         }
 
         if (! $parent->isObjective()) {
-            throw new ApiException('Key result sirf Objective ke andar aata hai.', 422, 'GOAL_PARENT_INVALID');
+            throw new ApiException('A key result can only sit under an objective.', 422, 'GOAL_PARENT_INVALID');
         }
 
         if ($type !== PerformanceGoal::TYPE_KEY_RESULT) {
-            throw new ApiException('Parent sirf key result ke liye deta hai.', 422, 'GOAL_TYPE_INVALID');
+            throw new ApiException('A parent is only given for a key result.', 422, 'GOAL_TYPE_INVALID');
         }
 
         return $parent;
@@ -551,7 +551,7 @@ final class GoalService
     {
         if ($type === PerformanceGoal::TYPE_KEY_RESULT && $parent === null) {
             throw new ApiException(
-                'Key result ke liye parent objective dena zaroori hai.',
+                'A key result needs a parent objective.',
                 422,
                 'GOAL_PARENT_REQUIRED'
             );
@@ -559,7 +559,7 @@ final class GoalService
 
         if ($type === PerformanceGoal::TYPE_OBJECTIVE && ($data['progress_source'] ?? null) === PerformanceGoal::SOURCE_TASKS) {
             throw new ApiException(
-                'Objective ka progress key results se banta hai, tasks se nahi.',
+                'Progress on an objective comes from its key results, not from tasks.',
                 422,
                 'GOAL_PROGRESS_DERIVED'
             );
@@ -569,7 +569,7 @@ final class GoalService
             && ($data['progress_source'] ?? PerformanceGoal::SOURCE_MANUAL) === PerformanceGoal::SOURCE_MANUAL
             && ! isset($data['target_value'])) {
             throw new ApiException(
-                'Key result measurable hona chahiye — target value do ya tasks link karo.',
+                'A key result must be measurable — give a target value or link tasks.',
                 422,
                 'GOAL_TARGET_REQUIRED'
             );
@@ -591,7 +591,7 @@ final class GoalService
 
         if ($total > 100) {
             throw new ApiException(
-                'Weight ka total 100 se zyada ho gaya (abhi ' . $total . '%).',
+                'The weights add up to more than 100 (currently ' . $total . '%).',
                 422,
                 'GOAL_WEIGHT_EXCEEDED'
             );
@@ -608,7 +608,7 @@ final class GoalService
 
         if (count($valid) !== count(array_unique($taskIds))) {
             throw new ApiException(
-                'Sirf isi employee ko assign kiye hue tasks link ho sakte hain.',
+                'Only tasks assigned to this employee can be linked.',
                 422,
                 'GOAL_TASK_INVALID'
             );
@@ -626,7 +626,7 @@ final class GoalService
 
             if ($employee === null) {
                 throw new ApiException(
-                    'Goal ke liye employee record chahiye. HR se onboarding karwao.',
+                    'A goal needs an employee record. Ask HR to complete onboarding.',
                     422,
                     'EMPLOYEE_RECORD_MISSING'
                 );
@@ -645,7 +645,7 @@ final class GoalService
             && ! $actor->isSuperAdmin()
             && ! $actor->hasPermission(AppraisalCycle::MANAGE_PERMISSION)
             && (int) $employee->reporting_manager_id !== (int) $actor->id) {
-            throw new ApiException('Kisi aur ka goal banane ki permission nahi hai.', 403, 'FORBIDDEN');
+            throw new ApiException('You are not allowed to create a goal for someone else.', 403, 'FORBIDDEN');
         }
 
         return $employee;
@@ -665,13 +665,13 @@ final class GoalService
             return;
         }
 
-        throw new ApiException('Ye goal aapka nahi hai.', 403, 'FORBIDDEN');
+        throw new ApiException('This goal is not yours.', 403, 'FORBIDDEN');
     }
 
     private function assertCanApprove(PerformanceGoal $goal, User $actor): void
     {
         if ((int) $goal->employee->user_id === (int) $actor->id && ! $actor->isSuperAdmin()) {
-            throw new ApiException('Apna goal khud approve nahi kar sakte.', 403, 'GOAL_SELF_APPROVAL');
+            throw new ApiException('You cannot approve your own goal.', 403, 'GOAL_SELF_APPROVAL');
         }
 
         if ($actor->isSuperAdmin() || $actor->hasPermission(AppraisalCycle::MANAGE_PERMISSION)) {
@@ -682,7 +682,7 @@ final class GoalService
             return;
         }
 
-        throw new ApiException('Aap is goal par decision nahi le sakte.', 403, 'FORBIDDEN');
+        throw new ApiException('You cannot decide on this goal.', 403, 'FORBIDDEN');
     }
 
     private function clamp(int $value): int

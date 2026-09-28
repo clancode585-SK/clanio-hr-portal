@@ -42,7 +42,7 @@ class SalaryTransferController extends ApiController
             'provider' => BankManager::driver()->name(),
             'is_mock' => BankManager::isMock(),
             'note' => BankManager::isMock()
-                ? 'Abhi test wala bank laga hai — asli paisa kahin nahi jaata. .env me BANK_DRIVER badal kar asli bank lagega.'
+                ? 'A test bank is wired up — no real money moves. Change BANK_DRIVER in .env to use a real bank.'
                 : null,
         ], 'Company bank accounts fetched successfully');
     }
@@ -65,8 +65,8 @@ class SalaryTransferController extends ApiController
             'is_primary' => ['nullable', 'boolean'],
             'balance' => ['nullable', 'numeric', 'min:0'],
         ], [
-            'ifsc_code.regex' => 'IFSC aise hota hai — HDFC0000123.',
-            'account_number.unique' => 'Ye account already add hua hai.',
+            'ifsc_code.regex' => 'An IFSC looks like HDFC0000123.',
+            'account_number.unique' => 'That account has already been added.',
         ]);
 
         $account = new CompanyBankAccount($data);
@@ -121,7 +121,7 @@ class SalaryTransferController extends ApiController
 
         if ($used) {
             throw new ApiException(
-                'Is account se salary ja chuki hai — record ke liye ise rakhna padega.',
+                'Salary has already gone out from this account — it must be kept for the record.',
                 409,
                 'ACCOUNT_IN_USE'
             );
@@ -241,8 +241,8 @@ class SalaryTransferController extends ApiController
             'disbursement' => new SalaryDisbursementResource($disbursement),
             'payslip' => new PayrollItemResource($payrollItem->refresh()->load('lines', 'run')),
         ], $disbursement->isSuccess()
-            ? $payrollItem->employee_name . ' ko salary bhej di gayi'
-            : 'Transfer fail hua — ' . ($disbursement->failure_reason ?? 'bank ne mana kiya'));
+            ? $payrollItem->employee_name . ' paid'
+            : 'The transfer failed — ' . ($disbursement->failure_reason ?? 'bank ne mana kiya'));
     }
 
     public function transferRun(Request $request, PayrollRun $payrollRun): JsonResponse
@@ -283,10 +283,10 @@ class SalaryTransferController extends ApiController
             'skipped_unapproved' => $result['skipped_unapproved'],
             'amount_sent' => $result['amount_sent'],
             'failures' => $result['failures'],
-        ], $result['sent'] . ' salary bhej di gayi'
-            . ($result['failed'] > 0 ? ', ' . $result['failed'] . ' fail hui' : '')
+        ], $result['sent'] . ' salaries paid'
+            . ($result['failed'] > 0 ? ', ' . $result['failed'] . ' failed' : '')
             . ($result['skipped_on_hold'] > 0 ? ', ' . $result['skipped_on_hold'] . ' hold par chhod di' : '')
-            . ($result['skipped_unapproved'] > 0 ? ', ' . $result['skipped_unapproved'] . ' approve nahi thi' : ''));
+            . ($result['skipped_unapproved'] > 0 ? ', ' . $result['skipped_unapproved'] . ' was not approved' : ''));
     }
 
     public function schedule(Request $request, PayrollRun $payrollRun): JsonResponse
@@ -328,7 +328,7 @@ class SalaryTransferController extends ApiController
 
         return ApiResponse::success(
             new PayrollRunResource($run),
-            'Transfer ' . $when->format('d M Y, g:i A') . ' par set kar diya'
+            'Transfer ' . $when->format('d M Y, g:i A') . ' set to'
         );
     }
 
@@ -356,7 +356,7 @@ class SalaryTransferController extends ApiController
     {
         return ApiResponse::success(
             new PayrollRunResource($this->transfers->cancelSchedule($payrollRun, $request->user())),
-            'Schedule hata diya'
+            'Schedule removed'
         );
     }
 
@@ -394,8 +394,8 @@ class SalaryTransferController extends ApiController
     {
         return ApiResponse::success([
             'verification' => $this->verifications->describe($verification),
-        ], 'Safety ke liye code ' . $verification->sent_masked . ' par bheja gaya. '
-            . $what . ' bhejne ke liye wahi code daalo.', 202);
+        ], 'For safety, a code ' . $verification->sent_masked . '. '
+            . $what . ' Enter that code to send it.', 202);
     }
 
     private function keepOnePrimary(CompanyBankAccount $account): void

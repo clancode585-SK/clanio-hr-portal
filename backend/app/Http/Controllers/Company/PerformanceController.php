@@ -60,7 +60,7 @@ class PerformanceController extends ApiController
     {
         return ApiResponse::success(
             $this->performance->updateWeights($request->user(), $request->validated()),
-            'Performance weights update ho gaye'
+            'Performance weights updated'
         );
     }
 
@@ -68,7 +68,7 @@ class PerformanceController extends ApiController
     {
         return ApiResponse::success(
             $this->performance->freeze($request->user(), $this->month($request)),
-            'Month freeze ho gaya — ab ye score nahi badlega'
+            'Month frozen — this score will not change now'
         );
     }
 

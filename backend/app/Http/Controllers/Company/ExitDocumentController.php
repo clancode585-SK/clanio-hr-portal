@@ -39,7 +39,7 @@ class ExitDocumentController extends ApiController
             new ExitDocumentResource(
                 $this->exits->addDocument($exit, $request->validated(), $request->file('file'), $request->user())
             ),
-            'Document issue ho gaya'
+            'Document issued'
         );
     }
 
@@ -56,7 +56,7 @@ class ExitDocumentController extends ApiController
 
         return ApiResponse::created(
             new ExitDocumentResource($this->letters->generate($exit, $data, $request->user())),
-            'Letter ban gaya — preview dekh kar bhej do'
+            'Letter created — preview it, then send'
         );
     }
 
@@ -78,6 +78,6 @@ class ExitDocumentController extends ApiController
     {
         $this->exits->deleteDocument($document, $request->user());
 
-        return ApiResponse::success(null, 'Document hata diya gaya');
+        return ApiResponse::success(null, 'Document removed');
     }
 }

@@ -6,6 +6,7 @@
     "@expo/vector-icons": "^15.0.2",
     "@react-navigation/drawer": "^7.13.8",
     "expo": "~57.0.14",
+    "expo-build-properties": "~57.0.21",
     "expo-clipboard": "~57.0.2",
     "expo-constants": "~57.0.12",
     "expo-device": "~57.0.1",

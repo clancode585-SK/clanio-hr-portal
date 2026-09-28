@@ -16,7 +16,7 @@ class ProcessEmployeeExits extends Command
 {
     protected $signature = 'exits:process';
 
-    protected $description = 'Last working date nikal chuke employees ka login band karta hai';
+    protected $description = 'Disables login for employees whose last working date has passed';
 
     public function __construct(private readonly ExitService $exits)
     {
@@ -49,7 +49,7 @@ class ProcessEmployeeExits extends Command
 
         app(TenantContext::class)->forget();
 
-        $this->info($done . ' employee exit process kiye gaye.');
+        $this->info($done . ' employee exits processed.');
 
         return self::SUCCESS;
     }

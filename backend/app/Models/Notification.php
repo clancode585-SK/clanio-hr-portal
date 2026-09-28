@@ -7,6 +7,7 @@ namespace App\Models;
 use App\Support\Concerns\BelongsToCompany;
 use App\Support\Concerns\HasUuid;
 use App\Support\NotificationType;
+use App\Support\Scopes\CompanyScope;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -44,9 +45,14 @@ class Notification extends Model
         ];
     }
 
+    /**
+     * Notification kisi ek user ka hota hai, company ka nahi. Company scope isko
+     * platform console par chhupa deta tha — super admin ko apni hi notification
+     * nahi dikhti thi. user_id hi asli boundary hai.
+     */
     public function scopeForUser(Builder $query, User $user): Builder
     {
-        return $query->where('user_id', $user->id);
+        return $query->withoutGlobalScope(CompanyScope::class)->where('user_id', $user->id);
     }
 
     public function scopeUnread(Builder $query): Builder

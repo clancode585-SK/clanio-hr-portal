@@ -19,7 +19,7 @@ final class BankManager
 
         if ($class === null) {
             throw new ApiException(
-                'Bank driver "' . $key . '" set nahi hai. .env me BANK_DRIVER theek karo.',
+                'Bank driver "' . $key . '" is not set up. Fix BANK_DRIVER in .env.',
                 500,
                 'BANK_DRIVER_MISSING'
             );

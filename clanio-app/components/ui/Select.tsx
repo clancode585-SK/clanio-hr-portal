@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Icon } from './Icon'
+import { useSheetFrame } from '@/lib/useSheetFrame'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -33,6 +34,7 @@ export function Select({
   disabled = false,
 }: Props) {
   const theme = useTheme()
+  const sheetFrame = useSheetFrame()
   const insets = useSafeAreaInsets()
   const [open, setOpen] = useState(false)
 
@@ -60,7 +62,7 @@ export function Select({
         >
           {current?.label ?? placeholder}
         </Text>
-        <Text style={[styles.caret, { color: theme.inkSubtle }]}>⌄</Text>
+        <Icon name="chevron-down" size={17} color={theme.inkMuted} />
       </Pressable>
 
       {error ? <Text style={[styles.error, { color: theme.danger }]}>{error}</Text> : null}
@@ -71,6 +73,7 @@ export function Select({
         <View
           style={[
             styles.sheet,
+            sheetFrame,
             { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg },
           ]}
         >
@@ -151,10 +154,6 @@ const styles = StyleSheet.create({
   value: {
     flex: 1,
     fontSize: font.md,
-  },
-  caret: {
-    fontSize: font.lg,
-    fontWeight: '700',
   },
   error: {
     fontSize: font.sm,

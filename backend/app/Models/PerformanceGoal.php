@@ -151,10 +151,10 @@ class PerformanceGoal extends Model
     public function verificationLabel(): string
     {
         return match ($this->verification_status) {
-            self::NOT_SUBMITTED => 'Employee ne abhi bheja nahi',
-            self::SUBMITTED => 'Manager verify karega',
-            self::MANAGER_VERIFIED => 'HR final karegi',
-            self::FINALISED => 'Final ho gaya',
+            self::NOT_SUBMITTED => 'The employee has not submitted yet',
+            self::SUBMITTED => 'A manager will verify it',
+            self::MANAGER_VERIFIED => 'HR will finalise it',
+            self::FINALISED => 'Finalised',
             default => (string) $this->verification_status,
         };
     }

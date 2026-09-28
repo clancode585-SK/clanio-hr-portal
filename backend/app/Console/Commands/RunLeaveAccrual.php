@@ -18,7 +18,7 @@ class RunLeaveAccrual extends Command
         {--year= : Kaunsa saal, default current}
         {--carry-forward : Accrual ki jagah pichle saal ka carry forward chalao}';
 
-    protected $description = 'Har company ka monthly leave accrual ya saal ka carry forward chalata hai';
+    protected $description = 'Runs monthly leave accrual and the yearly carry forward for every company';
 
     public function __construct(private readonly LeaveBalanceService $balances)
     {
@@ -37,7 +37,7 @@ class RunLeaveAccrual extends Command
             $actor = $this->systemActor($company->id);
 
             if ($actor === null) {
-                $this->warn($company->name . ' — koi admin nahi mila, skip.');
+                $this->warn($company->name . ' — no admin found, skipped.');
 
                 continue;
             }

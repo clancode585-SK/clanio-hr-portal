@@ -23,13 +23,13 @@ class StatutoryReturnController extends ApiController
         ],
         'esi-return' => [
             'label' => 'ESI Monthly Contribution',
-            'hint' => 'ESIC portal par upload karne wali contribution file',
+            'hint' => 'The contribution file to upload on the ESIC portal',
             'param' => 'month',
             'format' => 'csv',
         ],
         'tds-24q' => [
             'label' => 'Form 24Q Annexure I',
-            'hint' => 'Quarter ki deductee detail — RPU me import karne ke liye',
+            'hint' => 'Deductee details for the quarter — to import into the RPU',
             'param' => 'quarter',
             'format' => 'csv',
         ],
@@ -105,7 +105,7 @@ class StatutoryReturnController extends ApiController
     private function build(Request $request, string $return): array
     {
         if (! array_key_exists($return, self::RETURNS)) {
-            throw new ApiException('Ye return nahi mila.', 404, 'RETURN_UNKNOWN');
+            throw new ApiException('That return was not found.', 404, 'RETURN_UNKNOWN');
         }
 
         $companyId = $this->companyId();
@@ -134,7 +134,7 @@ class StatutoryReturnController extends ApiController
 
         if ($id === null) {
             throw new ApiException(
-                'Return kisi company ka hota hai. X-Company-Id header bhejo.',
+                'Returns belong to a company. Send the X-Company-Id header.',
                 422,
                 'TENANT_REQUIRED'
             );

@@ -38,7 +38,7 @@ class UserPermissionController extends ApiController
     {
         return ApiResponse::success(
             $this->permissions->sync($user, $request->validated()['permissions'], $request->user()),
-            'Permissions update ho gayi'
+            'Permissions updated'
         );
     }
 
@@ -46,7 +46,7 @@ class UserPermissionController extends ApiController
     {
         return ApiResponse::success(
             $this->permissions->reset($user, $request->user()),
-            'Permissions wapas role wali default par aa gayi'
+            'Permissions reset to the role defaults'
         );
     }
 
@@ -62,7 +62,7 @@ class UserPermissionController extends ApiController
     {
         return ApiResponse::success(
             $this->permissions->syncDepartment($department, $request->validated()['permissions'], $request->user()),
-            'Department ki default permissions set ho gayi'
+            'Department default permissions saved'
         );
     }
 
@@ -78,7 +78,7 @@ class UserPermissionController extends ApiController
     {
         return ApiResponse::success(
             $this->permissions->setModules($company, $request->validated()['modules'], $request->user()),
-            'Company modules update ho gaye'
+            'Company modules updated'
         );
     }
 }

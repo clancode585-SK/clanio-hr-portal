@@ -6,6 +6,8 @@ export type NavItem = {
   icon: IconName
   permissions: string[]
   description?: string
+  /** Apne liye wali screen — company admin ko ye nahi chahiye, wo sabka dekhta hai */
+  selfService?: boolean
 }
 
 export type NavSection = {
@@ -69,21 +71,21 @@ export const navSections: NavSection[] = [
         label: 'Payroll',
         icon: 'wallet-outline',
         permissions: ['payroll.view'],
-        description: 'Mahine ki salary calculate karo aur bhejo',
+        description: 'Calculate and pay the monthly salary',
       },
       {
         href: '/fnf',
         label: 'Full & Final',
         icon: 'cash-outline',
         permissions: ['fnf.view'],
-        description: 'Jaane wale ka aakhri hisaab',
+        description: 'The final settlement for someone leaving',
       },
       {
         href: '/advances',
         label: 'Salary Advance',
         icon: 'cash-outline',
         permissions: ['advance.view'],
-        description: 'Advance request, EMI aur baaki amount',
+        description: 'Advance requests, EMI and outstanding amount',
       },
       { href: '/exits', label: 'Resignations', icon: 'exit-outline', permissions: ['exit.approve'] },
       { href: '/clearance', label: 'Clearance', icon: 'checkmark-done-outline', permissions: ['clearance.sign'] },
@@ -138,21 +140,21 @@ export const navSections: NavSection[] = [
         label: 'Salary Components',
         icon: 'layers-outline',
         permissions: ['salary_structure.view'],
-        description: 'Earning aur deduction jinse salary banti hai',
+        description: 'Earnings and deductions that make up the salary',
       },
       {
         href: '/payroll-settings',
         label: 'Payroll Settings',
         icon: 'options-outline',
         permissions: ['payroll.view'],
-        description: 'Salary kis tarikh aur time par jaati hai',
+        description: 'The date and time salary goes out',
       },
       {
         href: '/company-bank',
         label: 'Company Bank',
         icon: 'business-outline',
         permissions: ['company_bank.view'],
-        description: 'Jis account se salary jaati hai',
+        description: 'The account salary is paid from',
       },
       { href: '/roles', label: 'Roles', icon: 'shield-checkmark-outline', permissions: ['role.view'] },
       { href: '/permissions', label: 'Permissions', icon: 'key-outline', permissions: ['user.permission'] },
@@ -167,7 +169,7 @@ export const navSections: NavSection[] = [
         label: 'Reports',
         icon: 'bar-chart-outline',
         permissions: ['report.view'],
-        description: 'Register aur statement — CSV download',
+        description: 'Registers and statements — CSV download',
       },
       { href: '/audit-log', label: 'Audit Log', icon: 'footsteps-outline', permissions: ['audit.view'] },
       { href: '/career-page', label: 'Career Page', icon: 'globe-outline', permissions: ['recruitment.career_page'] },
@@ -179,11 +181,11 @@ export const navSections: NavSection[] = [
     title: 'My Space',
     items: [
       { href: '/notifications', label: 'Notifications', icon: 'notifications-outline', permissions: [] },
-      { href: '/my-attendance', label: 'My Attendance', icon: 'person-outline', permissions: [] },
-      { href: '/my-leave', label: 'My Leave', icon: 'airplane-outline', permissions: [] },
-      { href: '/my-payslips', label: 'My Payslips', icon: 'receipt-outline', permissions: [] },
-      { href: '/my-advance', label: 'Advance Salary', icon: 'cash-outline', permissions: [] },
-      { href: '/my-requests', label: 'My Requests', icon: 'paper-plane-outline', permissions: [] },
+      { href: '/my-attendance', label: 'My Attendance', icon: 'person-outline', permissions: [], selfService: true },
+      { href: '/my-leave', label: 'My Leave', icon: 'airplane-outline', permissions: [], selfService: true },
+      { href: '/my-payslips', label: 'My Payslips', icon: 'receipt-outline', permissions: [], selfService: true },
+      { href: '/my-advance', label: 'Advance Salary', icon: 'cash-outline', permissions: [], selfService: true },
+      { href: '/my-requests', label: 'My Requests', icon: 'paper-plane-outline', permissions: [], selfService: true },
       { href: '/my-policies', label: 'Policies', icon: 'reader-outline', permissions: [] },
       { href: '/profile', label: 'My Profile', icon: 'id-card-outline', permissions: [] },
     ],
@@ -217,13 +219,22 @@ export const platformSections: NavSection[] = [
   },
 ]
 
-export function visibleSections(can: (slug: string) => boolean): NavSection[] {
+export function visibleSections(
+  can: (slug: string) => boolean,
+  role?: string | null
+): NavSection[] {
+  const ownsWorkspace = role === 'company_admin'
+
   return navSections
     .map((section) => ({
       ...section,
-      items: section.items.filter(
-        (item) => item.permissions.length === 0 || item.permissions.some((slug) => can(slug))
-      ),
+      items: section.items.filter((item) => {
+        if (ownsWorkspace && item.selfService === true) {
+          return false
+        }
+
+        return item.permissions.length === 0 || item.permissions.some((slug) => can(slug))
+      }),
     }))
     .filter((section) => section.items.length > 0)
 }

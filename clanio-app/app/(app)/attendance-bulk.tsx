@@ -89,7 +89,7 @@ export default function BulkAttendanceScreen() {
       )
       setChosen([])
     } catch (caught) {
-      setProblem(caught instanceof ApiError ? caught.message : 'Mark nahi ho paaya.')
+      setProblem(caught instanceof ApiError ? caught.message : 'Could not be marked.')
     } finally {
       setBusy(false)
     }
@@ -119,7 +119,7 @@ export default function BulkAttendanceScreen() {
           <RefreshControl refreshing={record.refreshing} onRefresh={record.refresh} tintColor={theme.brand} />
         }
       >
-        {problem ? <Notice tone="danger" title="Nahi ho paaya" message={problem} /> : null}
+        {problem ? <Notice tone="danger" title="That did not work" message={problem} /> : null}
 
         {result !== null ? (
           <Notice
@@ -176,7 +176,7 @@ export default function BulkAttendanceScreen() {
         </Pressable>
 
         {shown.length === 0 ? (
-          <EmptyState title="Koi employee nahi" message="Search badal kar dekho." />
+          <EmptyState title="No employees" message="Try a different search." />
         ) : (
           shown.map((row) => {
             const on = chosen.includes(row.uuid)

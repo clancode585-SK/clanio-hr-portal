@@ -3,6 +3,7 @@ import { useNavigation, useRouter } from 'expo-router'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Icon } from '@/components/ui/Icon'
+import { useUnread } from '@/lib/useUnread'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -19,6 +20,7 @@ export function Screen({ title, subtitle, leading = 'menu', action, children }: 
   const router = useRouter()
   const navigation = useNavigation<{ openDrawer: () => void }>()
   const insets = useSafeAreaInsets()
+  const unread = useUnread()
 
   const onLeading = () => {
     if (leading === 'back') {
@@ -53,14 +55,44 @@ export function Screen({ title, subtitle, leading = 'menu', action, children }: 
           ) : null}
         </View>
 
-        {action ? (
+        <View style={styles.tools}>
           <Pressable
-            onPress={action.onPress}
-            style={({ pressed }) => [styles.action, { backgroundColor: theme.brand, opacity: pressed ? 0.85 : 1 }]}
+            onPress={() => router.push('/employees' as never)}
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.iconButton,
+              { backgroundColor: pressed ? theme.brandSoft : theme.canvas },
+            ]}
           >
-            <Text style={[styles.actionLabel, { color: theme.onBrand }]}>{action.label}</Text>
+            <Icon name="search-outline" size={19} color={theme.inkMuted} />
           </Pressable>
-        ) : null}
+
+          <Pressable
+            onPress={() => router.push('/notifications' as never)}
+            hitSlop={8}
+            style={({ pressed }) => [
+              styles.iconButton,
+              { backgroundColor: pressed ? theme.brandSoft : theme.canvas },
+            ]}
+          >
+            <Icon name="notifications-outline" size={19} color={theme.inkMuted} />
+
+            {unread > 0 ? (
+              <View style={[styles.dot, { backgroundColor: theme.danger, borderColor: theme.surface }]}>
+                <Text style={styles.dotText}>{unread > 9 ? '9+' : unread}</Text>
+              </View>
+            ) : null}
+          </Pressable>
+
+          {action ? (
+            <Pressable
+              onPress={action.onPress}
+              style={({ pressed }) => [styles.action, { backgroundColor: theme.brand, opacity: pressed ? 0.85 : 1 }]}
+            >
+              <Text style={[styles.actionLabel, { color: theme.onBrand }]}>{action.label}</Text>
+            </Pressable>
+          ) : null}
+        </View>
       </View>
 
       <View style={styles.body}>{children}</View>
@@ -86,6 +118,28 @@ const styles = StyleSheet.create({
     borderRadius: radius.md,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  tools: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  dot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    minWidth: 17,
+    height: 17,
+    paddingHorizontal: 4,
+    borderRadius: radius.pill,
+    borderWidth: 2,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  dotText: {
+    color: '#FFFFFF',
+    fontSize: 9,
+    fontWeight: '800',
   },
   titles: {
     flex: 1,

@@ -232,7 +232,7 @@ final class AttendanceService
         });
     }
 
-    // Block mode me hi rokte hain — flag mode me sirf record hota hai
+    // Block mode me hi rokte hain — flag mode me only record hota hai
     private function assertInsideFence(array $fence): void
     {
         if (! $fence['blocked']) {
@@ -242,7 +242,7 @@ final class AttendanceService
         throw new ApiException(
             'Aap ' . $fence['branch'] . ' se ' . GeoFence::humanDistance((int) $fence['distance'])
                 . ' door ho. Office ke ' . GeoFence::humanDistance((int) $fence['radius'])
-                . ' ke andar aakar punch karo.',
+                . ' Come within range and punch again.',
             422,
             'OUTSIDE_GEO_FENCE'
         );
@@ -254,7 +254,7 @@ final class AttendanceService
         $on = Carbon::parse($date);
 
         if ($on->isFuture()) {
-            throw new ApiException('Aane wale din ki attendance nahi mark hoti.', 422, 'DATE_IN_FUTURE');
+            throw new ApiException('Attendance cannot be marked for a future date.', 422, 'DATE_IN_FUTURE');
         }
 
         $employees = Employee::query()
@@ -272,7 +272,7 @@ final class AttendanceService
             if (! $day['is_working_day']) {
                 $skipped[] = [
                     'employee_code' => $employee->employee_code,
-                    'reason' => $day['day_type'] === 'holiday' ? 'Holiday hai' : 'Weekly off hai',
+                    'reason' => $day['day_type'] === 'holiday' ? 'It is a holiday' : 'It is a weekly off',
                 ];
 
                 continue;
@@ -281,7 +281,7 @@ final class AttendanceService
             if ($day['leave_portion'] >= 1) {
                 $skipped[] = [
                     'employee_code' => $employee->employee_code,
-                    'reason' => 'Is din ki leave approve hai',
+                    'reason' => 'Leave is approved for this day',
                 ];
 
                 continue;
@@ -299,7 +299,7 @@ final class AttendanceService
             if ($shift === null) {
                 $skipped[] = [
                     'employee_code' => $employee->employee_code,
-                    'reason' => 'Iska work shift set nahi hai',
+                    'reason' => 'They have no work shift set',
                 ];
 
                 continue;
@@ -599,7 +599,7 @@ final class AttendanceService
 
         if ($day['day_type'] === WorkCalendar::LEAVE) {
             throw new ApiException(
-                'Aaj aapki approved leave hai, attendance nahi lagegi.',
+                'You are on approved leave today, so attendance will not be marked.',
                 409,
                 'ATTENDANCE_ON_LEAVE'
             );

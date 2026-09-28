@@ -12,6 +12,7 @@ import { ApiError, api, apiList } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { money } from '@/lib/plans'
 import { useResource } from '@/lib/useResource'
+import { useSheetFrame } from '@/lib/useSheetFrame'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -58,6 +59,7 @@ const blank: Lists = {
 
 export default function JoiningsScreen() {
   const theme = useTheme()
+  const sheetFrame = useSheetFrame()
   const insets = useSafeAreaInsets()
   const { can } = useAuth()
 

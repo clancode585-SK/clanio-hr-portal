@@ -13,6 +13,7 @@ import { useAuth } from '@/lib/auth'
 import { formatDate } from '@/lib/clock'
 import { Money } from '@/lib/money'
 import { useResource } from '@/lib/useResource'
+import { useSheetFrame } from '@/lib/useSheetFrame'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -35,6 +36,7 @@ const PER_PAGE = 25
 
 export default function AdvancesScreen() {
   const theme = useTheme()
+  const sheetFrame = useSheetFrame()
   const insets = useSafeAreaInsets()
   const { can } = useAuth()
 
@@ -76,7 +78,7 @@ export default function AdvancesScreen() {
       setDone(await run())
       await record.refresh()
     } catch (caught) {
-      setProblem(caught instanceof ApiError ? caught.message : 'Ye nahi ho paaya.')
+      setProblem(caught instanceof ApiError ? caught.message : 'That did not work.')
     } finally {
       setBusy(null)
     }
@@ -158,7 +160,7 @@ export default function AdvancesScreen() {
       if (answer.transfer?.status === 'success') {
         setDone(
           `${row.employee_name} ko ${Money.rupee(row.amount)} bhej diya. `
-          + `EMI ${answer.advance?.start_period ?? 'agle mahine'} se katni shuru hogi.`
+          + `EMI ${answer.advance?.start_period ?? 'next month'} se katni shuru hogi.`
         )
       } else {
         setProblem(answer.transfer?.failure_reason ?? 'Bank ne mana kiya.')
@@ -166,7 +168,7 @@ export default function AdvancesScreen() {
 
       await record.refresh()
     } catch (caught) {
-      const message = caught instanceof ApiError ? caught.message : 'Paisa nahi bhej paaye.'
+      const message = caught instanceof ApiError ? caught.message : 'The money could not be sent.'
 
       if (code !== undefined) {
         setCodeProblem(message)
@@ -209,14 +211,14 @@ export default function AdvancesScreen() {
           <RefreshControl refreshing={record.refreshing} onRefresh={record.refresh} tintColor={theme.brand} />
         }
       >
-        {done ? <Notice tone="success" title="Ho gaya" message={done} /> : null}
-        {problem ? <Notice tone="danger" title="Nahi ho paaya" message={problem} /> : null}
+        {done ? <Notice tone="success" title="Done" message={done} /> : null}
+        {problem ? <Notice tone="danger" title="That did not work" message={problem} /> : null}
 
         <View style={[styles.summary, { backgroundColor: theme.surface, borderColor: theme.line }]}>
           <Cell label="Approval baaki" value={String(summary.pending ?? 0)} />
           <Cell label="Transfer baaki" value={String(summary.awaiting_transfer ?? 0)} />
-          <Cell label="Chal rahe" value={String(summary.running ?? 0)} />
-          <Cell label="Is saal diya" value={Money.rupee(summary.given_this_year ?? 0)} />
+          <Cell label="Running" value={String(summary.running ?? 0)} />
+          <Cell label="Given this year" value={Money.rupee(summary.given_this_year ?? 0)} />
         </View>
 
         {rows.map((row) => (
@@ -249,7 +251,7 @@ export default function AdvancesScreen() {
                   <Stat label="Kist bachi" value={String(row.instalments_left)} />
                 </>
               ) : null}
-              {row.status === 'closed' ? <Stat label="Pura hua" value={Money.rupee(row.recovered)} /> : null}
+              {row.status === 'closed' ? <Stat label="Fully repaid" value={Money.rupee(row.recovered)} /> : null}
             </View>
 
             {row.status === 'disbursed' ? (
@@ -356,11 +358,11 @@ export default function AdvancesScreen() {
 
         {rows.length === 0 ? (
           <EmptyState
-            title="Koi advance nahi"
+            title="No advance"
             message={
               canApprove
-                ? 'Jab koi advance maangega, request yahan aayegi.'
-                : 'Abhi kisi ka advance nahi chal raha.'
+                ? 'When someone asks for an advance, the request lands here.'
+                : 'No advance is running right now.'
             }
           />
         ) : null}
@@ -390,7 +392,7 @@ export default function AdvancesScreen() {
           />
 
           <Field
-            label="Kis mahine se (optional)"
+            label="Starting month (optional)"
             value={startPeriod}
             onChangeText={setStartPeriod}
             placeholder="2026-10"

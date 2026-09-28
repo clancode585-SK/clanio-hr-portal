@@ -37,7 +37,7 @@ class AuthController extends ApiController
     {
         return ApiResponse::success(
             $this->auth->refresh($request->user(), $request),
-            'Session aage badha diya gaya'
+            'Session extended'
         );
     }
 
@@ -51,9 +51,9 @@ class AuthController extends ApiController
         return ApiResponse::success(
             ['revoked' => $count],
             $count === 0
-                ? 'Koi aur device signed in nahi tha'
-                : $count . ' device se sign out kar diya'
-                    . ($keep ? ' — ye wala chalu hai' : '')
+                ? 'No other device was signed in'
+                : $count . ' devices signed out'
+                    . ($keep ? ' — this one is active' : '')
         );
     }
 

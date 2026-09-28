@@ -26,6 +26,6 @@ class ClearanceSignRequest extends FormRequest
 
     public function messages(): array
     {
-        return ['status.required' => 'Status dena zaroori hai — cleared / blocked / not_applicable.'];
+        return ['status.required' => 'A status is required — cleared / blocked / not_applicable.'];
     }
 }

@@ -24,8 +24,8 @@ class ExpenseBillRequest extends FormRequest
     {
         return [
             'bill.required' => 'Bill ki file bhejo.',
-            'bill.max' => 'Bill 10 MB se chhota hona chahiye.',
-            'bill.mimes' => 'Sirf image, PDF, Word ya Excel file chalegi.',
+            'bill.max' => 'A bill must be smaller than 10 MB.',
+            'bill.mimes' => 'Only image, PDF, Word or Excel files are allowed.',
         ];
     }
 }

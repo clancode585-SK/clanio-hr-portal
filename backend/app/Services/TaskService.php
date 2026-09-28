@@ -117,7 +117,7 @@ final class TaskService
         $this->assertMoveAllowed($current, $target);
 
         if ($target === Task::BLOCKED && ($data['blocked_reason'] ?? null) === null) {
-            throw new ApiException('Blocked karne ke liye reason likhna zaroori hai.', 422, 'TASK_REASON_REQUIRED');
+            throw new ApiException('A reason is required to block this.', 422, 'TASK_REASON_REQUIRED');
         }
 
         if ($target === Task::DONE) {
@@ -125,7 +125,7 @@ final class TaskService
 
             if ($open > 0) {
                 throw new ApiException(
-                    $open . ' subtask abhi khuli hai — pehle unhe pura karo.',
+                    $open . ' subtasks are still open — finish them first.',
                     409,
                     'TASK_SUBTASKS_OPEN'
                 );
@@ -158,12 +158,12 @@ final class TaskService
     public function delete(Task $task, User $actor): void
     {
         if (! $task->isOwnedBy($actor) && ! $actor->isSuperAdmin() && ! $actor->hasPermission(Task::DELETE_PERMISSION)) {
-            throw new ApiException('Ye task delete karne ki permission nahi hai.', 403, 'FORBIDDEN');
+            throw new ApiException('You are not allowed to delete this task.', 403, 'FORBIDDEN');
         }
 
         if ($task->status === Task::DONE && ! $actor->isSuperAdmin() && ! $actor->hasPermission(Task::DELETE_PERMISSION)) {
             throw new ApiException(
-                'Complete task delete nahi hoti. Manager se karwao.',
+                'A completed task cannot be deleted. Ask a manager.',
                 409,
                 'TASK_ALREADY_DONE'
             );
@@ -194,7 +194,7 @@ final class TaskService
     public function deleteComment(TaskComment $comment, User $actor): void
     {
         if (! $comment->isAuthor($actor) && ! $actor->isSuperAdmin() && ! $actor->hasPermission(Task::EDIT_PERMISSION)) {
-            throw new ApiException('Sirf apna comment delete kar sakte ho.', 403, 'FORBIDDEN');
+            throw new ApiException('You can only delete your own comment.', 403, 'FORBIDDEN');
         }
 
         $comment->deactivate();
@@ -233,7 +233,7 @@ final class TaskService
     public function deleteAttachment(TaskAttachment $attachment, User $actor): void
     {
         if (! $attachment->isUploader($actor) && ! $actor->isSuperAdmin() && ! $actor->hasPermission(Task::EDIT_PERMISSION)) {
-            throw new ApiException('Sirf apni upload ki hui file hata sakte ho.', 403, 'FORBIDDEN');
+            throw new ApiException('You can only remove a file you uploaded.', 403, 'FORBIDDEN');
         }
 
         DB::transaction(function () use ($attachment): void {
@@ -249,7 +249,7 @@ final class TaskService
     public function downloadAttachment(TaskAttachment $attachment): StreamedResponse
     {
         if (! Storage::disk(self::DISK)->exists($attachment->file_path)) {
-            throw new ApiException('Ye file ab available nahi hai.', 404, 'FILE_MISSING');
+            throw new ApiException('This file is no longer available.', 404, 'FILE_MISSING');
         }
 
         return Storage::disk(self::DISK)->download($attachment->file_path, $attachment->original_name);
@@ -375,19 +375,19 @@ final class TaskService
         $parent = Task::query()->visibleTo($actor)->whereKey($parentId)->first();
 
         if ($parent === null) {
-            throw new ApiException('Parent task nahi mila.', 422, 'TASK_PARENT_INVALID');
+            throw new ApiException('Parent task not found.', 422, 'TASK_PARENT_INVALID');
         }
 
         if ($parent->isSubtask()) {
             throw new ApiException(
-                'Subtask ke andar subtask nahi banti — sirf ek level chalega.',
+                'A subtask cannot hold another subtask — only one level is allowed.',
                 422,
                 'TASK_NESTING_LIMIT'
             );
         }
 
         if ($parent->isClosed()) {
-            throw new ApiException('Band task mein subtask nahi jud sakti.', 409, 'TASK_PARENT_CLOSED');
+            throw new ApiException('A subtask cannot be added to a closed task.', 409, 'TASK_PARENT_CLOSED');
         }
 
         return $parent;
@@ -406,14 +406,14 @@ final class TaskService
 
         if ($assignee === null) {
             throw new ApiException(
-                'Is user ko task assign nahi kar sakte — na aapke scope mein hai, na aapko report karta hai.',
+                'You cannot assign a task to this user — they are neither in your scope nor report to you.',
                 422,
                 'TASK_ASSIGNEE_INVALID'
             );
         }
 
         if (! $assignee->isActive()) {
-            throw new ApiException('Ye user active nahi hai.', 422, 'TASK_ASSIGNEE_INACTIVE');
+            throw new ApiException('This user is not active.', 422, 'TASK_ASSIGNEE_INACTIVE');
         }
 
         return $assignee;
@@ -435,7 +435,7 @@ final class TaskService
             return;
         }
 
-        throw new ApiException('Ye task edit karne ki permission nahi hai.', 403, 'FORBIDDEN');
+        throw new ApiException('You are not allowed to edit this task.', 403, 'FORBIDDEN');
     }
 
     private function assertCanReassign(Task $task, User $actor): void
@@ -447,7 +447,7 @@ final class TaskService
         }
 
         throw new ApiException(
-            'Task dusre ko transfer karne ka haq sirf assign karne wale ka hai.',
+            'Only the person who assigned a task can hand it to someone else.',
             403,
             'TASK_REASSIGN_FORBIDDEN'
         );
@@ -470,7 +470,7 @@ final class TaskService
     {
         $this->notifications->send((int) $task->assignee_id, [
             'type' => NotificationType::TASK_ASSIGNED,
-            'title' => 'Naya task mila: ' . $task->title,
+            'title' => 'New task assigned: ' . $task->title,
             'body' => $this->summary($task),
             'action_url' => '/tasks/' . $task->uuid,
             'entity_type' => 'task',

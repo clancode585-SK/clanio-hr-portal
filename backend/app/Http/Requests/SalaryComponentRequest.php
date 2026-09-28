@@ -45,8 +45,8 @@ class SalaryComponentRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'code.unique' => 'Is code ka component already bana hua hai.',
-            'code.alpha_dash' => 'Code me sirf letter, number, dash aur underscore chalega.',
+            'code.unique' => 'A component with this code already exists.',
+            'code.alpha_dash' => 'A code may only contain letters, numbers, dashes and underscores.',
         ];
     }
 

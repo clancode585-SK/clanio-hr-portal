@@ -44,8 +44,8 @@ class AssetStoreRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'serial_number.unique' => 'Ye serial number already kisi asset par hai.',
-            'category.required' => 'Category chunni zaroori hai.',
+            'serial_number.unique' => 'That serial number is already on another asset.',
+            'category.required' => 'A category is required.',
         ];
     }
 

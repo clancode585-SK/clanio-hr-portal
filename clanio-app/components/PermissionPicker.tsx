@@ -132,7 +132,7 @@ export function PermissionPicker({
               </Pressable>
 
               <Pressable onPress={() => toggleOpen(entry.module)} hitSlop={10} style={styles.chevron}>
-                <Text style={[styles.chevronText, { color: theme.inkSubtle }]}>{expanded ? '⌃' : '⌄'}</Text>
+                <Icon name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={theme.inkMuted} />
               </Pressable>
             </View>
 

@@ -23,8 +23,8 @@ class TaskAttachmentRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'file.max' => 'File 10 MB se badi nahi ho sakti.',
-            'file.mimes' => 'Ye file type allowed nahi hai.',
+            'file.max' => 'The file cannot be larger than 10 MB.',
+            'file.mimes' => 'That file type is not allowed.',
         ];
     }
 }

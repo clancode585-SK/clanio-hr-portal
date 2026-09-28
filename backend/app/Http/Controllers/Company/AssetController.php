@@ -70,7 +70,7 @@ class AssetController extends ApiController
     {
         return ApiResponse::created(
             new AssetResource($this->assets->create($request->validated(), $request->user(), $this->tenantId())),
-            'Asset add ho gaya'
+            'Asset added'
         );
     }
 
@@ -86,7 +86,7 @@ class AssetController extends ApiController
     {
         return ApiResponse::success(
             new AssetResource($this->assets->update($asset, $request->validated(), $request->user())),
-            'Asset update ho gaya'
+            'Asset updated'
         );
     }
 
@@ -94,7 +94,7 @@ class AssetController extends ApiController
     {
         return ApiResponse::created(
             new AssetAllocationResource($this->assets->allocate($asset, $request->validated(), $request->user())),
-            'Asset allocate ho gaya'
+            'Asset allocated'
         );
     }
 
@@ -102,7 +102,7 @@ class AssetController extends ApiController
     {
         return ApiResponse::success(
             new AssetAllocationResource($this->assets->returnAsset($asset, $request->validated(), $request->user())),
-            'Asset wapas mil gaya'
+            'Asset returned'
         );
     }
 
@@ -110,7 +110,7 @@ class AssetController extends ApiController
     {
         return ApiResponse::success(
             new AssetResource($this->assets->retire($asset, $request->validated(), $request->user())),
-            'Asset retire ho gaya'
+            'Asset retired'
         );
     }
 
@@ -126,6 +126,6 @@ class AssetController extends ApiController
     {
         $this->assets->delete($asset, $request->user());
 
-        return ApiResponse::success(null, 'Asset hata diya gaya');
+        return ApiResponse::success(null, 'Asset removed');
     }
 }

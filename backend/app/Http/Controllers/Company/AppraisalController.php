@@ -36,7 +36,7 @@ class AppraisalController extends ApiController
     {
         return ApiResponse::created(
             new AppraisalCycleResource($this->appraisals->createCycle($request->user(), $request->validated())),
-            'Appraisal cycle ban gayi'
+            'Appraisal cycle created'
         );
     }
 
@@ -52,7 +52,7 @@ class AppraisalController extends ApiController
     {
         return ApiResponse::success(
             new AppraisalCycleResource($this->appraisals->updateCycle($cycle, $request->validated(), $request->user())),
-            'Cycle update ho gayi'
+            'Cycle updated'
         );
     }
 
@@ -60,7 +60,7 @@ class AppraisalController extends ApiController
     {
         return ApiResponse::success(
             new AppraisalCycleResource($this->appraisals->launch($cycle, $request->user())),
-            'Cycle launch ho gayi — sabke appraisal ban gaye'
+            'Cycle launched — appraisals created for everyone'
         );
     }
 
@@ -70,7 +70,7 @@ class AppraisalController extends ApiController
             new AppraisalCycleResource(
                 $this->appraisals->advanceCycle($cycle, $request->validated()['status'], $request->user())
             ),
-            'Cycle agle stage par chali gayi'
+            'Cycle moved to the next stage'
         );
     }
 
@@ -127,7 +127,7 @@ class AppraisalController extends ApiController
     {
         return ApiResponse::success(
             new AppraisalResource($this->appraisals->selfReview($appraisal, $request->validated(), $request->user())),
-            'Self review bhej diya gaya'
+            'Self review submitted'
         );
     }
 
@@ -135,7 +135,7 @@ class AppraisalController extends ApiController
     {
         return ApiResponse::success(
             new AppraisalResource($this->appraisals->managerReview($appraisal, $request->validated(), $request->user())),
-            'Manager review ho gaya'
+            'Manager review done'
         );
     }
 
@@ -143,7 +143,7 @@ class AppraisalController extends ApiController
     {
         return ApiResponse::success(
             new AppraisalResource($this->appraisals->finalise($appraisal, $request->validated(), $request->user())),
-            'Final rating de di gayi'
+            'Final rating given'
         );
     }
 }

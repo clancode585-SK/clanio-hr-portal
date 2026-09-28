@@ -48,7 +48,7 @@ final class ExitService
 
         if ($requested !== null && $requested->lessThan($resignationDate)) {
             throw new ApiException(
-                'Last working date resignation date se pehle nahi ho sakti.',
+                'The last working date cannot be before the resignation date.',
                 422,
                 'EXIT_DATE_INVALID'
             );
@@ -89,7 +89,7 @@ final class ExitService
 
         if ($exit->isServingNotice()) {
             throw new ApiException(
-                'HR final approval de chuki hai. Ab withdraw HR hi kar sakti hai.',
+                'HR has already given final approval. Only HR can withdraw it now.',
                 409,
                 'EXIT_WITHDRAW_LOCKED'
             );
@@ -115,7 +115,7 @@ final class ExitService
 
         if (! $exit->isPending()) {
             throw new ApiException(
-                'Ye resignation ab manager stage par nahi hai — abhi ' . $exit->stageLabel() . '.',
+                'This resignation is no longer at the manager stage — currently ' . $exit->stageLabel() . '.',
                 409,
                 'EXIT_WRONG_STAGE'
             );
@@ -134,7 +134,7 @@ final class ExitService
 
         $this->notifyEmployee($exit, $actor, NotificationType::EXIT_MANAGER_APPROVED,
             'Manager ne resignation approve kar di',
-            'Ab HR final approval degi aur last working date set karegi.');
+            'HR will give the final approval and set the last working date.');
         $this->notifyHr($exit, $actor);
 
         return $exit;
@@ -147,8 +147,8 @@ final class ExitService
         if (! $exit->isManagerApproved()) {
             throw new ApiException(
                 $exit->isPending()
-                    ? 'Pehle manager approve karega, tab HR final approval degi.'
-                    : 'Ye resignation ab HR stage par nahi hai — abhi ' . $exit->stageLabel() . '.',
+                    ? 'A manager approves first, then HR gives final approval.'
+                    : 'This resignation is no longer at the HR stage — currently ' . $exit->stageLabel() . '.',
                 409,
                 'EXIT_WRONG_STAGE'
             );
@@ -184,8 +184,8 @@ final class ExitService
         $this->clearance->generateFor($exit, $actor);
 
         $this->notifyEmployee($exit, $actor, NotificationType::EXIT_APPROVED,
-            'Resignation final approve ho gayi',
-            'Last working day ' . $lastWorkingDate->format('d M Y') . '. Us din ke baad login band ho jayega.');
+            'Resignation given final approval',
+            'Last working day ' . $lastWorkingDate->format('d M Y') . '. Login is blocked after that day.');
         $this->notifyManagerOfDecision($exit, $actor);
 
         return $exit->refresh()->load('employee.user', 'manager', 'hr');
@@ -197,7 +197,7 @@ final class ExitService
 
         if (! $exit->isServingNotice()) {
             throw new ApiException(
-                'Sirf notice period ke dauraan hi date badal sakti hai — abhi ' . $exit->stageLabel() . '.',
+                'The date can only change during the notice period — currently ' . $exit->stageLabel() . '.',
                 409,
                 'EXIT_WRONG_STAGE'
             );
@@ -226,8 +226,8 @@ final class ExitService
         });
 
         $this->notifyEmployee($exit, $actor, NotificationType::EXIT_DATE_CHANGED,
-            'Last working date badal gayi',
-            'Pehle ' . $previous?->format('d M Y') . ' thi, ab ' . $lastWorkingDate->format('d M Y') . ' hai.');
+            'Last working date changed',
+            'It was ' . $previous?->format('d M Y') . ', now it is ' . $lastWorkingDate->format('d M Y') . '.');
 
         return $exit;
     }
@@ -268,7 +268,7 @@ final class ExitService
         });
 
         $this->notifyEmployee($exit, $actor, NotificationType::EXIT_REJECTED,
-            'Resignation reject ho gayi',
+            'Resignation rejected',
             $data['reason']);
 
         return $exit;
@@ -280,7 +280,7 @@ final class ExitService
 
         if (! $exit->isServingNotice()) {
             throw new ApiException(
-                'Sirf notice period wali resignation hi complete hoti hai — abhi ' . $exit->stageLabel() . '.',
+                'Only a resignation serving notice can be completed — currently ' . $exit->stageLabel() . '.',
                 409,
                 'EXIT_WRONG_STAGE'
             );
@@ -331,7 +331,7 @@ final class ExitService
 
         if (! $exit->isServingNotice() && ! $exit->isExited()) {
             throw new ApiException(
-                'Final approval ke baad hi letter issue hote hain — abhi ' . $exit->stageLabel() . '.',
+                'Letters are issued only after final approval — currently ' . $exit->stageLabel() . '.',
                 409,
                 'EXIT_WRONG_STAGE'
             );
@@ -388,7 +388,7 @@ final class ExitService
     public function downloadDocument(ExitDocument $document): StreamedResponse
     {
         if (! Storage::disk(self::DISK)->exists($document->file_path)) {
-            throw new ApiException('Ye document ab available nahi hai.', 404, 'FILE_MISSING');
+            throw new ApiException('This document is no longer available.', 404, 'FILE_MISSING');
         }
 
         return Storage::disk(self::DISK)->download($document->file_path, $document->original_name);
@@ -466,7 +466,7 @@ final class ExitService
     private function assertResignationDate(Carbon $date): void
     {
         if ($date->greaterThan(CompanyTime::day())) {
-            throw new ApiException('Resignation date aane wale din ki nahi ho sakti.', 422, 'EXIT_DATE_INVALID');
+            throw new ApiException('The resignation date cannot be in the future.', 422, 'EXIT_DATE_INVALID');
         }
     }
 
@@ -474,7 +474,7 @@ final class ExitService
     {
         if ($date->lessThan($exit->resignation_date)) {
             throw new ApiException(
-                'Last working date resignation date (' . $exit->resignation_date->format('d M Y') . ') se pehle nahi ho sakti.',
+                'Last working date resignation date (' . $exit->resignation_date->format('d M Y') . ').',
                 422,
                 'EXIT_DATE_INVALID'
             );
@@ -482,7 +482,7 @@ final class ExitService
 
         if ($date->lessThan($exit->employee->date_of_joining)) {
             throw new ApiException(
-                'Last working date joining date se pehle nahi ho sakti.',
+                'The last working date cannot be before the joining date.',
                 422,
                 'EXIT_DATE_INVALID'
             );
@@ -492,7 +492,7 @@ final class ExitService
     private function assertNoOpenExit(Employee $employee): void
     {
         if ($employee->isExited()) {
-            throw new ApiException('Ye employee already exit ho chuka hai.', 409, 'EXIT_ALREADY_DONE');
+            throw new ApiException('This employee has already left.', 409, 'EXIT_ALREADY_DONE');
         }
 
         $open = EmployeeExit::query()
@@ -506,7 +506,7 @@ final class ExitService
 
         if ($open) {
             throw new ApiException(
-                'Iski ek resignation already chal rahi hai. Pehle wo close karo.',
+                'A resignation is already running for them. Close it first.',
                 409,
                 'EXIT_ALREADY_OPEN'
             );
@@ -520,7 +520,7 @@ final class ExitService
 
             if ($employee === null) {
                 throw new ApiException(
-                    'Resignation dene ke liye employee record chahiye. HR se baat karo.',
+                    'Resigning needs an employee record. Talk to HR.',
                     422,
                     'EMPLOYEE_RECORD_MISSING'
                 );
@@ -530,7 +530,7 @@ final class ExitService
         }
 
         if (! $actor->isSuperAdmin() && ! $actor->hasPermission(EmployeeExit::APPROVE_PERMISSION)) {
-            throw new ApiException('Kisi aur ki resignation daalne ki permission nahi hai.', 403, 'FORBIDDEN');
+            throw new ApiException('You are not allowed to raise a resignation for someone else.', 403, 'FORBIDDEN');
         }
 
         $employee = Employee::query()->with('user')->visibleTo($actor)->whereKey($employeeId)->first();
@@ -548,13 +548,13 @@ final class ExitService
             return;
         }
 
-        throw new ApiException('Ye resignation aapki nahi hai.', 403, 'FORBIDDEN');
+        throw new ApiException('This resignation is not yours.', 403, 'FORBIDDEN');
     }
 
     private function assertCanApproveAsManager(EmployeeExit $exit, User $actor): void
     {
         if ((int) $exit->employee->user_id === (int) $actor->id && ! $actor->isSuperAdmin()) {
-            throw new ApiException('Apni resignation khud approve nahi kar sakte.', 403, 'EXIT_SELF_APPROVAL');
+            throw new ApiException('You cannot approve your own resignation.', 403, 'EXIT_SELF_APPROVAL');
         }
 
         if ($actor->isSuperAdmin() || $actor->hasPermission(EmployeeExit::APPROVE_PERMISSION)) {
@@ -565,7 +565,7 @@ final class ExitService
             return;
         }
 
-        throw new ApiException('Aap is resignation par decision nahi le sakte.', 403, 'FORBIDDEN');
+        throw new ApiException('You cannot decide on this resignation.', 403, 'FORBIDDEN');
     }
 
     private function assertPermission(User $actor, string $permission, string $what): void
@@ -574,7 +574,7 @@ final class ExitService
             return;
         }
 
-        throw new ApiException('Aapke paas ' . $what . ' ka haq nahi hai.', 403, 'FORBIDDEN');
+        throw new ApiException('Aapke paas ' . $what . ' is not permitted.', 403, 'FORBIDDEN');
     }
 
     private function flush(): void
@@ -615,7 +615,7 @@ final class ExitService
         $this->notifications->sendMany($recipients, [
             'type' => NotificationType::EXIT_HR_PENDING,
             'title' => $this->employeeName($exit) . ' ka exit final approval chahiye',
-            'body' => 'Manager approve kar chuka hai. Last working date set karni hai.',
+            'body' => 'The manager has approved. The last working date still needs to be set.',
             'action_url' => '/exits/' . $exit->uuid,
             'entity_type' => 'employee_exit',
             'entity_id' => $exit->id,
@@ -680,8 +680,8 @@ final class ExitService
 
         $this->notifications->sendMany($recipients, [
             'type' => NotificationType::EXIT_WITHDRAWN,
-            'title' => $this->employeeName($exit) . ' ne resignation wapas le li',
-            'body' => 'Ab koi action nahi chahiye.',
+            'title' => $this->employeeName($exit) . ' ne resignation returned le li',
+            'body' => 'No action is needed now.',
             'action_url' => '/exits/' . $exit->uuid,
             'entity_type' => 'employee_exit',
             'entity_id' => $exit->id,
@@ -707,7 +707,7 @@ final class ExitService
         $this->notifications->sendMany($recipients, [
             'type' => NotificationType::EXIT_COMPLETED,
             'title' => $this->employeeName($exit) . ' exit ho gaya',
-            'body' => 'Login band kar diya gaya. Record history mein rahega.',
+            'body' => 'Login has been disabled. The record stays in history.',
             'action_url' => '/exits/' . $exit->uuid,
             'entity_type' => 'employee_exit',
             'entity_id' => $exit->id,
@@ -722,8 +722,8 @@ final class ExitService
             $exit,
             $actor,
             NotificationType::EXIT_DOCUMENT_ISSUED,
-            $document->typeLabel() . ' issue ho gaya',
-            'HR ne ' . $document->typeLabel() . ' upload kar diya hai.'
+            $document->typeLabel() . ' issued',
+            'HR ne ' . $document->typeLabel() . ' uploaded.'
         );
     }
 

@@ -75,7 +75,7 @@ class PerformanceGoalController extends ApiController
     {
         return ApiResponse::created(
             new PerformanceGoalResource($this->goals->create($request->user(), $request->validated())),
-            'Goal ban gaya — manager approve karega'
+            'Goal created — a manager will approve it'
         );
     }
 
@@ -93,7 +93,7 @@ class PerformanceGoalController extends ApiController
     {
         return ApiResponse::success(
             new PerformanceGoalResource($this->goals->update($goal, $request->validated(), $request->user())),
-            'Goal update ho gaya'
+            'Goal updated'
         );
     }
 
@@ -101,7 +101,7 @@ class PerformanceGoalController extends ApiController
     {
         return ApiResponse::success(
             new PerformanceGoalResource($this->goals->approve($goal, $request->user())),
-            'Goal approve ho gaya'
+            'Goal approved'
         );
     }
 
@@ -109,7 +109,7 @@ class PerformanceGoalController extends ApiController
     {
         return ApiResponse::success(
             new PerformanceGoalResource($this->goals->updateProgress($goal, $request->validated(), $request->user())),
-            'Progress update ho gaya'
+            'Progress updated'
         );
     }
 
@@ -117,7 +117,7 @@ class PerformanceGoalController extends ApiController
     {
         return ApiResponse::success(
             new PerformanceGoalResource($this->goals->submit($goal, $request->validated(), $request->user())),
-            'OKR submit ho gaya — ab manager verify karega'
+            'OKR submitted — a manager will verify it'
         );
     }
 
@@ -125,7 +125,7 @@ class PerformanceGoalController extends ApiController
     {
         return ApiResponse::success(
             new PerformanceGoalResource($this->goals->verify($goal, $request->validated(), $request->user())),
-            'Verify ho gaya — ab HR final karegi'
+            'Verified — HR will finalise it'
         );
     }
 
@@ -133,7 +133,7 @@ class PerformanceGoalController extends ApiController
     {
         return ApiResponse::success(
             new PerformanceGoalResource($this->goals->finalise($goal, $request->validated(), $request->user())),
-            'OKR final ho gaya — achievement lock'
+            'OKR finalised — the achievement is locked'
         );
     }
 
@@ -154,7 +154,7 @@ class PerformanceGoalController extends ApiController
     {
         return ApiResponse::success(
             new PerformanceGoalResource($this->goals->close($goal, $request->validated(), $request->user())),
-            'Goal band ho gaya'
+            'Goal closed'
         );
     }
 
@@ -162,6 +162,6 @@ class PerformanceGoalController extends ApiController
     {
         $this->goals->delete($goal, $request->user());
 
-        return ApiResponse::success(null, 'Goal hata diya gaya');
+        return ApiResponse::success(null, 'Goal removed');
     }
 }

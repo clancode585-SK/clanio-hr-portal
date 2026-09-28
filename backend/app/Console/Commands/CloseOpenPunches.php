@@ -20,9 +20,9 @@ use Illuminate\Support\Carbon;
 
 class CloseOpenPunches extends Command
 {
-    protected $signature = 'attendance:auto-checkout {--stale-only : Sirf pichle dino ki khuli punch band karo}';
+    protected $signature = 'attendance:auto-checkout {--stale-only : Only close punches left open on earlier days}';
 
-    protected $description = 'Bhooli hui check-out band karta hai taaki agle din check-in na atke';
+    protected $description = 'Closes forgotten check-outs so the next day\'s check-in is not blocked';
 
     private const MAX_HOURS = 12;
 
@@ -90,7 +90,7 @@ class CloseOpenPunches extends Command
 
         app(TenantContext::class)->forget();
 
-        $this->info($closed . ' khuli punch band ki gayi.');
+        $this->info($closed . ' open punches closed.');
 
         return self::SUCCESS;
     }
@@ -133,9 +133,9 @@ class CloseOpenPunches extends Command
 
         $this->notifications->send((int) $employee->user_id, [
             'type' => NotificationType::ATTENDANCE_AUTO_CHECKOUT,
-            'title' => 'Check-out nahi laga tha — system ne band kar diya',
+            'title' => 'No check-out was recorded — the system closed it',
             'body' => $checkIn->format('d M Y') . ' ka punch ' . $closeAt->format('h:i A')
-                . ' par band kiya gaya. Galat ho to regularization bhej do.',
+                . '. Raise a regularisation if that is wrong.',
             'action_url' => '/regularizations',
             'entity_type' => 'attendance',
             'entity_id' => null,

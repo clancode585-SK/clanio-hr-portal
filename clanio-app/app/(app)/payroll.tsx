@@ -12,6 +12,7 @@ import { useAuth } from '@/lib/auth'
 import { today } from '@/lib/clock'
 import { Money } from '@/lib/money'
 import { useResource } from '@/lib/useResource'
+import { useSheetFrame } from '@/lib/useSheetFrame'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -26,6 +27,7 @@ type Coverage = {
 
 export default function PayrollScreen() {
   const theme = useTheme()
+  const sheetFrame = useSheetFrame()
   const router = useRouter()
   const insets = useSafeAreaInsets()
   const { can } = useAuth()
@@ -151,7 +153,7 @@ export default function PayrollScreen() {
             message={
               missing.slice(0, 4).map((row) => row.employee_code).join(', ')
               + (missing.length > 4 ? ` aur ${missing.length - 4} more` : '')
-              + '. Inki salary calculate nahi hogi — pehle structure set karo.'
+              + '. Their salary will not be calculated — set a structure first.'
             }
           />
         ) : null}
@@ -159,7 +161,7 @@ export default function PayrollScreen() {
         {runs.length === 0 ? (
           <EmptyState
             title="No payroll yet"
-            message="Ek mahina kholo, calculate karo, approve karo — phir salary bhej sakte ho."
+            message="Open a month, calculate, approve — then you can send the salary."
             action={canRun ? { label: 'Open a month', onPress: () => setOpen(true) } : undefined}
           />
         ) : null}
@@ -218,7 +220,7 @@ export default function PayrollScreen() {
       <Modal visible={open} transparent animationType="slide" onRequestClose={close}>
         <Pressable style={styles.backdrop} onPress={close} />
 
-        <View style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
+        <View style={[styles.sheet, sheetFrame, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
           <View style={[styles.grab, { backgroundColor: theme.line }]} />
 
           <ScrollView style={styles.sheetBody} keyboardShouldPersistTaps="handled">
@@ -247,7 +249,7 @@ export default function PayrollScreen() {
               <Notice
                 tone="info"
                 title="Is date par salary khud chali jaayegi"
-                message="Payroll approve hone ke baad, pay date aate hi salary apne aap transfer ho jaati hai. Pehle bhejna ho to manually bhi bhej sakte ho."
+                message="Once payroll is approved, salary transfers on its own when the pay date arrives. You can still send it early by hand."
               />
 
               <Button label="Open this month" onPress={start} loading={busy} fullWidth />

@@ -32,7 +32,7 @@ class TaskAttachmentController extends ApiController
     {
         return ApiResponse::created(
             new TaskAttachmentResource($this->tasks->attach($task, $request->file('file'), $request->user())),
-            'File upload ho gayi'
+            'File uploaded'
         );
     }
 
@@ -40,7 +40,7 @@ class TaskAttachmentController extends ApiController
     {
         $this->tasks->deleteAttachment($attachment, $request->user());
 
-        return ApiResponse::success(null, 'File hata di gayi');
+        return ApiResponse::success(null, 'File removed');
     }
 
     public function download(Request $request, TaskAttachment $attachment): StreamedResponse
@@ -48,7 +48,7 @@ class TaskAttachmentController extends ApiController
         $task = Task::query()->visibleTo($request->user())->whereKey($attachment->task_id)->first();
 
         if ($task === null) {
-            throw new ApiException('Ye file aap nahi dekh sakte.', 404, 'RESOURCE_NOT_FOUND');
+            throw new ApiException('You cannot view this file.', 404, 'RESOURCE_NOT_FOUND');
         }
 
         return $this->tasks->downloadAttachment($attachment);

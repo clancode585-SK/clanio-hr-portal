@@ -23,6 +23,6 @@ class ExpenseVerifyRequest extends FormRequest
 
     public function messages(): array
     {
-        return ['approved_amount.min' => 'Approved amount 0 se zyada hona chahiye.'];
+        return ['approved_amount.min' => 'The approved amount must be more than zero.'];
     }
 }
