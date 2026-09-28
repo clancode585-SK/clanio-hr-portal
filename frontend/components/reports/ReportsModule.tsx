@@ -55,6 +55,14 @@ interface PlanItem {
   gst_percent: number;
 }
 
+interface Form16Row {
+  uuid: string;
+  employee_code: string;
+  name: string;
+  pan_number: string | null;
+  designation: string;
+}
+
 interface ReportsModuleProps {
   isDarkMode?: boolean;
   activeTab?: string;
@@ -79,6 +87,7 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
   const [returns, setReturns] = useState<ReportItem[]>([]);
   const [invoices, setInvoices] = useState<InvoiceItem[]>([]);
   const [plans, setPlans] = useState<PlanItem[]>([]);
+  const [form16Rows, setForm16Rows] = useState<Form16Row[]>([]);
   const [loading, setLoading] = useState(false);
 
   const [notification, setNotification] = useState<{ text: string; type: "success" | "error" } | null>(null);
@@ -93,6 +102,18 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     if (activeTab === "statutory-returns") load("/statutory-returns", (res) => setReturns(res?.data?.returns ?? []));
     if (activeTab === "billing" || activeTab === "revenue") load("/invoices", (res) => setInvoices(res?.data ?? []));
     if (activeTab === "plans") load("/plans", (res) => setPlans(res?.data ?? []));
+    if (activeTab === "form16")
+      load("/employees?per_page=200", (res) =>
+        setForm16Rows(
+          (res?.data ?? []).map((row: any) => ({
+            uuid: row.uuid,
+            employee_code: row.employee_code ?? "-",
+            name: row.user?.name ?? row.name ?? "-",
+            pan_number: row.pan_number ?? null,
+            designation: row.designation?.name ?? "-",
+          }))
+        )
+      );
   }, [activeTab]);
 
   const load = async (path: string, apply: (res: any) => void) => {
@@ -187,10 +208,32 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     </button>
   );
 
-  const askPeriod = (param: string) => {
-    const hint = param === "quarter" ? "Quarter, e.g. 2026-Q2" : "Month, e.g. " + thisMonth();
+  /** Financial year ka pehla saal — FY 2026-27 ke liye 2026 */
+  const askYear = (): string | null => {
+    const year = window.prompt("Financial year — first year, e.g. 2026 for FY 2026-27", String(new Date().getFullYear()));
 
-    return window.prompt(hint, param === "quarter" ? "" : thisMonth());
+    return year && /^\d{4}$/.test(year.trim()) ? year.trim() : null;
+  };
+
+  /** Backend month ko YYYY-MM leta hai, aur quarter ko Q1..Q4 ke saath alag year */
+  const periodQuery = (param: string): string | null => {
+    if (param === "quarter") {
+      const quarter = window.prompt("Quarter — Q1, Q2, Q3 or Q4", "Q" + (Math.floor(new Date().getMonth() / 3) + 1));
+
+      if (!quarter || !/^Q[1-4]$/i.test(quarter.trim())) return null;
+
+      const year = window.prompt("Financial year, e.g. 2026", String(new Date().getFullYear()));
+
+      if (!year || !/^\d{4}$/.test(year.trim())) return null;
+
+      return `?quarter=${quarter.trim().toUpperCase()}&year=${year.trim()}`;
+    }
+
+    const month = window.prompt("Month, e.g. " + thisMonth(), thisMonth());
+
+    if (!month || !/^\d{4}-\d{2}$/.test(month.trim())) return null;
+
+    return `?${param}=${encodeURIComponent(month.trim())}`;
   };
 
   const reportColumns: ColumnDef<ReportItem>[] = useMemo(
@@ -205,9 +248,9 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
         enableSorting: false,
         cell: ({ row }) =>
           downloadButton("Download report", () => {
-            const period = askPeriod(row.original.param);
-            if (period && period.trim()) {
-              download(`/reports/${row.original.key}/download?${row.original.param}=${encodeURIComponent(period.trim())}`, `${row.original.key}.xlsx`);
+            const query = periodQuery(row.original.param);
+            if (query) {
+              download(`/reports/${row.original.key}/download${query}`, `${row.original.key}.csv`);
             }
           }),
       },
@@ -227,12 +270,9 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
         enableSorting: false,
         cell: ({ row }) =>
           downloadButton("Download return", () => {
-            const period = askPeriod(row.original.param);
-            if (period && period.trim()) {
-              download(
-                `/statutory-returns/${row.original.key}/download?${row.original.param}=${encodeURIComponent(period.trim())}`,
-                `${row.original.key}.${row.original.format ?? "txt"}`
-              );
+            const query = periodQuery(row.original.param);
+            if (query) {
+              download(`/statutory-returns/${row.original.key}/download${query}`, `${row.original.key}.${row.original.format ?? "txt"}`);
             }
           }),
       },
@@ -296,9 +336,44 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
     []
   );
 
+  const form16Columns: ColumnDef<Form16Row>[] = useMemo(
+    () => [
+      { accessorKey: "employee_code", header: "Code", cell: (i) => <span className="font-mono text-xs font-extrabold text-purple-500">{String(i.getValue() ?? "-")}</span> },
+      { accessorKey: "name", header: "Employee", cell: (i) => <span className="font-bold">{String(i.getValue() ?? "-")}</span> },
+      { accessorKey: "designation", header: "Designation", cell: (i) => <span className="text-xs text-slate-400">{String(i.getValue() ?? "-")}</span> },
+      {
+        accessorKey: "pan_number",
+        header: "PAN",
+        cell: (i) =>
+          i.getValue() ? (
+            <span className="font-mono text-xs text-cyan-500">{String(i.getValue())}</span>
+          ) : (
+            badge("PAN missing", "rose")
+          ),
+      },
+      {
+        id: "actions",
+        header: "Actions",
+        enableSorting: false,
+        cell: ({ row }) =>
+          downloadButton("Download Form 16 Part B", () => {
+            const year = askYear();
+            if (year) {
+              download(
+                `/employees/${row.original.uuid}/form16/download?year=${year}`,
+                `Form16-${row.original.employee_code}.pdf`
+              );
+            }
+          }),
+      },
+    ],
+    []
+  );
+
   const tabs: { id: string; label: string; icon: React.ComponentType<{ className?: string }> }[] = [
     { id: "reports", label: "Reports", icon: FileSpreadsheet },
     { id: "statutory-returns", label: "Statutory Returns", icon: ScrollText },
+    { id: "form16", label: "Form 16", icon: FileSpreadsheet },
     { id: "billing", label: "Invoices", icon: Receipt },
     { id: "plans", label: "Plans", icon: Landmark },
   ];
@@ -408,6 +483,30 @@ export const ReportsModule: React.FC<ReportsModuleProps> = ({
           isLoading={loading}
           searchPlaceholder="Filter by invoice number..."
           isDarkMode={isDarkMode}
+        />
+      )}
+
+      {activeTab === "form16" && (
+        <DataTable
+          title="Form 16 Part B"
+          description="Per employee, or everyone in one PDF. PAN is needed on the record before a Form 16 can be issued."
+          columns={form16Columns}
+          data={form16Rows}
+          isLoading={loading}
+          searchPlaceholder="Filter by employee..."
+          isDarkMode={isDarkMode}
+          actionButton={
+            <button
+              onClick={() => {
+                const year = askYear();
+                if (year) download(`/form16/bulk?year=${year}`, `Form16-all-${year}.pdf`);
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs rounded-xl shadow-md shadow-amber-500/20 transition-all cursor-pointer"
+            >
+              <Download className="w-4 h-4" />
+              <span>Download All</span>
+            </button>
+          }
         />
       )}
 

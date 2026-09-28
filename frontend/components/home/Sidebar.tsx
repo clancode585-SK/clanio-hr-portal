@@ -236,6 +236,7 @@ export const sidebarMenuItems: MenuItem[] = [
     subItems: [
       { id: "reports", label: "Reports" },
       { id: "statutory-returns", label: "Statutory Returns" },
+      { id: "form16", label: "Form 16" },
       { id: "billing", label: "Invoices" },
       { id: "plans", label: "Plans" },
     ],
@@ -332,10 +333,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [internalActiveItem, setInternalActiveItem] = useState("employees");
   const activeItem = externalActiveItem !== undefined ? externalActiveItem : internalActiveItem;
 
-  const [userName, setUserName] = useState("Platform Super Admin");
-  const [userRole, setUserRole] = useState("Super Administrator");
-  const [companyName, setCompanyName] = useState("Clanio HR");
-  const [companySlug, setCompanySlug] = useState("clanio");
+  const [userName, setUserName] = useState("");
+  const [userRole, setUserRole] = useState("");
+  const [companyName, setCompanyName] = useState("Workspace");
+  const [companySlug, setCompanySlug] = useState("");
 
   const [userPermissions, setUserPermissions] = useState<string[] | null>(null);
 
@@ -356,7 +357,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       if (storedName) {
         setUserName(storedName);
-      } else if (isSuper || storedEmail === "superadmin@clanio.com") {
+      } else if (isSuper) {
         setUserName("Platform Super Admin");
       }
 
@@ -367,10 +368,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
         setCompanySlug(storedSlug);
       }
 
-      if (isSuper || storedEmail === "superadmin@clanio.com") {
+      // Baaki role ka naam profile se aata hai, guess nahi karte
+      if (isSuper) {
         setUserRole("Super Administrator");
-      } else {
-        setUserRole("Company Admin");
       }
     }
 
@@ -387,9 +387,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
             localStorage.setItem("user_permissions", JSON.stringify(profile.permissions));
           }
         }
+        // Super admin ka pata profile se chalta hai, email match se nahi
+        if (typeof profile?.is_super_admin === "boolean" && typeof window !== "undefined") {
+          localStorage.setItem("is_super_admin", profile.is_super_admin ? "true" : "false");
+          setUserRole(profile.is_super_admin ? "Super Administrator" : (profile.roles?.[0]?.name ?? "Company Admin"));
+        }
       })
       .catch(() => {});
 
+    // company.view ke bina ye 403 deta hai, aur super admin ki koi company hi nahi hoti
+    const canReadCompany =
+      typeof window !== "undefined" &&
+      (localStorage.getItem("user_permissions") ?? "").includes("company.view");
+
+    if (!isSuperAdmin && canReadCompany)
     fetchApi<any>("/company-settings")
       .then((compRes) => {
         const compData = compRes?.data || compRes;
@@ -431,6 +442,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
   );
 
   const adminOnlyMenus = ["companies", "workforce", "administration"];
+
+  // Platform console ke menu — company ka data inme nahi hota
+  const platformMenus = ["dashboard", "companies", "reports", "administration"];
   const adminOnlySubItems = [
     "shift-management",
     "leave-policies",
@@ -507,6 +521,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
     // Reports & Billing Sub-items
     reports: ["report.view"],
     "statutory-returns": ["report.view"],
+    form16: ["payroll.view"],
     billing: ["invoice.view", "invoice.manage"],
     plans: ["plan.manage"],
 
@@ -556,6 +571,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
     // Only show Companies option to Super Admin
     if (!isSuperAdmin) {
       items = items.filter((item) => item.id !== "companies");
+    }
+
+    // Super admin kisi company ka nahi hota — usko sirf platform wale menu dikhao
+    if (isSuperAdmin) {
+      items = items.filter((item) => platformMenus.includes(item.id));
     }
 
     // Hide Teams tab strictly from Super Admin while keeping it visible for Company Admin

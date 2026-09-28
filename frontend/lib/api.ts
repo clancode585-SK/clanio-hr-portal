@@ -40,12 +40,19 @@ export async function fetchApi<T>(endpoint: string, options?: RequestInit): Prom
     }
     const errorData = await response.json().catch(() => ({}));
     let errorMessage = errorData.message || "An error occurred with the request.";
-    if (errorData.errors && typeof errorData.errors === "object") {
+
+    // Server kabhi raw SQL bhej deta hai — usme DB naam, host aur query hoti hai, wo user ko nahi dikhani
+    if (/SQLSTATE|SQL:|Connection: |Integrity constraint/i.test(errorMessage)) {
+      errorMessage = /Duplicate entry/i.test(errorMessage)
+        ? "That record already exists."
+        : "The server could not save that. Please check the values and try again.";
+    } else if (errorData.errors && typeof errorData.errors === "object") {
       const details = Object.values(errorData.errors).flat().join(" ");
       if (details) {
         errorMessage = `${errorMessage} ${details}`;
       }
     }
+
     throw new Error(errorMessage);
   }
 

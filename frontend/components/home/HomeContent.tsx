@@ -416,6 +416,23 @@ export default function HomeContent() {
     }
   };
 
+  /** Permission hai kya — super admin ke paas sab hota hai */
+  const may = (slug: string): boolean => {
+    if (typeof window === "undefined") return false;
+    if (localStorage.getItem("is_super_admin") === "true") return true;
+
+    const stored = localStorage.getItem("user_permissions");
+
+    // Profile abhi load nahi hua to rok lete hain, warna bina permission call chali jayegi
+    if (!stored) return false;
+
+    try {
+      return (JSON.parse(stored) as string[]).includes(slug);
+    } catch {
+      return false;
+    }
+  };
+
   const fetchDepartmentsData = async () => {
     try {
       const res = await fetchApi<any>("/departments");
@@ -554,17 +571,20 @@ export default function HomeContent() {
 
   // Sync Data on Nav selection
   useEffect(() => {
-    fetchDepartmentsData();
-    fetchDesignationsData();
-    fetchBranchesData();
-    fetchRolesData();
+    // Ye lists sirf unhi screens ko chahiye, aur sirf jab permission ho — warna har page load par 403 aate hain
+    const needsLookups = ["employees", "departments", "designations", "teams", "branches", "dashboard"];
+
+    if (needsLookups.includes(activeNav)) {
+      if (may("department.view")) fetchDepartmentsData();
+      if (may("designation.view")) fetchDesignationsData();
+      if (may("branch.view")) fetchBranchesData();
+    }
+
     // Dashboard ke card employees ki ginti dikhate hain, isliye wahan bhi chahiye
     if (activeNav === "employees" || activeNav === "dashboard") fetchEmployeesData();
     if (activeNav === "companies") fetchCompaniesData();
-    if (activeNav === "dashboard") fetchTeamsData();
-    if (activeNav === "branches") fetchBranchesData();
-    if (activeNav === "teams") fetchTeamsData();
-    if (activeNav === "roles") fetchRolesData();
+    if ((activeNav === "dashboard" || activeNav === "teams") && may("team.view")) fetchTeamsData();
+    if ((activeNav === "roles" || activeNav === "users-roles") && may("role.view")) fetchRolesData();
   }, [activeNav]);
 
   // Re-resolve employee branch names as soon as both branches and employees finish loading from backend
@@ -1173,7 +1193,7 @@ export default function HomeContent() {
             <PayrollModule isDarkMode={isDarkMode} activeTab={activeNav} />
           ) : activeNav === "recruitment" || activeNav === "openings" || activeNav === "interviews" || activeNav === "joinings" ? (
             <RecruitmentModule isDarkMode={isDarkMode} activeTab={activeNav === "recruitment" ? "openings" : activeNav} />
-          ) : activeNav === "reports" || activeNav === "statutory-returns" || activeNav === "billing" || activeNav === "revenue" || activeNav === "plans" ? (
+          ) : activeNav === "reports" || activeNav === "statutory-returns" || activeNav === "form16" || activeNav === "billing" || activeNav === "revenue" || activeNav === "plans" ? (
             <ReportsModule isDarkMode={isDarkMode} activeTab={activeNav} />
           ) : activeNav === "my-space" || activeNav === "my-attendance" || activeNav === "my-leave" || activeNav === "my-payslips" || activeNav === "my-advance" || activeNav === "my-requests" || activeNav === "my-policies" ? (
             <SelfServiceModule isDarkMode={isDarkMode} activeTab={activeNav === "my-space" ? "my-attendance" : activeNav} />

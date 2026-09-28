@@ -123,36 +123,50 @@ export const LoginForm: React.FC<LoginFormProps> = ({
 
       const token = res?.data?.token || res?.token;
       const role = res?.data?.role || res?.role;
-      const userObj = res?.data?.user || res?.user;
-      const isSuperAdmin = (email.trim().toLowerCase() === "superadmin@clanio.com") || role === "super_admin" || Boolean(userObj?.is_super_admin);
 
       if (token) {
         setCookie("token", token, 7);
         setCookie("isAuthenticated", "true", 7);
         setCookie("user_email", email, 7);
-        setCookie("is_super_admin", isSuperAdmin ? "true" : "false", 7);
-        setCookie("company_id", String(userObj?.company_id || "2"), 7);
 
         if (typeof window !== "undefined") {
           localStorage.setItem("token", token);
           localStorage.setItem("isAuthenticated", "true");
           localStorage.setItem("user_email", email);
-          localStorage.setItem("is_super_admin", isSuperAdmin ? "true" : "false");
-          localStorage.setItem("company_id", String(userObj?.company_id || "2"));
+        }
 
-          if (isSuperAdmin) {
-            setCookie("user_name", "Platform Super Admin", 7);
-            setCookie("company_name", "Clanio HR", 7);
-            localStorage.setItem("user_name", "Platform Super Admin");
-            localStorage.setItem("company_name", "Clanio HR");
+        // Login sirf token deta hai — naam, company aur super admin flag profile se aate hain
+        const me = await fetchApi<any>("/profile").then((r) => r?.data ?? null).catch(() => null);
+        const isSuperAdmin = Boolean(me?.is_super_admin) || role === "super_admin";
+        const companyId = me?.company_id ?? me?.organisation?.company_id ?? null;
+        const companyName = me?.organisation?.name || (isSuperAdmin ? "Clanio HR" : "");
+        const userName = me?.name || email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
+        setCookie("is_super_admin", isSuperAdmin ? "true" : "false", 7);
+        setCookie("user_name", userName, 7);
+
+        if (typeof window !== "undefined") {
+          localStorage.setItem("is_super_admin", isSuperAdmin ? "true" : "false");
+          localStorage.setItem("user_name", userName);
+
+          if (companyName) {
+            setCookie("company_name", companyName, 7);
+            localStorage.setItem("company_name", companyName);
+          }
+
+          // Super admin kisi ek company ka nahi hota — header tabhi jaata hai jab company ho
+          if (!isSuperAdmin && companyId) {
+            setCookie("company_id", String(companyId), 7);
+            localStorage.setItem("company_id", String(companyId));
           } else {
-            const formattedName = userObj?.name || email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-            setCookie("user_name", formattedName, 7);
-            setCookie("company_name", userObj?.company_name || "Acme Technologies Pvt. Ltd.", 7);
-            localStorage.setItem("user_name", formattedName);
-            localStorage.setItem("company_name", userObj?.company_name || "Acme Technologies Pvt. Ltd.");
+            localStorage.removeItem("company_id");
+          }
+
+          if (Array.isArray(me?.permissions)) {
+            localStorage.setItem("user_permissions", JSON.stringify(me.permissions));
           }
         }
+
         router.push("/");
       } else {
         setErrorMessage("Invalid credentials returned from server.");
