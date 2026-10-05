@@ -17,7 +17,7 @@ class DailyReportItemResource extends JsonResource
             'section' => $this->section,
             'title' => $this->title,
             'hours' => $this->hours,
-            'is_completed' => $this->is_completed,
+            'status' => $this->status,
             'sort_order' => $this->sort_order,
             'task' => $this->task_id === null ? null : [
                 'id' => (int) $this->task_id,

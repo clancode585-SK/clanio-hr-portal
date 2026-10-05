@@ -71,6 +71,7 @@ use App\Http\Controllers\Public\CareerController;
 use App\Http\Controllers\Permission\PermissionController;
 use App\Http\Controllers\Profile\MyDetailsController;
 use App\Http\Controllers\Profile\OnboardingController;
+use App\Http\Controllers\NavigationController;
 use App\Http\Controllers\Profile\ProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -78,6 +79,8 @@ Route::prefix('hrms')->group(function (): void {
     Route::post('auth/login', [AuthController::class, 'login'])->middleware('throttle:login');
     Route::post('auth/forgot-password', [AuthController::class, 'forgotPassword'])->middleware('throttle:sensitive');
     Route::post('auth/reset-password', [AuthController::class, 'resetPassword'])->middleware('throttle:sensitive');
+    Route::post('auth/verify-account', [AuthController::class, 'verifyAccount'])->middleware('throttle:sensitive');
+    Route::post('auth/resend-verification', [AuthController::class, 'resendVerification'])->middleware('throttle:sensitive');
 
     Route::middleware('throttle:careers')->group(function (): void {
         Route::get('careers/{key}/openings', [CareerController::class, 'openings']);
@@ -95,6 +98,8 @@ Route::prefix('hrms')->group(function (): void {
         Route::post('auth/logout-all', [AuthController::class, 'logoutAll']);
         Route::get('auth/sessions', [AuthController::class, 'sessions']);
         Route::post('auth/change-password', [AuthController::class, 'changePassword'])->middleware('throttle:sensitive');
+
+        Route::get('navigation', [NavigationController::class, 'index']);
 
         Route::get('profile', [ProfileController::class, 'show']);
         Route::get('profile/completion', [ProfileController::class, 'completion']);
@@ -133,6 +138,7 @@ Route::prefix('hrms')->group(function (): void {
             Route::put('companies/{company}/modules', [UserPermissionController::class, 'setModules'])
                 ->name('companies.modules');
 
+            Route::get('plans/available-modules', [PlanController::class, 'availableModules']);
             Route::get('plans', [PlanController::class, 'index']);
             Route::post('plans', [PlanController::class, 'store']);
             Route::get('plans/{plan}', [PlanController::class, 'show']);

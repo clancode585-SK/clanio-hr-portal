@@ -25,6 +25,7 @@ use App\Support\TenantCache;
 use App\Support\WorkCalendar;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 final class PayrollService
 {
@@ -79,7 +80,10 @@ final class PayrollService
         return $run;
     }
 
-    public function calculate(PayrollRun $run, User $actor): PayrollRun
+    /**
+     * @return array{run: PayrollRun, skipped: array<int, array{employee_code: string, reason: string}>}
+     */
+    public function calculate(PayrollRun $run, User $actor): array
     {
         if (! $run->isEditable()) {
             throw new ApiException(
@@ -105,7 +109,8 @@ final class PayrollService
         $this->prefetchLop($companyId, $run->month, $ids);
         $structures = $this->structures->forMonthMany($ids, $run->month);
 
-        return DB::transaction(function () use ($run, $employees, $structures, $actor, $companyId, $ids): PayrollRun {
+        // Step 1: purana data saaf karo, advance ki state taiyar karo — ye ek hi transaction me
+        $held = DB::transaction(function () use ($run, $companyId, $ids): array {
             $held = $this->keepHeldLop($run);
 
             // Purani EMI rows hata kar dobara likhte hain, warna recalculate par do baar gin jaati
@@ -119,39 +124,65 @@ final class PayrollService
 
             PayrollItem::query()->where('run_id', $run->id)->forceDelete();
 
-            $totals = ['earnings' => 0.0, 'deductions' => 0.0, 'net' => 0.0, 'employer' => 0.0];
-            $monthDays = Carbon::parse($run->month . '-01')->daysInMonth;
+            return $held;
+        });
 
-            foreach ($employees as $employee) {
-                $structure = $structures[(int) $employee->id] ?? null;
+        // Step 2: har employee apne alag transaction me — ek ka data galat ho to sirf wahi skip hota hai,
+        // baaki 999 ka calculation nahi rukta
+        $skipped = [];
 
-                if ($structure === null) {
-                    continue;
-                }
+        foreach ($employees as $employee) {
+            $structure = $structures[(int) $employee->id] ?? null;
 
-                $working = $this->workingDays($employee, $run->month);
-                $lop = $held[$employee->id] ?? $this->suggestLop($employee, $run->month, $working);
-                $paidDays = round(max($working - $lop, 0), 2);
-
-                $item = $this->writeItem($run, $employee, $structure, $working, $lop, $paidDays, $held, $actor);
-
-                $totals['earnings'] += $item->gross_earnings;
-                $totals['deductions'] += $item->total_deductions;
-                $totals['net'] += $item->net_payable;
-                $totals['employer'] += $item->employer_cost;
+            if ($structure === null) {
+                continue;
             }
+
+            try {
+                DB::transaction(function () use ($run, $employee, $structure, $held, $actor): void {
+                    $working = $this->workingDays($employee, $run->month);
+                    $lop = $held[$employee->id] ?? $this->suggestLop($employee, $run->month, $working);
+                    $paidDays = round(max($working - $lop, 0), 2);
+
+                    $this->writeItem($run, $employee, $structure, $working, $lop, $paidDays, $held, $actor);
+                });
+            } catch (Throwable $exception) {
+                $skipped[] = [
+                    'employee_code' => $employee->employee_code,
+                    'reason' => $exception instanceof ApiException ? $exception->getMessage() : 'Could not be calculated.',
+                ];
+            }
+        }
+
+        if (count($skipped) === count($employees)) {
+            throw new ApiException(
+                'Not even one employee could be calculated. Check the salary structures and try again.',
+                422,
+                'PAYROLL_CALCULATE_ALL_FAILED'
+            );
+        }
+
+        // Step 3: jo sach me bana, usi se total nikalo aur run close karo — ek chhota, aakhri transaction
+        $run = DB::transaction(function () use ($run, $actor): PayrollRun {
+            $monthDays = Carbon::parse($run->month . '-01')->daysInMonth;
 
             $this->advances->resync($this->touchedAdvances);
             $this->advanceMemo = [];
 
+            $totals = PayrollItem::query()->where('run_id', $run->id)->selectRaw(
+                'COUNT(*) as headcount, COALESCE(SUM(gross_earnings),0) as earnings, '
+                . 'COALESCE(SUM(total_deductions),0) as deductions, COALESCE(SUM(net_payable),0) as net, '
+                . 'COALESCE(SUM(employer_cost),0) as employer'
+            )->first();
+
             $run->forceFill([
                 'status' => PayrollRun::CALCULATED,
-                'headcount' => PayrollItem::query()->where('run_id', $run->id)->count(),
+                'headcount' => (int) $totals->headcount,
                 'working_days' => $monthDays,
-                'total_earnings' => round($totals['earnings'], 2),
-                'total_deductions' => round($totals['deductions'], 2),
-                'total_net' => round($totals['net'], 2),
-                'total_employer' => round($totals['employer'], 2),
+                'total_earnings' => round((float) $totals->earnings, 2),
+                'total_deductions' => round((float) $totals->deductions, 2),
+                'total_net' => round((float) $totals->net, 2),
+                'total_employer' => round((float) $totals->employer, 2),
                 'calculated_at' => Carbon::now(),
                 'calculated_by' => $actor->id,
                 'updated_by' => $actor->id,
@@ -161,6 +192,8 @@ final class PayrollService
 
             return $run->refresh();
         });
+
+        return ['run' => $run, 'skipped' => $skipped];
     }
 
     public function setLop(PayrollItem $item, float $days, User $actor): PayrollItem

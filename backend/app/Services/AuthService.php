@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Services;
 
 use App\Exceptions\ApiException;
+use App\Mail\CompanyAdminVerificationMail;
 use App\Mail\PasswordResetMail;
 use App\Models\ApiToken;
 use App\Models\Company;
@@ -39,6 +40,16 @@ final class AuthService
             $this->log($email, $user, 'invalid_password', $request);
 
             throw new ApiException('These credentials do not match our records.', 401, 'AUTH_INVALID_CREDENTIALS');
+        }
+
+        if ($user->needsVerification()) {
+            $this->log($email, $user, 'pending_verification', $request);
+
+            throw new ApiException(
+                'Please verify your email before signing in. Check your inbox for the code.',
+                403,
+                'AUTH_ACCOUNT_UNVERIFIED'
+            );
         }
 
         if (! $user->isActive()) {
@@ -200,6 +211,50 @@ final class AuthService
             $user->revokeTokens();
             $reset->consume();
         });
+    }
+
+    public function verifyAccount(array $data): void
+    {
+        $user = $this->findForReset($data['email'], null);
+
+        if ($user === null || ! $user->needsVerification()) {
+            throw new ApiException('This account does not need verification.', 422, 'VERIFICATION_NOT_NEEDED');
+        }
+
+        if ($user->verification_expires_at === null || $user->verification_expires_at->isPast()) {
+            throw new ApiException('This code has expired. Ask for a new one.', 422, 'VERIFICATION_CODE_EXPIRED');
+        }
+
+        if ($user->verification_code_hash !== hash('sha256', $data['code'])) {
+            throw new ApiException('That code is not right.', 422, 'VERIFICATION_CODE_INVALID');
+        }
+
+        $user->forceFill([
+            'status' => 'active',
+            'verification_code_hash' => null,
+            'verification_expires_at' => null,
+        ])->save();
+    }
+
+    public function resendVerification(array $data): void
+    {
+        $user = $this->findForReset($data['email'], null);
+
+        if ($user === null || ! $user->needsVerification()) {
+            return;
+        }
+
+        $company = Company::query()->withoutGlobalScopes()->find($user->company_id);
+        $code = (string) random_int(100000, 999999);
+
+        $user->forceFill([
+            'verification_code_hash' => hash('sha256', $code),
+            'verification_expires_at' => now()->addMinutes($this->config('verification_minutes', 30)),
+        ])->save();
+
+        Mail::to($user->email)->send(
+            new CompanyAdminVerificationMail($user, $code, null, $company?->name ?? '')
+        );
     }
 
     private function findForReset(string $email, ?string $companySlug): ?User

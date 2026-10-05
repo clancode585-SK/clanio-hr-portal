@@ -64,11 +64,17 @@ class PayrollController extends ApiController
 
     public function calculate(Request $request, PayrollRun $payrollRun): JsonResponse
     {
+        $result = $this->payroll->calculate($payrollRun, $request->user());
+        $skipped = $result['skipped'];
+
         return ApiResponse::success(
-            new PayrollRunResource(
-                $this->payroll->calculate($payrollRun, $request->user())->load('items.lines', 'items.run')
-            ),
-            'Payroll calculated successfully'
+            [
+                'run' => new PayrollRunResource($result['run']->load('items.lines', 'items.run')),
+                'skipped' => $skipped,
+            ],
+            $skipped === []
+                ? 'Payroll calculated successfully'
+                : 'Payroll calculated — ' . count($skipped) . ' employee(s) could not be calculated'
         );
     }
 

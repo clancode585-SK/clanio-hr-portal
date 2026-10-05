@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Mail\CompanyAdminVerificationMail;
 use App\Models\Company;
 use App\Models\Employee;
 use App\Models\LeaveType;
@@ -13,10 +14,13 @@ use App\Models\TicketCategory;
 use App\Models\TicketCategoryRoute;
 use App\Models\User;
 use App\Support\CompanyTime;
+use App\Support\RoleTemplates;
 use App\Support\TenantCache;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Str;
 
 final class CompanyService
 {
@@ -88,6 +92,7 @@ final class CompanyService
             $role = $this->createAdminRole($company, $actor);
             $admin = $this->createAdminUser($company, $role, $data['admin'], $actor);
             $this->createAdminEmployee($company, $admin, $data['admin'], $actor);
+            $this->createDefaultRoles($company, $actor);
             $this->createLeaveTypes($company, $actor);
             $this->createTicketDefaults($company, $actor);
             $this->enableModules($company);
@@ -149,6 +154,33 @@ final class CompanyService
         );
 
         return $role;
+    }
+
+    /** Admin ke alawa 4 aur role apne aap ban jaate hain — Member, Team Lead, Manager, HR Manager */
+    private function createDefaultRoles(Company $company, User $actor): void
+    {
+        $permissionIds = Permission::query()->pluck('id', 'slug');
+
+        foreach (RoleTemplates::defaults() as $slug => $template) {
+            $role = new Role([
+                'name' => $template['name'],
+                'slug' => $slug,
+                'hierarchy_level' => $template['hierarchy_level'],
+                'data_scope' => $template['data_scope'],
+            ]);
+
+            $role->company_id = $company->id;
+            $role->is_system = false;
+            $role->created_by = $actor->id;
+            $role->save();
+
+            $ids = collect($template['permissions'])
+                ->map(fn (string $permSlug): ?int => $permissionIds->get($permSlug))
+                ->filter()
+                ->all();
+
+            $role->permissions()->sync($ids);
+        }
     }
 
     private function createAdminEmployee(Company $company, User $admin, array $data, User $actor): Employee
@@ -253,15 +285,26 @@ final class CompanyService
 
     private function createAdminUser(Company $company, Role $role, array $data, User $actor): User
     {
+        // Password khaali chhoda ho to ek bana dete hain — verification mail me chala jayega
+        $generatedPassword = Arr::get($data, 'password') === null ? Str::password(12) : null;
+
         $admin = new User([
             'name' => $data['name'],
             'email' => $data['email'],
             'phone' => $data['phone'] ?? null,
-            'password' => $data['password'],
+            'password' => $data['password'] ?? $generatedPassword,
         ]);
 
         $admin->company_id = $company->id;
         $admin->created_by = $actor->id;
+        $admin->status = User::PENDING_VERIFICATION;
+
+        $code = (string) random_int(100000, 999999);
+        $admin->verification_code_hash = hash('sha256', $code);
+        $admin->verification_expires_at = Carbon::now()->addMinutes(
+            (int) config('auth.token.verification_minutes', 30)
+        );
+
         $admin->save();
 
         $admin->roles()->attach($role->id, [
@@ -270,6 +313,10 @@ final class CompanyService
             'created_at' => now(),
             'updated_at' => now(),
         ]);
+
+        Mail::to($admin->email)->send(
+            new CompanyAdminVerificationMail($admin, $code, $generatedPassword, $company->name)
+        );
 
         return $admin->setRelation('roles', collect([$role]));
     }

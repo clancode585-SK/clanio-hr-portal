@@ -15,6 +15,7 @@ use App\Support\Scopes\CompanyScope;
 use App\Support\TenantCache;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 final class LeaveBalanceService
 {
@@ -65,34 +66,45 @@ final class LeaveBalanceService
         $month = CompanyTime::now()->format('Y-m');
         $credited = 0;
         $skipped = 0;
+        $failed = [];
 
         $balances = LeaveBalance::query()
-            ->with('leaveType')
+            ->with(['leaveType', 'employee:id,employee_code'])
             ->where('year', $year)
             ->whereHas('leaveType', fn ($query) => $query->where('accrual_type', LeaveType::MONTHLY))
             ->get();
 
-        DB::transaction(function () use ($balances, $month, $actor, &$credited, &$skipped): void {
-            foreach ($balances as $balance) {
-                $type = $balance->leaveType;
+        // Har balance apne alag transaction me — ek employee ka data galat ho to sirf wahi skip hota
+        // hai, poori company ka accrual nahi rukta
+        foreach ($balances as $balance) {
+            $type = $balance->leaveType;
 
-                if ($balance->last_accrued_on === $month || $type === null) {
-                    $skipped++;
+            if ($balance->last_accrued_on === $month || $type === null) {
+                $skipped++;
 
-                    continue;
-                }
+                continue;
+            }
 
-                $next = min($type->annual_quota, round($balance->accrued + $type->monthlyAccrual(), 2));
+            try {
+                DB::transaction(function () use ($balance, $type, $month, $actor): void {
+                    $next = min($type->annual_quota, round($balance->accrued + $type->monthlyAccrual(), 2));
 
-                $balance->forceFill([
-                    'accrued' => $next,
-                    'last_accrued_on' => $month,
-                    'updated_by' => $actor->id,
-                ])->save();
+                    $balance->forceFill([
+                        'accrued' => $next,
+                        'last_accrued_on' => $month,
+                        'updated_by' => $actor->id,
+                    ])->save();
+                });
 
                 $credited++;
+            } catch (Throwable $exception) {
+                $failed[] = [
+                    'employee_code' => $balance->employee?->employee_code ?? ('#' . $balance->employee_id),
+                    'leave_type' => $type->code,
+                    'reason' => $exception->getMessage(),
+                ];
             }
-        });
+        }
 
         $this->flush();
 
@@ -100,6 +112,7 @@ final class LeaveBalanceService
             'month' => $month,
             'credited' => $credited,
             'already_done' => $skipped,
+            'failed' => $failed,
         ];
     }
 

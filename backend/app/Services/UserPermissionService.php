@@ -9,6 +9,7 @@ use App\Models\Company;
 use App\Models\Department;
 use App\Models\Permission;
 use App\Models\User;
+use App\Support\ModuleCatalog;
 use App\Support\TenantCache;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -30,7 +31,9 @@ final class UserPermissionService
 
         $modules = [];
 
-        foreach (Permission::query()->orderBy('module')->orderBy('slug')->get() as $permission) {
+        // Apna profile/bank/document/directory — role banate waqt ye yahan dikhane ki zaroorat nahi,
+        // har role ko ye hamesha milte hain
+        foreach (Permission::query()->whereNotIn('module', ModuleCatalog::COMMON)->orderBy('module')->orderBy('slug')->get() as $permission) {
             $modules[$permission->module][] = [
                 'id' => (int) $permission->id,
                 'slug' => $permission->slug,
@@ -41,6 +44,7 @@ final class UserPermissionService
         }
 
         $out = [];
+        $total = 0;
 
         foreach ($modules as $module => $permissions) {
             $out[] = [
@@ -48,9 +52,10 @@ final class UserPermissionService
                 'is_enabled' => ! in_array($module, $disabled, true),
                 'permissions' => $permissions,
             ];
+            $total += count($permissions);
         }
 
-        return ['modules' => $out, 'total' => Permission::query()->count()];
+        return ['modules' => $out, 'total' => $total];
     }
 
     public function forDepartment(Department $department, User $actor): array
@@ -233,10 +238,13 @@ final class UserPermissionService
                     throw new ApiException('Module not found: ' . $module, 422, 'MODULE_INVALID');
                 }
 
+                // Apna profile/bank/document kabhi band nahi hota
+                $isEnabled = in_array($module, ModuleCatalog::COMMON, true) ? true : $enabled;
+
                 DB::table('company_modules')->updateOrInsert(
                     ['company_id' => $company->id, 'module' => $module],
                     [
-                        'is_enabled' => $enabled ? 1 : 0,
+                        'is_enabled' => $isEnabled ? 1 : 0,
                         'updated_by' => $actor->id,
                         'updated_at' => Carbon::now(),
                         'created_at' => Carbon::now(),
@@ -248,6 +256,32 @@ final class UserPermissionService
         });
 
         return $this->modules($company, $actor);
+    }
+
+    /** Company kisi plan par jaati hai to uske module us plan ke hisaab se set ho jaate hain */
+    public function syncToPlan(Company $company, array $planModules, User $actor): void
+    {
+        $known = DB::table('permissions')->distinct()->pluck('module')->all();
+        $now = Carbon::now();
+
+        DB::transaction(function () use ($company, $planModules, $known, $actor, $now): void {
+            foreach ($known as $module) {
+                // Apna profile/bank/document kabhi band nahi hota, plan chahe jo bhi ho
+                $isEnabled = in_array($module, ModuleCatalog::COMMON, true) || in_array($module, $planModules, true);
+
+                DB::table('company_modules')->updateOrInsert(
+                    ['company_id' => $company->id, 'module' => $module],
+                    [
+                        'is_enabled' => $isEnabled ? 1 : 0,
+                        'updated_by' => $actor->id,
+                        'updated_at' => $now,
+                        'created_at' => $now,
+                    ]
+                );
+            }
+
+            $this->flushAll();
+        });
     }
 
     private function roleSlugs(User $target): array

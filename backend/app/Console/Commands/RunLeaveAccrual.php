@@ -11,6 +11,7 @@ use App\Support\CompanyTime;
 use App\Support\Scopes\CompanyScope;
 use App\Support\TenantContext;
 use Illuminate\Console\Command;
+use Throwable;
 
 class RunLeaveAccrual extends Command
 {
@@ -30,45 +31,52 @@ class RunLeaveAccrual extends Command
         $carryForward = (bool) $this->option('carry-forward');
         $requested = $this->option('year');
 
+        // Har company apne try/catch me — ek company crash ho to baaki companies ka
+        // accrual us raat bhi chal jaana chahiye
         foreach (Company::query()->where('status', 'active')->get(['id', 'name']) as $company) {
-            app(TenantContext::class)->set($company);
-            $year = (int) ($requested ?? CompanyTime::now($company)->year);
+            try {
+                app(TenantContext::class)->set($company);
+                $year = (int) ($requested ?? CompanyTime::now($company)->year);
 
-            $actor = $this->systemActor($company->id);
+                $actor = $this->systemActor($company->id);
 
-            if ($actor === null) {
-                $this->warn($company->name . ' — no admin found, skipped.');
+                if ($actor === null) {
+                    $this->warn($company->name . ' — no admin found, skipped.');
 
-                continue;
-            }
+                    continue;
+                }
 
-            if ($carryForward) {
-                $result = $this->balances->carryForward($year - 1, $actor);
+                if ($carryForward) {
+                    $result = $this->balances->carryForward($year - 1, $actor);
+                    $this->line(sprintf(
+                        '%s — carry forward %d se %d: %d moved, %s din lapse',
+                        $company->name,
+                        $year - 1,
+                        $year,
+                        $result['moved'] ?? 0,
+                        $result['days_lapsed'] ?? 0
+                    ));
+
+                    continue;
+                }
+
+                $this->balances->allocate((int) $company->id, $year, $actor);
+                $result = $this->balances->accrue($year, $actor);
+
                 $this->line(sprintf(
-                    '%s — carry forward %d se %d: %d moved, %s din lapse',
+                    '%s — accrue %d: %d credited, %d already done, %d failed',
                     $company->name,
-                    $year - 1,
                     $year,
-                    $result['moved'] ?? 0,
-                    $result['days_lapsed'] ?? 0
+                    $result['credited'] ?? 0,
+                    $result['already_done'] ?? 0,
+                    count($result['failed'] ?? [])
                 ));
-
-                continue;
+            } catch (Throwable $exception) {
+                $this->error($company->name . ' — accrual crashed: ' . $exception->getMessage());
+            } finally {
+                app(TenantContext::class)->forget();
             }
-
-            $this->balances->allocate((int) $company->id, $year, $actor);
-            $result = $this->balances->accrue($year, $actor);
-
-            $this->line(sprintf(
-                '%s — accrue %d: %d credited, %d already done',
-                $company->name,
-                $year,
-                $result['credited'] ?? 0,
-                $result['skipped'] ?? 0
-            ));
         }
-
-        app(TenantContext::class)->forget();
 
         return self::SUCCESS;
     }

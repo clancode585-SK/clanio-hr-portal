@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Http\Requests;
 
 use App\Models\Plan;
+use App\Support\ModuleCatalog;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -36,6 +37,11 @@ class PlanRequest extends FormRequest
             'highlights' => ['nullable', 'string', 'max:500'],
             'is_popular' => ['nullable', 'boolean'],
             'sort_order' => ['nullable', 'integer', 'between:0,999'],
+
+            // Is plan me kaunse module milenge — khaali chhodo to sab milenge
+            // (profile/bank/document jaise common module yahan list me hi nahi aate, wo hamesha on hote hain)
+            'modules' => ['nullable', 'array'],
+            'modules.*' => [Rule::in(ModuleCatalog::selectable())],
         ];
     }
 

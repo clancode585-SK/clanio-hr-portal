@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Http\Requests;
 
+use App\Models\DailyReportItem;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class DailyReportEodRequest extends FormRequest
 {
@@ -24,8 +26,8 @@ class DailyReportEodRequest extends FormRequest
             'items' => ['nullable', 'array', 'max:30'],
             'items.*.title' => ['required', 'string', 'max:200'],
             'items.*.task_id' => ['nullable', 'integer', 'exists:tasks,id'],
-            'items.*.hours' => ['nullable', 'numeric', 'between:0.5,24'],
-            'items.*.is_completed' => ['nullable', 'boolean'],
+            'items.*.hours' => ['nullable', 'numeric', 'between:0.1,24'],
+            'items.*.status' => ['nullable', 'string', Rule::in(DailyReportItem::STATUSES)],
         ];
     }
 

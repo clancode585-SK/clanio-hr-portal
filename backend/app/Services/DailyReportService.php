@@ -261,7 +261,7 @@ final class DailyReportService
                 'task_id' => $taskId,
                 'title' => $row['title'],
                 'hours' => $hours,
-                'is_completed' => (bool) ($row['is_completed'] ?? false),
+                'status' => $row['status'] ?? DailyReportItem::NOT_STARTED,
                 'sort_order' => $order++,
             ]);
 

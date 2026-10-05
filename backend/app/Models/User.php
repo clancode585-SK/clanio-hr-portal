@@ -27,6 +27,8 @@ class User extends Authenticatable
     use HasActiveState;
     use HasUuid;
 
+    public const PENDING_VERIFICATION = 'pending_verification';
+
     protected $fillable = [
         'name',
         'email',
@@ -44,7 +46,7 @@ class User extends Authenticatable
         'failed_login_attempts' => 0,
     ];
 
-    protected $hidden = ['password', 'company_key'];
+    protected $hidden = ['password', 'company_key', 'verification_code_hash'];
 
     protected function casts(): array
     {
@@ -55,7 +57,13 @@ class User extends Authenticatable
             'last_login_at' => 'datetime',
             'tour_done_at' => 'datetime',
             'locked_until' => 'datetime',
+            'verification_expires_at' => 'datetime',
         ];
+    }
+
+    public function needsVerification(): bool
+    {
+        return $this->status === self::PENDING_VERIFICATION;
     }
 
     public function roles(): BelongsToMany

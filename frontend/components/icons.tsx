@@ -79,6 +79,14 @@ export function ArrowRightIcon({ className }: IconProps) {
   )
 }
 
+export function ChevronIcon({ className }: IconProps) {
+  return (
+    <svg {...base} className={className} aria-hidden="true">
+      <path d="m6 9 6 6 6-6" />
+    </svg>
+  )
+}
+
 export function ShieldIcon({ className }: IconProps) {
   return (
     <svg {...base} className={className} aria-hidden="true">
