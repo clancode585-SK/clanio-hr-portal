@@ -11,6 +11,7 @@ import { formatStamp, zoneLabel } from '@/lib/clock'
 import { ApiError, api, apiList } from '@/lib/api'
 import { downloadFile } from '@/lib/download'
 import { useResource } from '@/lib/useResource'
+import { useSheetFrame } from '@/lib/useSheetFrame'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -24,6 +25,7 @@ const verdicts = [
 
 export default function InterviewsScreen() {
   const theme = useTheme()
+  const sheetFrame = useSheetFrame()
   const insets = useSafeAreaInsets()
 
   const [showPast, setShowPast] = useState(false)

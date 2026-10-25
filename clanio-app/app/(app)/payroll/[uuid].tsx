@@ -14,6 +14,7 @@ import { useAuth } from '@/lib/auth'
 import { downloadFile } from '@/lib/download'
 import { Money } from '@/lib/money'
 import { useResource } from '@/lib/useResource'
+import { useSheetFrame } from '@/lib/useSheetFrame'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -56,6 +57,7 @@ const filters = [
 
 export default function PayrollRunScreen() {
   const theme = useTheme()
+  const sheetFrame = useSheetFrame()
   const insets = useSafeAreaInsets()
   const { uuid } = useLocalSearchParams<{ uuid: string }>()
   const { can } = useAuth()
@@ -299,12 +301,12 @@ export default function PayrollRunScreen() {
         )
       } else {
         setScheduling(null)
-        setDone('Transfer ka time set ho gaya.')
+        setDone('Transfer time set.')
       }
 
       await record.refresh()
     } catch (caught) {
-      setCodeProblem(caught instanceof ApiError ? caught.message : 'Code nahi chala.')
+      setCodeProblem(caught instanceof ApiError ? caught.message : 'That code did not work.')
     } finally {
       setBusy(false)
     }
@@ -325,7 +327,7 @@ export default function PayrollRunScreen() {
         setWaiting({ ...waiting, verification: answer.verification as Verification })
       }
     } catch (caught) {
-      setCodeProblem(caught instanceof ApiError ? caught.message : 'Naya code nahi bheja ja saka.')
+      setCodeProblem(caught instanceof ApiError ? caught.message : 'A new code could not be sent.')
     } finally {
       setBusy(false)
     }
@@ -343,7 +345,7 @@ export default function PayrollRunScreen() {
       const fresh = await api<Slip>(`/payslips/${slip.uuid}/${on ? 'approve' : 'unapprove'}`, { method: 'POST' })
 
       setOpen(fresh)
-      setDone(on ? `${fresh.employee_name} ki salary approve ho gayi.` : 'Approval wapas le li.')
+      setDone(on ? `${fresh.employee_name} ki salary approve ho gayi.` : 'Approval withdrawn.')
       await record.refresh()
     } catch (caught) {
       setProblem(caught instanceof ApiError ? caught.message : 'Could not change the approval.')
@@ -417,7 +419,7 @@ export default function PayrollRunScreen() {
       { date: scheduleDate.trim(), time: scheduleTime.trim(), note: scheduleNote.trim() || null },
       () => {
         setScheduling(null)
-        setDone('Transfer ka time set ho gaya.')
+        setDone('Transfer time set.')
       },
       'Could not set the time.'
     )
@@ -434,7 +436,7 @@ export default function PayrollRunScreen() {
     try {
       await api(`/payroll-runs/${uuid}/schedule`, { method: 'DELETE' })
       setScheduling(null)
-      setDone('Schedule hata diya.')
+      setDone('Schedule removed.')
       await record.refresh()
     } catch (caught) {
       setProblem(caught instanceof ApiError ? caught.message : 'Could not remove the schedule.')
@@ -523,7 +525,7 @@ export default function PayrollRunScreen() {
         {run.is_editable && canRun ? (
           <Button
             label={run.headcount === 0 ? 'Calculate this month' : 'Calculate again'}
-            onPress={() => void act(`/payroll-runs/${uuid}/calculate`, undefined, 'Payroll calculate ho gaya.')}
+            onPress={() => void act(`/payroll-runs/${uuid}/calculate`, undefined, 'Payroll calculated.')}
             loading={busy}
             fullWidth
           />
@@ -574,7 +576,7 @@ export default function PayrollRunScreen() {
         {run.status === 'calculated' && canApprove ? (
           <Button
             label="Approve this payroll"
-            onPress={() => void act(`/payroll-runs/${uuid}/approve`, undefined, 'Approve ho gaya. Ab salary bhej sakte ho.')}
+            onPress={() => void act(`/payroll-runs/${uuid}/approve`, undefined, 'Approved. You can send the salary now.')}
             loading={busy}
             disabled={busy || waitingCount > 0}
             fullWidth
@@ -585,22 +587,22 @@ export default function PayrollRunScreen() {
           <Notice
             tone="warning"
             title={`${waitingCount} salary par final approval baaki hai`}
-            message="Sabko approve karo, ya jinki rokni hai unko stop karo. Uske baad hi payroll approve hoga."
+            message="Approve everyone, or put the ones you want to hold on stop. Only then can payroll be approved."
           />
         ) : null}
 
         {run.status === 'calculated' && canApprove && waitingCount === 0 ? (
           <Notice
             tone="info"
-            title="Approve karne ke baad amount lock ho jaayega"
-            message="LOP aur recalculate dono band ho jaate hain. Pehle sab check kar lo."
+            title="The amount locks once you approve"
+            message="LOP edits and recalculation both stop after this. Check everything first."
           />
         ) : null}
 
         {run.is_payable && canPay ? (
           <>
             <Button
-              label={window?.is_scheduled ? 'Time badlo' : 'Transfer ka time set karo'}
+              label={window?.is_scheduled ? 'Time badlo' : 'Set the transfer time'}
               variant="secondary"
               onPress={() => void openSchedule()}
               disabled={busy}
@@ -615,7 +617,7 @@ export default function PayrollRunScreen() {
                   message={run.schedule_note ? run.schedule_note : 'Us time par apne aap chala jaayega.'}
                 />
                 <Button
-                  label="Schedule hata do"
+                  label="Remove the schedule"
                   variant="secondary"
                   onPress={() => void dropSchedule()}
                   disabled={busy}
@@ -630,7 +632,7 @@ export default function PayrollRunScreen() {
           <Button
             label={
               runQuote?.can_transfer === false
-                ? 'Abhi transfer band hai'
+                ? 'Transfers are closed right now'
                 : `Send salary to ${sendable} employee${sendable === 1 ? '' : 's'}`
             }
             onPress={() => void payEveryone()}
@@ -643,7 +645,7 @@ export default function PayrollRunScreen() {
         {run.is_payable && canPay && runQuote?.can_transfer === false ? (
           <Notice
             tone="danger"
-            title="Abhi nahi bhej sakte"
+            title="Cannot send yet"
             message={(runQuote.blockers ?? []).join(' ')}
           />
         ) : null}
@@ -651,7 +653,7 @@ export default function PayrollRunScreen() {
         {run.is_payable && canPay && runQuote?.sending_early && runQuote?.can_transfer ? (
           <Notice
             tone="warning"
-            title="Pay date se pehle ja raha hai"
+            title="Going out before the pay date"
             message={`Window ${window?.opens_label} ko khulti hai. Aap fir bhi bhej sakte ho.`}
           />
         ) : null}
@@ -660,7 +662,7 @@ export default function PayrollRunScreen() {
           <Notice
             tone="warning"
             title={`${runQuote?.waiting_for_approval} salary approve nahi hui`}
-            message="Unki salary is transfer me nahi jaayegi."
+            message="Their salary is left out of this transfer."
           />
         ) : null}
 
@@ -668,7 +670,7 @@ export default function PayrollRunScreen() {
           <Button
             label="Cancel this payroll"
             variant="secondary"
-            onPress={() => void act(`/payroll-runs/${uuid}/cancel`, undefined, 'Payroll cancel kar diya.')}
+            onPress={() => void act(`/payroll-runs/${uuid}/cancel`, undefined, 'Payroll cancelled.')}
             disabled={busy}
             fullWidth
           />
@@ -694,10 +696,10 @@ export default function PayrollRunScreen() {
         {slips.length === 0 ? (
           <Notice
             tone="info"
-            title={run.headcount === 0 ? 'Kuch calculate nahi hua' : 'Is filter me koi nahi'}
+            title={run.headcount === 0 ? 'Nothing calculated yet' : 'Nothing matches this filter'}
             message={
               run.headcount === 0
-                ? 'Calculate dabao — jiska structure set hai uski payslip ban jaayegi.'
+                ? 'Press Calculate — a payslip is built for everyone with a salary structure.'
                 : 'Dusra filter chuno.'
             }
           />
@@ -774,7 +776,7 @@ export default function PayrollRunScreen() {
       <Modal visible={open !== null} transparent animationType="slide" onRequestClose={closeSheet}>
         <Pressable style={styles.backdrop} onPress={closeSheet} />
 
-        <View style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
+        <View style={[styles.sheet, sheetFrame, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
           <View style={[styles.sheetHead, { borderBottomColor: theme.line }]}>
             <Text numberOfLines={1} style={[styles.sheetTitle, { color: theme.ink }]}>
               {open?.employee_name ?? ''}
@@ -838,18 +840,18 @@ export default function PayrollRunScreen() {
                     {open.is_stopped ? (
                       <Notice
                         tone="danger"
-                        title="Ye salary stop par hai"
-                        message={`${open.hold_reason ?? 'HR ne roka hai'} — stop hatao tab approve hoga.`}
+                        title="This salary is on stop"
+                        message={`${open.hold_reason ?? 'HR has put this on hold'} — stop hatao tab approve hoga.`}
                       />
                     ) : open.is_approved ? (
                       <>
                         <Notice
                           tone="success"
-                          title="Approve ho chuki hai"
+                          title="Already approved"
                           message={`${Money.rupee(open.net_payable, 2)} par approval lag gayi. Isi amount se transfer hoga.`}
                         />
                         <Button
-                          label="Approval wapas lo"
+                          label="Withdraw approval"
                           variant="secondary"
                           onPress={() => void approveOne(open, false)}
                           disabled={busy}
@@ -887,8 +889,8 @@ export default function PayrollRunScreen() {
                 ) : (
                   <Notice
                     tone="info"
-                    title="Amount lock hai"
-                    message="Payroll approve ho gaya hai, ab LOP nahi badal sakta."
+                    title="Amount is locked"
+                    message="Payroll is approved, so LOP can no longer be changed."
                   />
                 )}
 
@@ -914,8 +916,8 @@ export default function PayrollRunScreen() {
                     {quote.is_mock ? (
                       <Notice
                         tone="warning"
-                        title="Test bank laga hai"
-                        message="Asli paisa kahin nahi jaayega. Bank ki detail .env me daalne ke baad asli transfer hoga."
+                        title="A test bank is wired up"
+                        message="No real money moves. Add the bank details in .env to make transfers real."
                       />
                     ) : null}
 
@@ -924,7 +926,7 @@ export default function PayrollRunScreen() {
                     ) : (
                       <Notice
                         tone="danger"
-                        title="Abhi nahi bhej sakte"
+                        title="Cannot send yet"
                         message={(quote.blockers ?? []).join(' ')}
                       />
                     )}
@@ -937,17 +939,17 @@ export default function PayrollRunScreen() {
                       <Button
                         label="Stop hatao"
                         variant="secondary"
-                        onPress={() => void act(`/payslips/${open.uuid}/release`, undefined, 'Stop hata diya.').then(() => closeSheet())}
+                        onPress={() => void act(`/payslips/${open.uuid}/release`, undefined, 'Stop removed.').then(() => closeSheet())}
                         disabled={busy}
                         fullWidth
                       />
                     ) : (
                       <>
                         <Field
-                          label="Salary rokni hai kyunki"
+                          label="Holding the salary because"
                           value={holdReason}
                           onChangeText={setHoldReason}
-                          placeholder="Bank detail check karni hai"
+                          placeholder="Check the bank details"
                           editable={!busy}
                         />
                         <Button
@@ -991,7 +993,7 @@ export default function PayrollRunScreen() {
       >
         <Pressable style={styles.backdrop} onPress={() => setScheduling(null)} />
 
-        <View style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
+        <View style={[styles.sheet, sheetFrame, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
           <View style={[styles.sheetHead, { borderBottomColor: theme.line }]}>
             <Text style={[styles.sheetTitle, { color: theme.ink }]}>Transfer kab jaaye</Text>
             <Pressable onPress={() => setScheduling(null)} hitSlop={10}>
@@ -1012,8 +1014,8 @@ export default function PayrollRunScreen() {
                 {scheduling.is_sunday ? (
                   <Notice
                     tone="warning"
-                    title="Ye Sunday hai"
-                    message="Bahut companies Sunday ko transfer nahi karti. Chaho to ek din pehle ki date daal do."
+                    title="That is a Sunday"
+                    message="Many companies avoid transfers on a Sunday. Pick the day before if you prefer."
                   />
                 ) : null}
 
@@ -1021,7 +1023,7 @@ export default function PayrollRunScreen() {
                   <Notice
                     tone="warning"
                     title={`${scheduling.waiting_for_approval} salary approve nahi hui`}
-                    message="Us din unki salary nahi jaayegi."
+                    message="Their salary will not go out that day."
                   />
                 ) : null}
 
@@ -1045,7 +1047,7 @@ export default function PayrollRunScreen() {
                   label="Note"
                   value={scheduleNote}
                   onChangeText={setScheduleNote}
-                  placeholder="7 Sunday hai"
+                  placeholder="7 falls on a Sunday"
                   editable={!busy}
                 />
 

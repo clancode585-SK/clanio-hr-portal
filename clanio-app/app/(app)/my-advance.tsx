@@ -64,11 +64,11 @@ export default function MyAdvanceScreen() {
       setMonths('')
       setEmi('')
       setReason('')
-      setDone('Request bhej di gayi. HR approve karegi, phir paisa aapke account me aayega.')
+      setDone('Request sent. HR will approve it, then the money reaches your account.')
 
       await record.refresh()
     } catch (caught) {
-      setProblem(caught instanceof ApiError ? caught.message : 'Request nahi ja payi.')
+      setProblem(caught instanceof ApiError ? caught.message : 'The request could not be sent.')
     } finally {
       setBusy(false)
     }
@@ -94,7 +94,7 @@ export default function MyAdvanceScreen() {
     Number(amount) > 0 && Number(months) > 0 && reason.trim().length > 2 && open === undefined
 
   return (
-    <Screen title="Advance Salary" subtitle={open ? 'Ek advance chal raha hai' : 'Zarurat par advance maango'}>
+    <Screen title="Advance Salary" subtitle={open ? 'One advance is running' : 'Ask for an advance when you need one'}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -106,8 +106,8 @@ export default function MyAdvanceScreen() {
             <RefreshControl refreshing={record.refreshing} onRefresh={record.refresh} tintColor={theme.brand} />
           }
         >
-          {done ? <Notice tone="success" title="Bhej diya" message={done} /> : null}
-          {problem ? <Notice tone="danger" title="Nahi ho paaya" message={problem} /> : null}
+          {done ? <Notice tone="success" title="Sent" message={done} /> : null}
+          {problem ? <Notice tone="danger" title="That did not work" message={problem} /> : null}
 
           {open ? (
             <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}>
@@ -121,7 +121,7 @@ export default function MyAdvanceScreen() {
               <Text style={[styles.big, { color: theme.ink }]}>{Money.rupee(open.amount)}</Text>
 
               <View style={styles.stats}>
-                <Stat label="EMI har mahine" value={Money.rupee(open.emi_amount)} />
+                <Stat label="EMI each month" value={Money.rupee(open.emi_amount)} />
                 <Stat label="Kat chuka" value={Money.rupee(open.recovered)} />
                 <Stat label="Baaki" value={Money.rupee(open.outstanding)} />
                 <Stat label="Kist bachi" value={String(open.instalments_left)} />
@@ -155,7 +155,7 @@ export default function MyAdvanceScreen() {
 
               {open.status === 'approved' ? (
                 <Text style={[styles.hint, { color: theme.inkSubtle }]}>
-                  Approve ho gaya. Paisa bhejne ke baad EMI shuru hogi.
+                  Approved. Paisa bhejne ke baad EMI shuru hogi.
                 </Text>
               ) : null}
 
@@ -176,7 +176,7 @@ export default function MyAdvanceScreen() {
               <Text style={[styles.formTitle, { color: theme.ink }]}>Naya advance maango</Text>
 
               <Field
-                label="Kitna chahiye"
+                label="How much is needed"
                 value={amount}
                 onChangeText={setAmount}
                 keyboardType="numeric"
@@ -185,7 +185,7 @@ export default function MyAdvanceScreen() {
               />
 
               <Field
-                label="Kitne mahine me wapas"
+                label="Months to repay over"
                 value={months}
                 onChangeText={setMonths}
                 keyboardType="numeric"
@@ -247,8 +247,8 @@ export default function MyAdvanceScreen() {
 
           {rows.length === 0 ? (
             <EmptyState
-              title="Abhi tak koi advance nahi"
-              message="Zarurat pade to upar wale form se maang sakte ho."
+              title="No advance so far"
+              message="If you need one, ask using the form above."
             />
           ) : null}
         </ScrollView>

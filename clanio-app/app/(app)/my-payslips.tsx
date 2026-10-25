@@ -9,6 +9,7 @@ import { api } from '@/lib/api'
 import { downloadFile } from '@/lib/download'
 import { Money } from '@/lib/money'
 import { useResource } from '@/lib/useResource'
+import { useSheetFrame } from '@/lib/useSheetFrame'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -16,6 +17,7 @@ type Slip = Record<string, any>
 
 export default function MyPayslipsScreen() {
   const theme = useTheme()
+  const sheetFrame = useSheetFrame()
   const insets = useSafeAreaInsets()
 
   const [open, setOpen] = useState<Slip | null>(null)
@@ -72,7 +74,7 @@ export default function MyPayslipsScreen() {
         {slips.length === 0 ? (
           <EmptyState
             title="No payslip yet"
-            message="Jab HR mahine ka payroll approve karega, uski payslip yahan aa jaayegi."
+            message="Once HR approves the month, your payslip appears here."
           />
         ) : null}
 
@@ -110,7 +112,7 @@ export default function MyPayslipsScreen() {
       <Modal visible={open !== null} transparent animationType="slide" onRequestClose={() => setOpen(null)}>
         <Pressable style={styles.backdrop} onPress={() => setOpen(null)} />
 
-        <View style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
+        <View style={[styles.sheet, sheetFrame, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
           <View style={[styles.sheetHead, { borderBottomColor: theme.line }]}>
             <Text style={[styles.sheetTitle, { color: theme.ink }]}>{open?.month_label ?? ''}</Text>
             <Pressable onPress={() => setOpen(null)} hitSlop={10}>

@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { api, ApiError, setPolicyBlockedHandler, setUnauthenticatedHandler } from './api'
 import { setCompanyZone } from './clock'
 import { config } from './config'
+import { resetUnread } from './useUnread'
 import { clearSession, loadSession, saveSession } from './session'
 import { registerPush, unregisterPush } from './push'
 import { startRealtime, stopRealtime } from './realtime'
@@ -54,6 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     signingOut.current = true
 
     await clearSession()
+    resetUnread()
 
     setToken(null)
     setProfile(null)

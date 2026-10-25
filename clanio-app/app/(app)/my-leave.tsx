@@ -22,6 +22,7 @@ import { ErrorState, Loader } from '@/components/ui/States'
 import { today } from '@/lib/clock'
 import { api, apiList, ApiError } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { useSheetFrame } from '@/lib/useSheetFrame'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -47,6 +48,7 @@ type Loaded = {
 
 export default function MyLeaveScreen() {
   const theme = useTheme()
+  const sheetFrame = useSheetFrame()
   const insets = useSafeAreaInsets()
   const { profile } = useAuth()
   const employeeId = profile?.employee?.id ?? null
@@ -259,7 +261,7 @@ export default function MyLeaveScreen() {
         <Pressable style={styles.backdrop} onPress={() => setOpen(false)} />
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
+          <View style={[styles.sheet, sheetFrame, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
             <View style={[styles.grab, { backgroundColor: theme.line }]} />
 
             <ScrollView style={styles.sheetBody} keyboardShouldPersistTaps="handled">

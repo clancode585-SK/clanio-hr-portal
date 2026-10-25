@@ -28,14 +28,27 @@
       "expo-router",
       "expo-secure-store",
       "expo-sharing",
-      "expo-notifications"
+      "expo-notifications",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "enableProguardInReleaseBuilds": true,
+            "enableShrinkResourcesInReleaseBuilds": true,
+            "usesCleartextTraffic": false
+          },
+          "ios": {
+            "ccacheEnabled": true
+          }
+        }
+      ]
     ],
     "scheme": "clanio",
     "experiments": {
       "typedRoutes": true
     },
     "extra": {
-      "apiUrl": "http://127.0.0.1:8001/api/hrms",
+      "apiUrl": "http://127.0.0.1:8011/api/hrms",
       "companyId": "1"
     }
   }

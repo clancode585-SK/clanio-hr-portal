@@ -20,6 +20,7 @@ import { EmptyState, ErrorState, Loader } from '@/components/ui/States'
 import { api, ApiError } from '@/lib/api'
 import { downloadFile } from '@/lib/download'
 import { useResource } from '@/lib/useResource'
+import { useSheetFrame } from '@/lib/useSheetFrame'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -27,6 +28,7 @@ type Policy = Record<string, any>
 
 export default function MyPoliciesScreen() {
   const theme = useTheme()
+  const sheetFrame = useSheetFrame()
   const insets = useSafeAreaInsets()
 
   const [reading, setReading] = useState<Policy | null>(null)
@@ -147,7 +149,7 @@ export default function MyPoliciesScreen() {
         <Pressable style={styles.backdrop} onPress={() => setReading(null)} />
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
+          <View style={[styles.sheet, sheetFrame, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
             <View style={[styles.grab, { backgroundColor: theme.line }]} />
 
             <ScrollView style={styles.sheetBody} keyboardShouldPersistTaps="handled">

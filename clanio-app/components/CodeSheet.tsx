@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/Button'
 import { Field } from '@/components/ui/Field'
 import { Notice } from '@/components/ui/Notice'
 import { Money } from '@/lib/money'
+import { useSheetFrame } from '@/lib/useSheetFrame'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -30,6 +31,7 @@ type Props = {
 
 export function CodeSheet({ verification, busy, problem, onSubmit, onResend, onClose }: Props) {
   const theme = useTheme()
+  const sheetFrame = useSheetFrame()
   const insets = useSafeAreaInsets()
   const [code, setCode] = useState('')
 
@@ -43,7 +45,7 @@ export function CodeSheet({ verification, busy, problem, onSubmit, onResend, onC
     <Modal visible={verification !== null} transparent animationType="slide" onRequestClose={onClose}>
       <Pressable style={styles.backdrop} onPress={onClose} />
 
-      <View style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
+      <View style={[styles.sheet, sheetFrame, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
         <View style={[styles.head, { borderBottomColor: theme.line }]}>
           <Text style={[styles.title, { color: theme.ink }]}>Ek code aur</Text>
           <Pressable onPress={onClose} hitSlop={10}>
@@ -52,7 +54,7 @@ export function CodeSheet({ verification, busy, problem, onSubmit, onResend, onC
         </View>
 
         <ScrollView style={styles.body} keyboardShouldPersistTaps="handled">
-          {problem ? <Notice tone="danger" title="Code nahi chala" message={problem} /> : null}
+          {problem ? <Notice tone="danger" title="That code did not work" message={problem} /> : null}
 
           {verification ? (
             <>

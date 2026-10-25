@@ -4,16 +4,16 @@ import { Money } from '@/lib/money'
 type Item = Record<string, any>
 
 const kinds = [
-  { value: 'earning', label: 'Earning', hint: 'Gross me judta hai' },
-  { value: 'deduction', label: 'Deduction', hint: 'Net se katta hai' },
-  { value: 'employer_cost', label: 'Employer cost', hint: 'Net se nahi katta, company deti hai' },
+  { value: 'earning', label: 'Earning', hint: 'Adds to the gross' },
+  { value: 'deduction', label: 'Deduction', hint: 'Deducted from net pay' },
+  { value: 'employer_cost', label: 'Employer cost', hint: 'Not deducted from net pay — the company pays it' },
 ]
 
 const calculations = [
   { value: 'fixed', label: 'Fixed amount', hint: 'Jo value do wahi amount' },
   { value: 'percent_of_basic', label: 'Percent of Basic', hint: 'Basic ka itna percent' },
   { value: 'percent_of_gross', label: 'Percent of gross', hint: 'Monthly gross ka itna percent' },
-  { value: 'balance', label: 'Balance', hint: 'Gross me jo bacha, wo isme — ek hi component aisa ho sakta hai' },
+  { value: 'balance', label: 'Balance', hint: 'Takes whatever is left of the gross — only one component can do this' },
 ]
 
 const fields: FieldSpec[] = [
@@ -26,9 +26,9 @@ const fields: FieldSpec[] = [
     max: 30,
     autoCapitalize: 'characters',
     lockOnEdit: true,
-    hint: 'Short code — payslip aur report me yahi use hota hai',
+    hint: 'Short code — this is what payslips and reports use',
     pattern: /^[A-Za-z0-9_-]+$/,
-    patternMessage: 'Sirf letter, number, dash aur underscore',
+    patternMessage: 'Letters, numbers, dashes and underscores only',
   },
   { key: 'name', label: 'Name', type: 'text', placeholder: 'House Rent Allowance', required: true, max: 100, autoCapitalize: 'words' },
   { key: 'kind', label: 'What is it', type: 'select', options: kinds, required: true },
@@ -39,7 +39,7 @@ const fields: FieldSpec[] = [
     type: 'number',
     placeholder: '40',
     min: 0,
-    hint: 'Percent wale me percent, fixed wale me rupaye. Structure banate waqt badal sakte ho',
+    hint: 'A percentage for percent components, rupees for fixed ones. You can change it while building a structure',
   },
   { key: 'sequence', label: 'Order on the payslip', type: 'number', placeholder: '20', min: 1, integer: true },
   { key: 'is_taxable', label: 'Taxable', type: 'toggle' },

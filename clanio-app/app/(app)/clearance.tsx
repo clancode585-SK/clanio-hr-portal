@@ -20,6 +20,7 @@ import { Select, type Option } from '@/components/ui/Select'
 import { EmptyState, ErrorState, Loader } from '@/components/ui/States'
 import { api, apiList, ApiError } from '@/lib/api'
 import { useResource } from '@/lib/useResource'
+import { useSheetFrame } from '@/lib/useSheetFrame'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -33,6 +34,7 @@ const statuses: Option[] = [
 
 export default function ClearanceScreen() {
   const theme = useTheme()
+  const sheetFrame = useSheetFrame()
   const insets = useSafeAreaInsets()
 
   const [signing, setSigning] = useState<Row | null>(null)
@@ -144,7 +146,7 @@ export default function ClearanceScreen() {
         <Pressable style={styles.backdrop} onPress={() => setSigning(null)} />
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
+          <View style={[styles.sheet, sheetFrame, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
             <View style={[styles.grab, { backgroundColor: theme.line }]} />
 
             <ScrollView style={styles.sheetBody} keyboardShouldPersistTaps="handled">

@@ -50,7 +50,7 @@ export default function EmployeePayrollScreen() {
     try {
       await downloadFile(`/employees/${uuid}/form16/download?fy=${fy}`, `Form16-${fy}.pdf`)
     } catch (caught) {
-      setProblem(caught instanceof ApiError ? caught.message : 'Form 16 nahi bana.')
+      setProblem(caught instanceof ApiError ? caught.message : 'Form 16 could not be generated.')
     } finally {
       setBusy(false)
     }
@@ -80,8 +80,8 @@ export default function EmployeePayrollScreen() {
     return (
       <Screen title="Payroll" leading="back" subtitle={employee.name}>
         <EmptyState
-          title="Abhi koi payroll nahi"
-          message="Jab is employee ka koi mahina calculate hoga, wo yahan dikhega."
+          title="No payroll yet"
+          message="Once a month is calculated for this employee, it shows up here."
         />
       </Screen>
     )
@@ -122,14 +122,14 @@ export default function EmployeePayrollScreen() {
         </ScrollView>
 
         {picked === null ? (
-          <EmptyState title="Ye mahina nahi mila" message="Upar se doosra mahina chuno." />
+          <EmptyState title="That month was not found" message="Pick another month from above." />
         ) : (
           <>
             {picked.status === 'calculated' ? (
               <Notice
                 tone="warning"
-                title="Abhi approve nahi hua"
-                message="Ye numbers badal sakte hain. Employee ko ye payslip abhi nahi dikhti."
+                title="Not approved yet"
+                message="These numbers can still change. The employee cannot see this payslip yet."
               />
             ) : null}
 
@@ -169,7 +169,7 @@ export default function EmployeePayrollScreen() {
             {Number(picked.advance_emi) > 0 ? (
               <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}>
                 <Text style={[styles.section, { color: theme.inkMuted }]}>Advance</Text>
-                <Row label="Is mahine ki EMI" value={picked.advance_emi} highlight />
+                <Row label="EMI for this month" value={picked.advance_emi} highlight />
               </View>
             ) : null}
 
@@ -209,7 +209,7 @@ export default function EmployeePayrollScreen() {
                 FY {fyOf(picked.month)}-{String(fyOf(picked.month) + 1).slice(2)} ka Part B — PDF me
                 aayega. TDS 0 hai to salary certificate ke taur par kaam karta hai.
               </Text>
-              {problem ? <Notice tone="danger" title="Nahi ho paaya" message={problem} /> : null}
+              {problem ? <Notice tone="danger" title="That did not work" message={problem} /> : null}
               <Button
                 label="Form 16 download"
                 variant="secondary"

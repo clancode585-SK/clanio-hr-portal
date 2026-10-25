@@ -64,6 +64,35 @@ type RequestOptions = {
   token?: string | null
   signal?: AbortSignal
   skipAuthHandler?: boolean
+  timeout?: number
+}
+
+// React Native ka fetch apne aap timeout nahi karta — server chup ho to app anant tak wait karti hai
+const TIMEOUT_MS = 20000
+
+async function withTimeout<T>(
+  run: (signal: AbortSignal) => Promise<T>,
+  ms: number,
+  outer?: AbortSignal
+): Promise<T> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), ms)
+  const relay = (): void => controller.abort()
+
+  outer?.addEventListener('abort', relay)
+
+  try {
+    return await run(controller.signal)
+  } catch (caught) {
+    if (controller.signal.aborted && outer?.aborted !== true) {
+      throw new ApiError('The server did not respond. Please try again.', 0, 'TIMEOUT')
+    }
+
+    throw caught
+  } finally {
+    clearTimeout(timer)
+    outer?.removeEventListener('abort', relay)
+  }
 }
 
 type UnauthenticatedHandler = () => void
@@ -121,13 +150,22 @@ async function request<T>(path: string, options: RequestOptions): Promise<Envelo
   let response: Response
 
   try {
-    response = await fetch(`${config.apiUrl}${path}`, {
-      method,
-      headers,
-      signal,
-      body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
-    })
-  } catch {
+    response = await withTimeout(
+      (timeoutSignal) =>
+        fetch(`${config.apiUrl}${path}`, {
+          method,
+          headers,
+          signal: timeoutSignal,
+          body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
+        }),
+      options.timeout ?? TIMEOUT_MS,
+      signal
+    )
+  } catch (caught) {
+    if (caught instanceof ApiError) {
+      throw caught
+    }
+
     throw new ApiError('Cannot reach the server. Check your connection.', 0, 'NETWORK_ERROR')
   }
 

@@ -24,6 +24,7 @@ import { api, apiList, ApiError } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { documentTypes, pickFile, toFormData, type PickedFile } from '@/lib/upload'
 import { useResource } from '@/lib/useResource'
+import { useSheetFrame } from '@/lib/useSheetFrame'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -100,6 +101,7 @@ const shortcuts: { kind: Kind; label: string; hint: string; icon: IconName }[] =
 
 export default function MyRequestsScreen() {
   const theme = useTheme()
+  const sheetFrame = useSheetFrame()
   const insets = useSafeAreaInsets()
   const { profile } = useAuth()
   const employeeId = profile?.employee?.id ?? null
@@ -526,7 +528,7 @@ export default function MyRequestsScreen() {
         <Pressable style={styles.backdrop} onPress={close} />
 
         <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-          <View style={[styles.sheet, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
+          <View style={[styles.sheet, sheetFrame, { backgroundColor: theme.surface, paddingBottom: insets.bottom + spacing.lg }]}>
             <View style={[styles.grab, { backgroundColor: theme.line }]} />
 
             <ScrollView style={styles.sheetBody} keyboardShouldPersistTaps="handled">

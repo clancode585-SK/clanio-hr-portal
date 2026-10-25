@@ -252,8 +252,8 @@ export default function FnfScreen() {
 
         {settlements.length === 0 && waiting.length === 0 ? (
           <EmptyState
-            title="Kuch pending nahi"
-            message="Jab kisi ka exit approve hoga, uska full and final yahan aayega."
+            title="Nothing pending"
+            message="Once an exit is approved, the full and final settlement appears here."
           />
         ) : null}
       </ScrollView>

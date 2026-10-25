@@ -12,6 +12,7 @@ import { ApiError, api, apiList } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { downloadText } from '@/lib/download'
 import { money } from '@/lib/plans'
+import { useSheetFrame } from '@/lib/useSheetFrame'
 import { useTheme } from '@/theme/useTheme'
 import { font, radius, spacing } from '@/theme/tokens'
 
@@ -64,6 +65,7 @@ const statuses = [
 
 export default function BillingScreen() {
   const theme = useTheme()
+  const sheetFrame = useSheetFrame()
   const { isSuperAdmin, can } = useAuth()
 
   const [summary, setSummary] = useState<Summary | null>(null)

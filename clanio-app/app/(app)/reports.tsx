@@ -112,7 +112,7 @@ export default function ReportsScreen() {
     try {
       setBuilt(await api<Built>(`${base}/${picked.key}${query}`))
     } catch (caught) {
-      setProblem(caught instanceof ApiError ? caught.message : 'Report nahi ban payi.')
+      setProblem(caught instanceof ApiError ? caught.message : 'The report could not be built.')
     } finally {
       setBusy(null)
     }
@@ -129,7 +129,7 @@ export default function ReportsScreen() {
     try {
       await downloadFile(`${base}/${picked.key}/download${query}`, `${picked.key}.${picked.format ?? 'csv'}`)
     } catch (caught) {
-      setProblem(caught instanceof ApiError ? caught.message : 'File download nahi hui.')
+      setProblem(caught instanceof ApiError ? caught.message : 'The file could not be downloaded.')
     } finally {
       setBusy(null)
     }
@@ -147,7 +147,7 @@ export default function ReportsScreen() {
     try {
       await downloadFile(`/form16/bulk?fy=${year.trim()}`, `Form16B-all-${year.trim()}.pdf`)
     } catch (caught) {
-      setProblem(caught instanceof ApiError ? caught.message : 'Form 16 download nahi hua.')
+      setProblem(caught instanceof ApiError ? caught.message : 'Form 16 could not be downloaded.')
     } finally {
       setBusy(null)
     }
@@ -180,13 +180,13 @@ export default function ReportsScreen() {
           <RefreshControl refreshing={record.refreshing} onRefresh={record.refresh} tintColor={theme.brand} />
         }
       >
-        {problem ? <Notice tone="danger" title="Nahi ho paaya" message={problem} /> : null}
+        {problem ? <Notice tone="danger" title="That did not work" message={problem} /> : null}
 
         {!canExport ? (
           <Notice
             tone="info"
-            title="Sirf dekh sakte ho"
-            message="Download ka haq nahi hai — report screen par dikh jayegi, file nahi milegi."
+            title="View only"
+            message="You cannot download files — reports open on screen only."
           />
         ) : null}
 
@@ -228,7 +228,7 @@ export default function ReportsScreen() {
             <Text style={[styles.panelTitle, { color: theme.ink }]}>{picked.label}</Text>
 
             {picked.param === 'month' ? (
-              <Field label="Mahina" value={month} onChangeText={setMonth} placeholder="2026-09" editable={!busy} />
+              <Field label="Month" value={month} onChangeText={setMonth} placeholder="2026-09" editable={!busy} />
             ) : null}
 
             {picked.param === 'year' ? (
@@ -298,7 +298,7 @@ export default function ReportsScreen() {
             </Text>
             <Text style={[styles.hint, { color: theme.inkMuted }]}>
               {built.row_count} row{built.row_count === 1 ? '' : 's'}
-              {built.truncated ? ' · screen par sirf pehle 100, file me poora' : ''}
+              {built.truncated ? ' · first 100 on screen, every row in the file' : ''}
             </Text>
 
             {(built.skipped ?? []).length > 0 ? (
@@ -310,7 +310,7 @@ export default function ReportsScreen() {
             ) : null}
 
             {built.row_count === 0 ? (
-              <EmptyState title="Koi data nahi" message="Is period me kuch nahi mila." />
+              <EmptyState title="No data" message="Nothing found for this period." />
             ) : built.columns === null ? (
               // ECR text file — column nahi, seedhi line hoti hai
               <ScrollView horizontal showsHorizontalScrollIndicator>

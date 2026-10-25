@@ -244,7 +244,7 @@ export default function EmployeeDetailScreen() {
 
           {can('payroll.view') ? (
             <Button
-              label="Payroll — month wise salary aur PF"
+              label="Payroll — month by month salary and PF"
               variant="secondary"
               onPress={() => router.push(`/employees/${uuid}/payroll` as never)}
               fullWidth
