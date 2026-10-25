@@ -109,12 +109,12 @@ class EmployeeRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'uan_number.required_if' => 'PF account hai to UAN number dena zaroori hai.',
-            'uan_number.digits' => 'UAN 12 digit ka hota hai.',
-            'uan_number.unique' => 'Ye UAN kisi aur employee par already laga hua hai.',
-            'aadhaar_number.digits' => 'Aadhaar 12 digit ka hota hai.',
-            'aadhaar_number.unique' => 'Ye Aadhaar kisi aur employee par already laga hua hai.',
-            'esic_number.digits' => 'ESIC number 17 digit ka hota hai.',
+            'uan_number.required_if' => 'A UAN number is required when there is a PF account.',
+            'uan_number.digits' => 'A UAN has 12 digits.',
+            'uan_number.unique' => 'That UAN is already on another employee.',
+            'aadhaar_number.digits' => 'An Aadhaar number has 12 digits.',
+            'aadhaar_number.unique' => 'That Aadhaar is already on another employee.',
+            'esic_number.digits' => 'An ESIC number has 17 digits.',
         ];
     }
 

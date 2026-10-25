@@ -9,6 +9,7 @@ use App\Models\Company;
 use App\Models\Department;
 use App\Models\Permission;
 use App\Models\User;
+use App\Support\ModuleCatalog;
 use App\Support\TenantCache;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Cache;
@@ -30,7 +31,9 @@ final class UserPermissionService
 
         $modules = [];
 
-        foreach (Permission::query()->orderBy('module')->orderBy('slug')->get() as $permission) {
+        // Apna profile/bank/document/directory — role banate waqt ye yahan dikhane ki zaroorat nahi,
+        // har role ko ye hamesha milte hain
+        foreach (Permission::query()->whereNotIn('module', ModuleCatalog::COMMON)->orderBy('module')->orderBy('slug')->get() as $permission) {
             $modules[$permission->module][] = [
                 'id' => (int) $permission->id,
                 'slug' => $permission->slug,
@@ -41,6 +44,7 @@ final class UserPermissionService
         }
 
         $out = [];
+        $total = 0;
 
         foreach ($modules as $module => $permissions) {
             $out[] = [
@@ -48,9 +52,10 @@ final class UserPermissionService
                 'is_enabled' => ! in_array($module, $disabled, true),
                 'permissions' => $permissions,
             ];
+            $total += count($permissions);
         }
 
-        return ['modules' => $out, 'total' => Permission::query()->count()];
+        return ['modules' => $out, 'total' => $total];
     }
 
     public function forDepartment(Department $department, User $actor): array
@@ -230,13 +235,16 @@ final class UserPermissionService
         DB::transaction(function () use ($company, $modules, $known, $actor): void {
             foreach ($modules as $module => $enabled) {
                 if (! in_array($module, $known, true)) {
-                    throw new ApiException('Module nahi mila: ' . $module, 422, 'MODULE_INVALID');
+                    throw new ApiException('Module not found: ' . $module, 422, 'MODULE_INVALID');
                 }
+
+                // Apna profile/bank/document kabhi band nahi hota
+                $isEnabled = in_array($module, ModuleCatalog::COMMON, true) ? true : $enabled;
 
                 DB::table('company_modules')->updateOrInsert(
                     ['company_id' => $company->id, 'module' => $module],
                     [
-                        'is_enabled' => $enabled ? 1 : 0,
+                        'is_enabled' => $isEnabled ? 1 : 0,
                         'updated_by' => $actor->id,
                         'updated_at' => Carbon::now(),
                         'created_at' => Carbon::now(),
@@ -248,6 +256,32 @@ final class UserPermissionService
         });
 
         return $this->modules($company, $actor);
+    }
+
+    /** Company kisi plan par jaati hai to uske module us plan ke hisaab se set ho jaate hain */
+    public function syncToPlan(Company $company, array $planModules, User $actor): void
+    {
+        $known = DB::table('permissions')->distinct()->pluck('module')->all();
+        $now = Carbon::now();
+
+        DB::transaction(function () use ($company, $planModules, $known, $actor, $now): void {
+            foreach ($known as $module) {
+                // Apna profile/bank/document kabhi band nahi hota, plan chahe jo bhi ho
+                $isEnabled = in_array($module, ModuleCatalog::COMMON, true) || in_array($module, $planModules, true);
+
+                DB::table('company_modules')->updateOrInsert(
+                    ['company_id' => $company->id, 'module' => $module],
+                    [
+                        'is_enabled' => $isEnabled ? 1 : 0,
+                        'updated_by' => $actor->id,
+                        'updated_at' => $now,
+                        'created_at' => $now,
+                    ]
+                );
+            }
+
+            $this->flushAll();
+        });
     }
 
     private function roleSlugs(User $target): array
@@ -283,7 +317,7 @@ final class UserPermissionService
             return;
         }
 
-        throw new ApiException('Aapke paas permission dene ka haq nahi hai.', 403, 'FORBIDDEN');
+        throw new ApiException('You are not allowed to grant permissions.', 403, 'FORBIDDEN');
     }
 
     private function effectBySlug(User $target): array
@@ -311,15 +345,15 @@ final class UserPermissionService
     private function assertManageable(User $target, User $actor): void
     {
         if (! $actor->isSuperAdmin() && ! $actor->hasPermission(self::MANAGE_PERMISSION)) {
-            throw new ApiException('Aapke paas permission dene ka haq nahi hai.', 403, 'FORBIDDEN');
+            throw new ApiException('You are not allowed to grant permissions.', 403, 'FORBIDDEN');
         }
 
         if ($target->isSuperAdmin() && ! $actor->isSuperAdmin()) {
-            throw new ApiException('Super admin ki permission nahi badal sakte.', 403, 'FORBIDDEN_TARGET');
+            throw new ApiException('A super admin\'s permissions cannot be changed.', 403, 'FORBIDDEN_TARGET');
         }
 
         if (! $actor->isSuperAdmin() && (int) $target->company_id !== (int) $actor->company_id) {
-            throw new ApiException('Ye user aapki company ka nahi hai.', 403, 'FORBIDDEN_TARGET');
+            throw new ApiException('This user does not belong to your company.', 403, 'FORBIDDEN_TARGET');
         }
     }
 
@@ -333,7 +367,7 @@ final class UserPermissionService
 
         if ($extra !== []) {
             throw new ApiException(
-                'Ye permission aapke paas hi nahi hai: ' . implode(', ', $extra),
+                'You do not hold this permission yourself: ' . implode(', ', $extra),
                 403,
                 'PERMISSION_ESCALATION'
             );
@@ -348,7 +382,7 @@ final class UserPermissionService
 
         if (in_array(self::MANAGE_PERMISSION, $revokes, true)) {
             throw new ApiException(
-                'Apne aap se permission dene ka haq nahi hata sakte.',
+                'You cannot take the grant-permission right away from yourself.',
                 409,
                 'PERMISSION_SELF_LOCK'
             );
@@ -358,7 +392,7 @@ final class UserPermissionService
     private function assertSuperAdmin(User $actor, string $what): void
     {
         if (! $actor->isSuperAdmin()) {
-            throw new ApiException('Sirf super admin ' . $what . ' ka haq rakhta hai.', 403, 'FORBIDDEN');
+            throw new ApiException('Only a super admin ' . $what . ' is permitted.', 403, 'FORBIDDEN');
         }
     }
 

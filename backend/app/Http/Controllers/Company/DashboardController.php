@@ -17,7 +17,7 @@ class DashboardController extends ApiController
     public function index(Request $request): JsonResponse
     {
         return ApiResponse::success(
-            $this->dashboard->forUser($request->user()),
+            $this->dashboard->forUser($request->user(), $request->boolean('fresh')),
             'Dashboard fetched successfully'
         );
     }

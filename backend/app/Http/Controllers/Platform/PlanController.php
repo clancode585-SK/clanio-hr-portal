@@ -11,14 +11,40 @@ use App\Http\Resources\InvoiceResource;
 use App\Models\Company;
 use App\Models\Plan;
 use App\Services\InvoiceService;
+use App\Services\UserPermissionService;
 use App\Support\ApiResponse;
+use App\Support\ModuleCatalog;
 use App\Support\TenantCache;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class PlanController extends ApiController
 {
-    public function __construct(private readonly InvoiceService $invoices) {}
+    public function __construct(
+        private readonly InvoiceService $invoices,
+        private readonly UserPermissionService $permissions
+    ) {}
+
+    public function availableModules(): JsonResponse
+    {
+        // Apna profile, apna bank, apna document — ye hamesha on rehte hain, pick list me nahi dikhate
+        $selectable = ModuleCatalog::selectable();
+
+        $counts = DB::table('permissions')
+            ->whereIn('module', $selectable)
+            ->groupBy('module')
+            ->orderBy('module')
+            ->pluck(DB::raw('COUNT(*)'), 'module');
+
+        return ApiResponse::success(
+            $counts->map(fn (int $count, string $module): array => [
+                'module' => $module,
+                'permissions' => $count,
+            ])->values(),
+            'Modules fetched successfully'
+        );
+    }
 
     public function index(Request $request): JsonResponse
     {
@@ -38,9 +64,16 @@ class PlanController extends ApiController
 
     public function store(PlanRequest $request): JsonResponse
     {
-        $plan = new Plan($request->validated());
+        $plan = new Plan($request->safe()->except('modules'));
         $plan->created_by = $request->user()->id;
         $plan->save();
+
+        // Modules na diye ho to naya plan sab selectable module ke saath shuru hota hai
+        $modules = $request->has('modules')
+            ? $request->input('modules', [])
+            : ModuleCatalog::selectable();
+
+        $this->syncModules($plan, $modules);
 
         TenantCache::flush(TenantCache::COMPANIES);
 
@@ -49,13 +82,37 @@ class PlanController extends ApiController
 
     public function update(PlanRequest $request, Plan $plan): JsonResponse
     {
-        $plan->fill($request->validated());
+        $plan->fill($request->safe()->except('modules'));
         $plan->updated_by = $request->user()->id;
         $plan->save();
+
+        if ($request->has('modules')) {
+            $this->syncModules($plan, $request->input('modules', []));
+        }
 
         TenantCache::flush(TenantCache::COMPANIES);
 
         return ApiResponse::success($this->shape($plan->refresh(), 0), 'Plan updated successfully');
+    }
+
+    private function syncModules(Plan $plan, array $modules): void
+    {
+        DB::table('plan_modules')->where('plan_id', $plan->id)->delete();
+
+        // Apna profile/bank/document kabhi band nahi hota, plan chahe jo bhi ho
+        $modules = array_unique(array_merge($modules, ModuleCatalog::COMMON));
+
+        $now = now();
+
+        DB::table('plan_modules')->insert(array_map(
+            fn (string $module): array => [
+                'plan_id' => $plan->id,
+                'module' => $module,
+                'created_at' => $now,
+                'updated_at' => $now,
+            ],
+            $modules
+        ));
     }
 
     public function destroy(Plan $plan): JsonResponse
@@ -102,6 +159,9 @@ class PlanController extends ApiController
         $company->updated_by = $request->user()->id;
         $company->save();
 
+        // Company ab isi plan ke module use kar sakegi — baaki band ho jaate hain
+        $this->permissions->syncToPlan($company, $plan->moduleList(), $request->user());
+
         TenantCache::flush(TenantCache::COMPANIES);
 
         $invoice = $changed
@@ -147,6 +207,7 @@ class PlanController extends ApiController
             'highlights' => $plan->highlightList(),
             'is_popular' => $plan->is_popular,
             'sort_order' => $plan->sort_order,
+            'modules' => $plan->moduleList(),
             'company_count' => $plan->companies_count ?? $plan->companies()->count(),
             'pricing' => $plan->priceFor($priced),
         ];

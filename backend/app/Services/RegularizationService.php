@@ -128,7 +128,7 @@ final class RegularizationService
     public function cancel(AttendanceRegularization $request, User $actor): AttendanceRegularization
     {
         if ((int) $request->employee->user_id !== (int) $actor->id && ! $actor->isSuperAdmin()) {
-            throw new ApiException('Sirf apni request cancel kar sakte ho.', 403, 'FORBIDDEN');
+            throw new ApiException('You can only cancel your own request.', 403, 'FORBIDDEN');
         }
 
         if (! $request->isPending()) {
@@ -157,11 +157,11 @@ final class RegularizationService
         $end = Carbon::parse($to)->startOfDay();
 
         if ($start->greaterThan($end)) {
-            throw new ApiException('From date, to date se aage nahi ho sakti.', 422, 'DATE_RANGE_INVALID');
+            throw new ApiException('The from date cannot be after the to date.', 422, 'DATE_RANGE_INVALID');
         }
 
         if ($start->diffInDays($end) > 92) {
-            throw new ApiException('Ek baar mein 3 mahine se zyada nahi.', 422, 'DATE_RANGE_TOO_WIDE');
+            throw new ApiException('No more than three months at a time.', 422, 'DATE_RANGE_TOO_WIDE');
         }
 
         $openDates = AttendanceRegularization::query()
@@ -277,7 +277,7 @@ final class RegularizationService
         if ($state['gap'] === AttendanceService::GAP_MISSING_CHECKOUT && $in === null) {
             if ($out === null) {
                 throw new ApiException(
-                    'Check-out ka time do — check-in already laga hua hai.',
+                    'Give a check-out time — the check-in is already recorded.',
                     422,
                     'REGULARIZATION_CHECKOUT_REQUIRED'
                 );
@@ -287,7 +287,7 @@ final class RegularizationService
 
             if ($out->lessThanOrEqualTo($previousIn)) {
                 throw new ApiException(
-                    'Check-out, check-in (' . $previousIn->format('h:i A') . ') ke baad hona chahiye.',
+                    'Check-out, check-in (' . $previousIn->format('h:i A') . ').',
                     422,
                     'REGULARIZATION_TIME_INVALID'
                 );
@@ -298,18 +298,18 @@ final class RegularizationService
 
         if ($in === null || $out === null) {
             throw new ApiException(
-                'Check-in aur check-out dono ka time dena hoga.',
+                'Both the check-in and check-out time are required.',
                 422,
                 'REGULARIZATION_TIME_REQUIRED'
             );
         }
 
         if ($out->lessThanOrEqualTo($in)) {
-            throw new ApiException('Check-out, check-in ke baad hona chahiye.', 422, 'REGULARIZATION_TIME_INVALID');
+            throw new ApiException('Check-out must be after check-in.', 422, 'REGULARIZATION_TIME_INVALID');
         }
 
         if ($in->diffInMinutes($out) > 1440) {
-            throw new ApiException('Ek din mein 24 ghante se zyada nahi.', 422, 'REGULARIZATION_TIME_INVALID');
+            throw new ApiException('No more than 24 hours in a day.', 422, 'REGULARIZATION_TIME_INVALID');
         }
 
         return [$in, $out];
@@ -339,8 +339,8 @@ final class RegularizationService
         if (! $state['is_working_day']) {
             throw new ApiException(
                 $state['day_type'] === WorkCalendar::HOLIDAY
-                    ? 'Us din holiday tha — regularization ki zarurat nahi.'
-                    : 'Us din week off tha — regularization ki zarurat nahi.',
+                    ? 'That day was a holiday — no regularisation is needed.'
+                    : 'That day was a weekly off — no regularisation is needed.',
                 422,
                 'REGULARIZATION_NOT_NEEDED'
             );
@@ -348,7 +348,7 @@ final class RegularizationService
 
         if ($state['leave_portion'] >= 1) {
             throw new ApiException(
-                'Us din aapki approved leave hai — LOP nahi lagegi.',
+                'You are on approved leave that day — no loss of pay applies.',
                 422,
                 'REGULARIZATION_ON_LEAVE'
             );
@@ -356,7 +356,7 @@ final class RegularizationService
 
         if ($state['gap'] === null) {
             throw new ApiException(
-                'Us din ki attendance already poori hai.',
+                'Attendance for that day is already complete.',
                 422,
                 'REGULARIZATION_NOT_NEEDED'
             );
@@ -366,7 +366,7 @@ final class RegularizationService
     private function assertWithinWindow(Employee $employee, Carbon $date, User $actor): void
     {
         if ($date->greaterThan(CompanyTime::day($employee->company_id))) {
-            throw new ApiException('Aane wale din ki regularization nahi hoti.', 422, 'REGULARIZATION_FUTURE_DATE');
+            throw new ApiException('Attendance cannot be regularised for a future date.', 422, 'REGULARIZATION_FUTURE_DATE');
         }
 
         if ($actor->isSuperAdmin() || $actor->hasPermission(AttendanceRegularization::APPROVE_PERMISSION)) {
@@ -377,8 +377,8 @@ final class RegularizationService
 
         if ($date->lessThan($windowStart)) {
             throw new ApiException(
-                'Sirf pichle ' . $this->windowDays($employee) . ' din ki regularization ho sakti hai. '
-                    . 'Isse purani date ke liye HR se baat karo.',
+                'Only the last ' . $this->windowDays($employee) . ' days can be regularised. '
+                    . 'Talk to HR for a date older than this.',
                 422,
                 'REGULARIZATION_WINDOW_CLOSED'
             );
@@ -404,7 +404,7 @@ final class RegularizationService
         }
 
         if ($date->lessThan($windowStart)) {
-            return 'Window band ho gayi — HR se baat karo.';
+            return 'The window has closed — talk to HR.';
         }
 
         return null;
@@ -417,7 +417,7 @@ final class RegularizationService
 
             if ($employee === null) {
                 throw new ApiException(
-                    'Regularization ke liye employee record chahiye. HR se onboarding karwao.',
+                    'Regularisation needs an employee record. Ask HR to complete onboarding.',
                     422,
                     'EMPLOYEE_RECORD_MISSING'
                 );
@@ -428,7 +428,7 @@ final class RegularizationService
 
         if (! $actor->isSuperAdmin() && ! $actor->hasPermission(AttendanceRegularization::APPROVE_PERMISSION)) {
             throw new ApiException(
-                'Kisi aur ki regularization daalne ki permission nahi hai.',
+                'You are not allowed to raise a regularisation for someone else.',
                 403,
                 'FORBIDDEN'
             );
@@ -458,7 +458,7 @@ final class RegularizationService
     {
         if ((int) $request->employee->user_id === (int) $actor->id && ! $actor->isSuperAdmin()) {
             throw new ApiException(
-                'Apni regularization khud approve nahi kar sakte.',
+                'You cannot approve your own regularisation.',
                 403,
                 'REGULARIZATION_SELF_APPROVAL'
             );
@@ -472,7 +472,7 @@ final class RegularizationService
             return;
         }
 
-        throw new ApiException('Aap is request par decision nahi le sakte.', 403, 'FORBIDDEN');
+        throw new ApiException('You cannot decide on this request.', 403, 'FORBIDDEN');
     }
 
     private function notifyApprovers(AttendanceRegularization $request, User $actor): void
@@ -504,9 +504,9 @@ final class RegularizationService
 
         $this->notifications->send((int) $request->employee->user_id, [
             'type' => $type,
-            'title' => 'Attendance correction ' . ($approved ? 'approve' : 'reject') . ' ho gayi',
+            'title' => 'Attendance correction ' . ($approved ? 'approve' : 'reject') . ' done',
             'body' => $request->attendance_date->format('d M Y')
-                . ($approved ? ' — attendance update ho gayi, LOP nahi lagegi.' : '')
+                . ($approved ? ' — attendance updated, no loss of pay will apply.' : '')
                 . ($remarks === null ? '' : ' — ' . $remarks),
             'action_url' => '/regularizations/' . $request->uuid,
             'entity_type' => 'attendance_regularization',

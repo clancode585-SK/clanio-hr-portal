@@ -58,7 +58,7 @@ final class AssetRequestService
 
         if (! $request->isPending()) {
             throw new ApiException(
-                'IT ke haath me jaane ke baad request edit nahi hoti — abhi ' . $request->stageLabel() . '.',
+                'The request cannot be edited once IT has picked it up — currently ' . $request->stageLabel() . '.',
                 409,
                 'ASSET_REQUEST_NOT_EDITABLE'
             );
@@ -79,7 +79,7 @@ final class AssetRequestService
 
         if (! $request->isPending()) {
             throw new ApiException(
-                'Ye request ab pending nahi hai — abhi ' . $request->stageLabel() . '.',
+                'This request is no longer pending — currently ' . $request->stageLabel() . '.',
                 409,
                 'ASSET_REQUEST_WRONG_STAGE'
             );
@@ -97,8 +97,8 @@ final class AssetRequestService
         $request = $request->refresh()->load('employee.user', 'asset', 'handler');
 
         $this->notifyEmployee($request, $actor, NotificationType::ASSET_REQUEST_APPROVED,
-            'Asset request approve ho gayi',
-            $request->title . ' — IT kaam shuru karega.');
+            'Asset request approved',
+            $request->title . ' — IT will start work on it.');
 
         return $request;
     }
@@ -108,7 +108,7 @@ final class AssetRequestService
         $this->assertPermission($actor, Asset::SUPPORT_PERMISSION, 'request reject karne');
 
         if ($request->isClosed()) {
-            throw new ApiException('Ye request already band hai.', 409, 'ASSET_REQUEST_CLOSED');
+            throw new ApiException('This request is already closed.', 409, 'ASSET_REQUEST_CLOSED');
         }
 
         $request->forceFill([
@@ -124,7 +124,7 @@ final class AssetRequestService
         $request = $request->refresh()->load('employee.user', 'asset', 'handler');
 
         $this->notifyEmployee($request, $actor, NotificationType::ASSET_REQUEST_REJECTED,
-            'Asset request reject ho gayi',
+            'Asset request rejected',
             $data['reason']);
 
         return $request;
@@ -136,7 +136,7 @@ final class AssetRequestService
 
         if (! $request->isApproved()) {
             throw new ApiException(
-                'Pehle approve karo, phir kaam shuru hoga — abhi ' . $request->stageLabel() . '.',
+                'Approve it first, then work can start — currently ' . $request->stageLabel() . '.',
                 409,
                 'ASSET_REQUEST_WRONG_STAGE'
             );
@@ -168,7 +168,7 @@ final class AssetRequestService
 
         if (! $request->isInProgress() && ! $request->isApproved()) {
             throw new ApiException(
-                'Sirf approve ya chal rahi request hi resolve hoti hai — abhi ' . $request->stageLabel() . '.',
+                'Only an approved or in-progress request can be resolved — currently ' . $request->stageLabel() . '.',
                 409,
                 'ASSET_REQUEST_WRONG_STAGE'
             );
@@ -204,7 +204,7 @@ final class AssetRequestService
         $request = $request->refresh()->load('employee.user', 'asset', 'handler');
 
         $this->notifyEmployee($request, $actor, NotificationType::ASSET_REQUEST_RESOLVED,
-            'Asset request complete ho gayi',
+            'Asset request completed',
             $data['resolution']);
 
         return $request;
@@ -216,7 +216,7 @@ final class AssetRequestService
 
         if (! $request->isPending()) {
             throw new ApiException(
-                'IT ke haath me jaane ke baad cancel nahi hoti — abhi ' . $request->stageLabel() . '.',
+                'It cannot be cancelled once IT has picked it up — currently ' . $request->stageLabel() . '.',
                 409,
                 'ASSET_REQUEST_NOT_CANCELLABLE'
             );
@@ -256,7 +256,7 @@ final class AssetRequestService
         if ($type === AssetRequest::TYPE_NEW) {
             if (($data['category'] ?? null) === null) {
                 throw new ApiException(
-                    'Naya asset maang rahe ho to category chunni zaroori hai.',
+                    'Choose a category when asking for a new asset.',
                     422,
                     'ASSET_CATEGORY_REQUIRED'
                 );
@@ -267,7 +267,7 @@ final class AssetRequestService
 
         if (($data['asset_id'] ?? null) === null) {
             throw new ApiException(
-                'Kis asset ka issue hai wo chunna zaroori hai.',
+                'Choose which asset has the problem.',
                 422,
                 'ASSET_REQUIRED'
             );
@@ -287,7 +287,7 @@ final class AssetRequestService
 
         if (! $isMine) {
             throw new ApiException(
-                'Ye asset aapko allocated nahi hai.',
+                'This asset is not allocated to you.',
                 403,
                 'ASSET_NOT_YOURS'
             );
@@ -302,7 +302,7 @@ final class AssetRequestService
 
         if ($open) {
             throw new ApiException(
-                'Is asset par aapki ek request already chal rahi hai.',
+                'You already have a request running on this asset.',
                 409,
                 'ASSET_REQUEST_ALREADY_OPEN'
             );
@@ -318,7 +318,7 @@ final class AssetRequestService
 
             if ($employee === null) {
                 throw new ApiException(
-                    'Request ke liye employee record chahiye. HR se baat karo.',
+                    'A request needs an employee record. Talk to HR.',
                     422,
                     'EMPLOYEE_RECORD_MISSING'
                 );
@@ -328,7 +328,7 @@ final class AssetRequestService
         }
 
         if (! $actor->isSuperAdmin() && ! $actor->hasPermission(Asset::SUPPORT_PERMISSION)) {
-            throw new ApiException('Kisi aur ki request daalne ki permission nahi hai.', 403, 'FORBIDDEN');
+            throw new ApiException('You are not allowed to raise a request for someone else.', 403, 'FORBIDDEN');
         }
 
         $employee = Employee::query()->with('user')->visibleTo($actor)->whereKey($employeeId)->first();
@@ -346,7 +346,7 @@ final class AssetRequestService
             return;
         }
 
-        throw new ApiException('Ye request aapki nahi hai.', 403, 'FORBIDDEN');
+        throw new ApiException('This request is not yours.', 403, 'FORBIDDEN');
     }
 
     private function assertPermission(User $actor, string $permission, string $what): void
@@ -355,7 +355,7 @@ final class AssetRequestService
             return;
         }
 
-        throw new ApiException('Aapke paas ' . $what . ' ka haq nahi hai.', 403, 'FORBIDDEN');
+        throw new ApiException('Aapke paas ' . $what . ' is not permitted.', 403, 'FORBIDDEN');
     }
 
     private function flush(): void

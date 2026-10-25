@@ -49,7 +49,7 @@ final class LeaveRequestService
 
         if ($plan['days'] === []) {
             throw new ApiException(
-                'In dates par koi working day nahi hai — sab holiday ya weekly off hain.',
+                'There is no working day in this range — all of them are holidays or weekly offs.',
                 422,
                 'LEAVE_NO_WORKING_DAY'
             );
@@ -122,7 +122,7 @@ final class LeaveRequestService
 
                 if ($balance->available < $request->day_count) {
                     throw new ApiException(
-                        'Balance kam pad gaya. Available: ' . $balance->available . ' din, maanga: ' . $request->day_count . ' din.',
+                        'Not enough balance. Available: ' . $balance->available . ' din, maanga: ' . $request->day_count . ' din.',
                         422,
                         'LEAVE_BALANCE_SHORT'
                     );
@@ -341,7 +341,7 @@ final class LeaveRequestService
 
         $this->notifications->send((int) $request->employee->user_id, [
             'type' => $type,
-            'title' => 'Aapki leave ' . ($approved ? 'approve' : 'reject') . ' ho gayi',
+            'title' => 'Aapki leave ' . ($approved ? 'approve' : 'reject') . ' done',
             'body' => $this->summary($request) . ($remarks === null ? '' : ' — ' . $remarks),
             'action_url' => '/leaves/' . $request->uuid,
             'entity_type' => 'leave_request',
@@ -364,7 +364,7 @@ final class LeaveRequestService
 
         $this->notifications->sendMany($recipients, [
             'type' => NotificationType::LEAVE_CANCELLED,
-            'title' => $isOwner ? $name . ' ne leave cancel kar di' : 'Aapki leave cancel kar di gayi',
+            'title' => $isOwner ? $name . ' ne leave cancel kar di' : 'Your leave was cancelled',
             'body' => $this->summary($request),
             'action_url' => '/leaves/' . $request->uuid,
             'entity_type' => 'leave_request',
@@ -469,7 +469,7 @@ final class LeaveRequestService
 
             if ($employee === null) {
                 throw new ApiException(
-                    'Leave ke liye employee record chahiye. HR se onboarding karwao.',
+                    'Leave needs an employee record. Ask HR to complete onboarding.',
                     422,
                     'EMPLOYEE_RECORD_MISSING'
                 );
@@ -480,7 +480,7 @@ final class LeaveRequestService
 
         if (! $actor->isSuperAdmin() && ! $actor->hasPermission(self::APPROVE_PERMISSION)) {
             throw new ApiException(
-                'Kisi aur ki leave apply karne ki permission nahi hai.',
+                'You are not allowed to apply for leave on someone else\'s behalf.',
                 403,
                 'FORBIDDEN'
             );
@@ -504,7 +504,7 @@ final class LeaveRequestService
         }
 
         if (! $type->isActive()) {
-            throw new ApiException('Ye leave type abhi inactive hai.', 422, 'LEAVE_TYPE_INACTIVE');
+            throw new ApiException('This leave type is inactive.', 422, 'LEAVE_TYPE_INACTIVE');
         }
 
         return $type;
@@ -513,20 +513,20 @@ final class LeaveRequestService
     private function assertEligible(Employee $employee, LeaveType $type, Carbon $from, bool $halfDay, Carbon $to): void
     {
         if ($from->greaterThan($to)) {
-            throw new ApiException('From date, to date se aage nahi ho sakti.', 422, 'LEAVE_DATE_INVALID');
+            throw new ApiException('The from date cannot be after the to date.', 422, 'LEAVE_DATE_INVALID');
         }
 
         if ($halfDay && ! $from->isSameDay($to)) {
-            throw new ApiException('Half day sirf ek din ke liye lagti hai.', 422, 'LEAVE_HALF_DAY_RANGE');
+            throw new ApiException('A half day applies to a single day only.', 422, 'LEAVE_HALF_DAY_RANGE');
         }
 
         if ($halfDay && ! $type->allow_half_day) {
-            throw new ApiException($type->name . ' mein half day allowed nahi hai.', 422, 'LEAVE_HALF_DAY_BLOCKED');
+            throw new ApiException($type->name . ' does not allow half days.', 422, 'LEAVE_HALF_DAY_BLOCKED');
         }
 
         if (! $type->allowsGender($employee->gender)) {
             throw new ApiException(
-                $type->name . ' sirf ' . $type->applicable_to . ' employees ke liye hai.',
+                $type->name . ' only ' . $type->applicable_to . ' employees.',
                 422,
                 'LEAVE_GENDER_MISMATCH'
             );
@@ -537,7 +537,7 @@ final class LeaveRequestService
 
             if ($eligibleFrom !== null && $from->lessThan($eligibleFrom)) {
                 throw new ApiException(
-                    $type->name . ' ' . $eligibleFrom->format('d M Y') . ' ke baad hi le sakte ho.',
+                    $type->name . ' ' . $eligibleFrom->format('d M Y') . ' before this can be taken.',
                     422,
                     'LEAVE_SERVICE_SHORT'
                 );
@@ -549,7 +549,7 @@ final class LeaveRequestService
 
             if ($from->lessThan($earliest)) {
                 throw new ApiException(
-                    $type->name . ' ke liye ' . $type->min_notice_days . ' din pehle apply karna padta hai.',
+                    $type->name . ' needs ' . $type->min_notice_days . ' days in advance.',
                     422,
                     'LEAVE_NOTICE_SHORT'
                 );
@@ -561,7 +561,7 @@ final class LeaveRequestService
     {
         if ($type->max_consecutive_days !== null && $count > $type->max_consecutive_days) {
             throw new ApiException(
-                $type->name . ' ek baar mein ' . $type->max_consecutive_days . ' din se zyada nahi le sakte.',
+                $type->name . ' ek baar mein ' . $type->max_consecutive_days . ' days at a time.',
                 422,
                 'LEAVE_STREAK_LIMIT'
             );
@@ -579,7 +579,7 @@ final class LeaveRequestService
 
         if ($clash !== null) {
             throw new ApiException(
-                Carbon::parse($clash->leave_date)->format('d M Y') . ' par pehle se ek leave '
+                Carbon::parse($clash->leave_date)->format('d M Y') . ' already has a leave '
                     . $clash->status . ' hai.',
                 409,
                 'LEAVE_OVERLAP'
@@ -596,7 +596,7 @@ final class LeaveRequestService
 
         if ($count > $usable) {
             throw new ApiException(
-                $type->name . ' mein ' . $usable . ' din bache hain, aap ' . $count . ' din maang rahe ho.'
+                $type->name . ' mein ' . $usable . ' days left, you ' . $count . ' days requested.'
                     . ($pending > 0 ? ' (' . $pending . ' din already approval ka intezaar kar rahe hain.)' : ''),
                 422,
                 'LEAVE_BALANCE_SHORT'
@@ -611,7 +611,7 @@ final class LeaveRequestService
         if ($documentId === null) {
             if ($type->requires_document) {
                 throw new ApiException(
-                    $type->name . ' ke liye document attach karna zaroori hai.',
+                    $type->name . ' needs a document attached.',
                     422,
                     'LEAVE_DOCUMENT_REQUIRED'
                 );
@@ -627,7 +627,7 @@ final class LeaveRequestService
             ->exists();
 
         if (! $owned) {
-            throw new ApiException('Ye document is employee ka nahi hai.', 422, 'LEAVE_DOCUMENT_INVALID');
+            throw new ApiException('This document does not belong to that employee.', 422, 'LEAVE_DOCUMENT_INVALID');
         }
 
         return $documentId;
@@ -647,7 +647,7 @@ final class LeaveRequestService
     private function assertCanDecide(LeaveRequest $request, User $actor): void
     {
         if ((int) $request->employee->user_id === (int) $actor->id && ! $actor->isSuperAdmin()) {
-            throw new ApiException('Apni leave khud approve nahi kar sakte.', 403, 'LEAVE_SELF_APPROVAL');
+            throw new ApiException('You cannot approve your own leave.', 403, 'LEAVE_SELF_APPROVAL');
         }
 
         if ($actor->isSuperAdmin() || $actor->hasPermission(self::APPROVE_PERMISSION)) {
@@ -658,7 +658,7 @@ final class LeaveRequestService
             return;
         }
 
-        throw new ApiException('Aap is leave par decision nahi le sakte.', 403, 'FORBIDDEN');
+        throw new ApiException('You cannot decide on this leave request.', 403, 'FORBIDDEN');
     }
 
     private function assertCanCancel(LeaveRequest $request, User $actor): void
@@ -667,20 +667,20 @@ final class LeaveRequestService
         $isManager = $actor->isSuperAdmin() || $actor->hasPermission(self::APPROVE_PERMISSION);
 
         if (! $isOwner && ! $isManager) {
-            throw new ApiException('Ye leave cancel karne ki permission nahi hai.', 403, 'FORBIDDEN');
+            throw new ApiException('You are not allowed to cancel this leave.', 403, 'FORBIDDEN');
         }
 
         if ($request->status === LeaveRequest::CANCELLED) {
-            throw new ApiException('Ye leave already cancelled hai.', 409, 'LEAVE_ALREADY_CANCELLED');
+            throw new ApiException('This leave is already cancelled.', 409, 'LEAVE_ALREADY_CANCELLED');
         }
 
         if ($request->status === LeaveRequest::REJECTED) {
-            throw new ApiException('Rejected leave cancel nahi hoti.', 409, 'LEAVE_ALREADY_DECIDED');
+            throw new ApiException('Rejected leave cannot be cancelled.', 409, 'LEAVE_ALREADY_DECIDED');
         }
 
         if ($request->isApproved() && $request->from_date->lessThan(CompanyTime::day())) {
             throw new ApiException(
-                'Guzar chuki leave cancel nahi ho sakti. HR se attendance regularize karwao.',
+                'Leave that has already passed cannot be cancelled. Ask HR to regularise the attendance.',
                 409,
                 'LEAVE_ALREADY_TAKEN'
             );

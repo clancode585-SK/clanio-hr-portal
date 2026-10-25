@@ -8,6 +8,7 @@ use App\Support\Concerns\HasActiveState;
 use App\Support\Concerns\HasUuid;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Facades\DB;
 
 class Plan extends Model
 {
@@ -46,6 +47,12 @@ class Plan extends Model
     public function companies(): HasMany
     {
         return $this->hasMany(Company::class);
+    }
+
+    /** Is plan me kaunse module shamil hain */
+    public function moduleList(): array
+    {
+        return DB::table('plan_modules')->where('plan_id', $this->id)->pluck('module')->all();
     }
 
     public function highlightList(): array

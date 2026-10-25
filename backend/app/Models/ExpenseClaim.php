@@ -50,10 +50,10 @@ class ExpenseClaim extends Model
         'internet' => 'Internet — broadband ya mobile data',
         'fuel' => 'Fuel — petrol, diesel, toll',
         'stationery' => 'Stationery — office ka saamaan',
-        'repair' => 'Repair — laptop, mobile, equipment theek karana',
+        'repair' => 'Repair — fixing a laptop, phone or other equipment',
         'medical' => 'Medical',
         'training' => 'Training — course, certification, book',
-        self::OTHER => 'Other — kuch aur',
+        self::OTHER => 'Other',
     ];
 
     public const STAGE_MANAGER = 'manager';

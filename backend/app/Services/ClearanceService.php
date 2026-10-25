@@ -102,7 +102,7 @@ final class ClearanceService
             $clearance->asset_allocation_id = $allocation->id;
             $clearance->source = ExitClearance::SOURCE_ASSET;
             $clearance->department = ClearanceItem::IT;
-            $clearance->title = $allocation->asset?->label() . ' wapas';
+            $clearance->title = $allocation->asset?->label() . ' returned';
             $clearance->is_recoverable = true;
             $clearance->is_mandatory = true;
             $clearance->created_by = $actor?->id;
@@ -155,7 +155,7 @@ final class ClearanceService
         foreach ($rows as $row) {
             $row->forceFill([
                 'status' => ExitClearance::CLEARED,
-                'remarks' => 'Saari policies accept ho gayi',
+                'remarks' => 'All policies accepted',
                 'cleared_by' => $actor->id,
                 'cleared_at' => Carbon::now(),
                 'updated_by' => $actor->id,
@@ -172,11 +172,11 @@ final class ClearanceService
         $exit = $clearance->exit;
 
         if ($exit === null) {
-            throw new ApiException('Exit record nahi mila.', 404, 'NOT_FOUND');
+            throw new ApiException('Exit record not found.', 404, 'NOT_FOUND');
         }
 
         if ($exit->isExited()) {
-            throw new ApiException('Exit complete ho chuka hai, ab clearance nahi badalti.', 409, 'EXIT_ALREADY_CLOSED');
+            throw new ApiException('The exit is complete, so clearance can no longer change.', 409, 'EXIT_ALREADY_CLOSED');
         }
 
         $this->assertCanSign($clearance, $exit, $actor);
@@ -185,12 +185,12 @@ final class ClearanceService
         $amount = round((float) ($data['recoverable_amount'] ?? 0), 2);
 
         if ($status === ExitClearance::BLOCKED && ($data['remarks'] ?? null) === null) {
-            throw new ApiException('Block karne ki wajah likhni zaroori hai.', 422, 'CLEARANCE_REMARKS_REQUIRED');
+            throw new ApiException('A reason for blocking is required.', 422, 'CLEARANCE_REMARKS_REQUIRED');
         }
 
         if ($amount > 0 && ! $clearance->is_recoverable) {
             throw new ApiException(
-                'Is item par recovery nahi lagti — amount 0 hi rahega.',
+                'No recovery applies to this item — the amount stays zero.',
                 422,
                 'CLEARANCE_AMOUNT_NOT_ALLOWED'
             );
@@ -276,7 +276,7 @@ final class ClearanceService
 
         if (! $force) {
             throw new ApiException(
-                $summary['open_mandatory'] . ' clearance item abhi pending hai. Pehle wo clear karo.',
+                $summary['open_mandatory'] . ' clearance items are still pending. Clear them first.',
                 409,
                 'CLEARANCE_PENDING'
             );
@@ -286,7 +286,7 @@ final class ClearanceService
 
         if (($data['force_reason'] ?? null) === null) {
             throw new ApiException(
-                'Clearance bypass kar rahe ho to wajah likhni zaroori hai.',
+                'A reason is required to bypass clearance.',
                 422,
                 'CLEARANCE_FORCE_REASON_REQUIRED'
             );
@@ -305,7 +305,7 @@ final class ClearanceService
         }
 
         throw new ApiException(
-            'Clearance pending hai — relieving letter abhi issue nahi hota.',
+            'Clearance is pending — the relieving letter cannot be issued yet.',
             409,
             'CLEARANCE_PENDING'
         );
@@ -354,7 +354,7 @@ final class ClearanceService
     private function assertCanSign(ExitClearance $clearance, EmployeeExit $exit, User $actor): void
     {
         if ((int) $exit->employee->user_id === (int) $actor->id && ! $actor->isSuperAdmin()) {
-            throw new ApiException('Apni clearance khud sign nahi kar sakte.', 403, 'CLEARANCE_SELF_SIGN');
+            throw new ApiException('You cannot sign your own clearance.', 403, 'CLEARANCE_SELF_SIGN');
         }
 
         if ($actor->isSuperAdmin() || $actor->hasPermission(ClearanceItem::SIGN_PERMISSION)) {
@@ -366,7 +366,7 @@ final class ClearanceService
             return;
         }
 
-        throw new ApiException('Ye item sign karne ka haq nahi hai.', 403, 'FORBIDDEN');
+        throw new ApiException('You are not allowed to sign this item.', 403, 'FORBIDDEN');
     }
 
     private function assertPermission(User $actor, string $permission, string $what): void
@@ -375,7 +375,7 @@ final class ClearanceService
             return;
         }
 
-        throw new ApiException('Aapke paas ' . $what . ' ka haq nahi hai.', 403, 'FORBIDDEN');
+        throw new ApiException('Aapke paas ' . $what . ' is not permitted.', 403, 'FORBIDDEN');
     }
 
     private function flush(): void

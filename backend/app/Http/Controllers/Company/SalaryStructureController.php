@@ -36,7 +36,7 @@ class SalaryStructureController extends ApiController
             return ApiResponse::success([
                 'month' => $month,
                 'structure' => null,
-                'message' => 'Is mahine ke liye koi structure set nahi hai.',
+                'message' => 'No structure is set for this month.',
             ], 'No salary structure for this month');
         }
 

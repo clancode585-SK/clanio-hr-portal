@@ -36,7 +36,7 @@ final class PayslipService
         $company = Company::query()->withoutGlobalScopes()->find($item->company_id);
 
         if ($company === null) {
-            throw new ApiException('Company record nahi mila.', 404, 'NOT_FOUND');
+            throw new ApiException('Company record not found.', 404, 'NOT_FOUND');
         }
 
         $lines = $item->lines;
@@ -243,7 +243,7 @@ final class PayslipService
 
         if ($run === null || ! in_array($run->status, [PayrollRun::APPROVED, PayrollRun::PAID], true)) {
             if (! $actor->hasPermission(PayrollRun::VIEW_PERMISSION)) {
-                throw new ApiException('Ye payslip abhi release nahi hui.', 403, 'PAYSLIP_NOT_RELEASED');
+                throw new ApiException('This payslip has not been released yet.', 403, 'PAYSLIP_NOT_RELEASED');
             }
         }
 
@@ -258,7 +258,7 @@ final class PayslipService
             ->first();
 
         if ($employee === null || (int) $employee->id !== (int) $item->employee_id) {
-            throw new ApiException('Ye payslip aapki nahi hai.', 403, 'PAYSLIP_NOT_YOURS');
+            throw new ApiException('This payslip is not yours.', 403, 'PAYSLIP_NOT_YOURS');
         }
     }
 }

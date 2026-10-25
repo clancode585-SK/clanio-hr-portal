@@ -32,8 +32,8 @@ class UserPermissionRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'permissions.present' => 'Permission list bhejni zaroori hai — khali array bhi chalega.',
-            'modules.required' => 'Kaunse module on/off karne hain wo bhejo.',
+            'permissions.present' => 'A permission list is required — an empty array is fine.',
+            'modules.required' => 'Send which modules to switch on or off.',
         ];
     }
 }

@@ -402,7 +402,7 @@ final class WorkRecordService
 
             if ($employee === null) {
                 throw new ApiException(
-                    'Work record ke liye employee record chahiye. HR se onboarding karwao.',
+                    'Work records need an employee record. Ask HR to complete onboarding.',
                     422,
                     'EMPLOYEE_RECORD_MISSING'
                 );

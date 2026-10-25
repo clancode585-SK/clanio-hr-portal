@@ -19,7 +19,7 @@ class SendDocumentExpiryAlerts extends Command
 {
     protected $signature = 'documents:expiry-alerts';
 
-    protected $description = 'Expire hone wale documents ka alert employee aur HR ko bhejta hai';
+    protected $description = 'Alerts employees and HR about documents that are about to expire';
 
     private const WINDOWS = [30, 15, 7, 1];
 
@@ -69,7 +69,7 @@ class SendDocumentExpiryAlerts extends Command
 
         app(TenantContext::class)->forget();
 
-        $this->info($sent . ' document alerts bheje gaye.');
+        $this->info($sent . ' document alerts sent.');
 
         return self::SUCCESS;
     }
@@ -86,7 +86,7 @@ class SendDocumentExpiryAlerts extends Command
         $expiresOn = Carbon::parse($document->expires_on)->format('d M Y');
 
         $title = $days === 0
-            ? $document->title . ' expire ho gaya'
+            ? $document->title . ' has expired'
             : $document->title . ' ' . $days . ' din mein expire ho raha hai';
 
         $sent = 0;

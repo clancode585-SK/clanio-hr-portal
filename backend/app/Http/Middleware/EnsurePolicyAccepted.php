@@ -40,8 +40,8 @@ class EnsurePolicyAccepted
         }
 
         return ApiResponse::error(
-            'Pehle company ki saari policies accept karo, phir tool khulega. '
-                . $status['pending'] . ' baaki hain.',
+            'Accept all the company policies first, then the app opens. '
+                . $status['pending'] . ' are still pending.',
             403,
             'POLICY_ACCEPTANCE_PENDING',
             ['pending' => $status['pending']]

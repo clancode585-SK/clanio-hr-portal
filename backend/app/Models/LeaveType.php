@@ -28,8 +28,8 @@ class LeaveType extends Model
 
     public const DEFAULTS = [
         ['name' => 'Casual Leave', 'code' => 'CL', 'description' => 'Short personal leave', 'annual_quota' => 12, 'accrual_type' => self::MONTHLY, 'min_notice_days' => 1, 'max_consecutive_days' => 3, 'sort_order' => 1],
-        ['name' => 'Sick Leave', 'code' => 'SL', 'description' => 'Illness ke liye', 'annual_quota' => 12, 'accrual_type' => self::MONTHLY, 'requires_document' => true, 'sort_order' => 2],
-        ['name' => 'Earned Leave', 'code' => 'EL', 'description' => 'Privilege leave, carry forward hoti hai', 'annual_quota' => 15, 'accrual_type' => self::MONTHLY, 'min_notice_days' => 3, 'carry_forward' => true, 'carry_forward_max' => 30, 'is_encashable' => true, 'encashment_max' => 15, 'sort_order' => 3],
+        ['name' => 'Sick Leave', 'code' => 'SL', 'description' => 'For illness', 'annual_quota' => 12, 'accrual_type' => self::MONTHLY, 'requires_document' => true, 'sort_order' => 2],
+        ['name' => 'Earned Leave', 'code' => 'EL', 'description' => 'Privilege leave, carried forward', 'annual_quota' => 15, 'accrual_type' => self::MONTHLY, 'min_notice_days' => 3, 'carry_forward' => true, 'carry_forward_max' => 30, 'is_encashable' => true, 'encashment_max' => 15, 'sort_order' => 3],
         ['name' => 'Maternity Leave', 'code' => 'ML', 'description' => 'Maternity benefit', 'annual_quota' => 182, 'allow_half_day' => false, 'min_notice_days' => 30, 'max_consecutive_days' => 182, 'applicable_to' => 'female', 'requires_document' => true, 'sort_order' => 4],
         ['name' => 'Paternity Leave', 'code' => 'PL', 'description' => 'Paternity leave', 'annual_quota' => 15, 'allow_half_day' => false, 'min_notice_days' => 15, 'max_consecutive_days' => 15, 'applicable_to' => 'male', 'sort_order' => 5],
         ['name' => 'Leave Without Pay', 'code' => 'LWP', 'description' => 'Balance khatam hone par unpaid leave', 'is_paid' => false, 'annual_quota' => 0, 'sort_order' => 6],

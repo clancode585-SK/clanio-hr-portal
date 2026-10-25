@@ -38,9 +38,9 @@ class SalaryStructureRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'annual_ctc.required' => 'Annual CTC dena zaroori hai.',
-            'effective_from.required' => 'Ye structure kis date se lagega, wo batao.',
-            'lines.*.component_id.exists' => 'Is company me ye component nahi hai.',
+            'annual_ctc.required' => 'The annual CTC is required.',
+            'effective_from.required' => 'Say which date this structure takes effect from.',
+            'lines.*.component_id.exists' => 'This company does not have that component.',
         ];
     }
 }

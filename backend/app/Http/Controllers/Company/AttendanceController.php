@@ -113,15 +113,15 @@ class AttendanceController extends ApiController
             ->all();
 
         if ($ids === []) {
-            throw new ApiException('Koi employee nahi mila.', 422, 'NO_EMPLOYEES');
+            throw new ApiException('No employee found.', 422, 'NO_EMPLOYEES');
         }
 
         $result = $this->attendance->markBulk($ids, $data['date'], $data['status'], $request->user());
 
         return ApiResponse::success(
             $result,
-            $result['marked'] . ' employee ki attendance mark ho gayi'
-                . ($result['skipped'] === [] ? '' : ' · ' . count($result['skipped']) . ' chhoot gaye')
+            $result['marked'] . ' employees marked'
+                . ($result['skipped'] === [] ? '' : ' · ' . count($result['skipped']) . ' were left out')
         );
     }
 }

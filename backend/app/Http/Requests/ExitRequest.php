@@ -33,8 +33,8 @@ class ExitRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'reason.required' => 'Resignation ki wajah likhni zaroori hai.',
-            'requested_last_working_date.after_or_equal' => 'Last working date resignation date se pehle nahi ho sakti.',
+            'reason.required' => 'A reason for resigning is required.',
+            'requested_last_working_date.after_or_equal' => 'The last working date cannot be before the resignation date.',
         ];
     }
 }

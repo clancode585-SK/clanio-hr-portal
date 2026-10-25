@@ -57,7 +57,7 @@ class AssetRequestController extends ApiController
     {
         return ApiResponse::created(
             new AssetRequestResource($this->requests->raise($request->user(), $request->validated())),
-            'Request bhej di gayi — IT dekhega'
+            'Request sent — IT will look at it'
         );
     }
 
@@ -73,7 +73,7 @@ class AssetRequestController extends ApiController
     {
         return ApiResponse::success(
             new AssetRequestResource($this->requests->update($assetRequest, $request->validated(), $request->user())),
-            'Request update ho gayi'
+            'Request updated'
         );
     }
 
@@ -81,7 +81,7 @@ class AssetRequestController extends ApiController
     {
         return ApiResponse::success(
             new AssetRequestResource($this->requests->approve($assetRequest, $request->validated(), $request->user())),
-            'Request approve ho gayi'
+            'Request approved'
         );
     }
 
@@ -89,7 +89,7 @@ class AssetRequestController extends ApiController
     {
         return ApiResponse::success(
             new AssetRequestResource($this->requests->reject($assetRequest, $request->validated(), $request->user())),
-            'Request reject kar di gayi'
+            'Request rejected'
         );
     }
 
@@ -97,7 +97,7 @@ class AssetRequestController extends ApiController
     {
         return ApiResponse::success(
             new AssetRequestResource($this->requests->start($assetRequest, $request->user())),
-            'Kaam shuru ho gaya'
+            'Work has started'
         );
     }
 
@@ -105,7 +105,7 @@ class AssetRequestController extends ApiController
     {
         return ApiResponse::success(
             new AssetRequestResource($this->requests->resolve($assetRequest, $request->validated(), $request->user())),
-            'Request complete ho gayi'
+            'Request completed'
         );
     }
 
@@ -113,7 +113,7 @@ class AssetRequestController extends ApiController
     {
         return ApiResponse::success(
             new AssetRequestResource($this->requests->cancel($assetRequest, $request->user())),
-            'Request cancel ho gayi'
+            'Request cancelled'
         );
     }
 

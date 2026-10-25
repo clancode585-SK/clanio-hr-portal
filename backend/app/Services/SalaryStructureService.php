@@ -81,7 +81,7 @@ final class SalaryStructureService
 
         if ($used) {
             throw new ApiException(
-                'Ye component kisi salary structure me laga hua hai. Pehle wahan se hatao.',
+                'This component is used in a salary structure. Remove it there first.',
                 409,
                 'COMPONENT_IN_USE'
             );
@@ -224,7 +224,7 @@ final class SalaryStructureService
 
         if ($components->isEmpty()) {
             throw new ApiException(
-                'Pehle salary components bana lo. Company Settings me "standard setup" se ek click me ban jaate hain.',
+                'Create the salary components first. One click on "standard setup" in Company Settings builds them.',
                 422,
                 'NO_SALARY_COMPONENTS'
             );
@@ -237,7 +237,7 @@ final class SalaryStructureService
 
             if ($component === null) {
                 throw new ApiException(
-                    'Component #' . ($row['component_id'] ?? '?') . ' is company me nahi hai.',
+                    'Component #' . ($row['component_id'] ?? '?') . ' does not belong to this company.',
                     422,
                     'COMPONENT_NOT_FOUND'
                 );
@@ -283,7 +283,7 @@ final class SalaryStructureService
             if ($structure->effective_from->greaterThanOrEqualTo($from)) {
                 throw new ApiException(
                     'Is employee ka ' . $structure->effective_from->format('d M Y')
-                        . ' se structure already chal raha hai. Naya structure usse aage ki date se banao.',
+                        . ' A structure is already running from that date. Start the new one after it.',
                     409,
                     'STRUCTURE_DATE_OVERLAP'
                 );
@@ -305,7 +305,7 @@ final class SalaryStructureService
             }
         }
 
-        throw new ApiException('Structure me Basic hona zaroori hai — PF isi par nikalta hai.', 422, 'BASIC_MISSING');
+        throw new ApiException('The structure must include Basic — PF is worked out on it.', 422, 'BASIC_MISSING');
     }
 
     private function assertBalanceIsAlone(int $companyId, array $data, ?int $ignoreId): void
@@ -322,7 +322,7 @@ final class SalaryStructureService
 
         if ($exists) {
             throw new ApiException(
-                'Ek hi component "balance" ho sakta hai — warna bacha hua paisa do jagah chala jayega.',
+                'Only one component can be the "balance" — otherwise the leftover amount lands in two places.',
                 422,
                 'BALANCE_ALREADY_SET'
             );

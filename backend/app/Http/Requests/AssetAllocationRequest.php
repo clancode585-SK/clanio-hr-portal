@@ -48,6 +48,6 @@ class AssetAllocationRequest extends FormRequest
 
     public function messages(): array
     {
-        return ['employee_id.required' => 'Kis employee ko dena hai wo chunna zaroori hai.'];
+        return ['employee_id.required' => 'Choose which employee this is for.'];
     }
 }

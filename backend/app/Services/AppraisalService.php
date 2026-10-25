@@ -33,7 +33,7 @@ final class AppraisalService
         $end = Carbon::parse($data['period_end'])->startOfDay();
 
         if ($end->lessThan($start)) {
-            throw new ApiException('Period end, start se pehle nahi ho sakta.', 422, 'CYCLE_DATE_INVALID');
+            throw new ApiException('The period end cannot be before the start.', 422, 'CYCLE_DATE_INVALID');
         }
 
         $cycle = new AppraisalCycle([
@@ -59,7 +59,7 @@ final class AppraisalService
         $this->assertPermission($actor, AppraisalCycle::MANAGE_PERMISSION, 'cycle badalne');
 
         if (! $cycle->isDraft()) {
-            throw new ApiException('Launch hone ke baad cycle edit nahi hoti.', 409, 'CYCLE_LAUNCHED');
+            throw new ApiException('A cycle cannot be edited once launched.', 409, 'CYCLE_LAUNCHED');
         }
 
         $cycle->fill($data);
@@ -76,7 +76,7 @@ final class AppraisalService
         $this->assertPermission($actor, AppraisalCycle::MANAGE_PERMISSION, 'cycle launch karne');
 
         if (! $cycle->isDraft()) {
-            throw new ApiException('Ye cycle already launch ho chuki hai.', 409, 'CYCLE_LAUNCHED');
+            throw new ApiException('This cycle has already been launched.', 409, 'CYCLE_LAUNCHED');
         }
 
         $created = DB::transaction(function () use ($cycle, $actor): int {
@@ -133,14 +133,14 @@ final class AppraisalService
         ];
 
         if ($cycle->isDraft()) {
-            throw new ApiException('Pehle cycle launch karo.', 409, 'CYCLE_NOT_LAUNCHED');
+            throw new ApiException('Launch the cycle first.', 409, 'CYCLE_NOT_LAUNCHED');
         }
 
         $current = array_search($cycle->status, $order, true);
         $next = array_search($status, $order, true);
 
         if ($next === false || $current === false || $next <= $current) {
-            throw new ApiException('Cycle sirf aage badh sakti hai, peeche nahi.', 422, 'CYCLE_STAGE_INVALID');
+            throw new ApiException('A cycle can only move forward, never back.', 422, 'CYCLE_STAGE_INVALID');
         }
 
         $cycle->forceFill([
@@ -160,7 +160,7 @@ final class AppraisalService
         $this->assertCycleStage($appraisal, AppraisalCycle::SELF_REVIEW);
 
         if (! $appraisal->isPending()) {
-            throw new ApiException('Self review already ho chuka hai.', 409, 'APPRAISAL_WRONG_STAGE');
+            throw new ApiException('The self review is already done.', 409, 'APPRAISAL_WRONG_STAGE');
         }
 
         $this->assertRating($appraisal, (float) $data['rating']);
@@ -189,8 +189,8 @@ final class AppraisalService
         if (! $appraisal->isSelfDone()) {
             throw new ApiException(
                 $appraisal->isPending()
-                    ? 'Pehle employee self review bharega.'
-                    : 'Manager review already ho chuka hai.',
+                    ? 'The employee fills in the self review first.'
+                    : 'The manager review is already done.',
                 409,
                 'APPRAISAL_WRONG_STAGE'
             );
@@ -220,7 +220,7 @@ final class AppraisalService
 
         if (! $appraisal->isManagerDone()) {
             throw new ApiException(
-                'Pehle manager review complete hoga, tab final rating milegi.',
+                'The manager review finishes first, then the final rating is given.',
                 409,
                 'APPRAISAL_WRONG_STAGE'
             );
@@ -327,7 +327,7 @@ final class AppraisalService
 
         if ($rating < 1 || $rating > $scale) {
             throw new ApiException(
-                'Rating 1 se ' . $scale . ' ke beech honi chahiye.',
+                'Rating 1 se ' . $scale . '.',
                 422,
                 'APPRAISAL_RATING_INVALID'
             );
@@ -339,16 +339,16 @@ final class AppraisalService
         $cycle = $appraisal->cycle;
 
         if ($cycle === null) {
-            throw new ApiException('Cycle nahi mili.', 404, 'NOT_FOUND');
+            throw new ApiException('Cycle not found.', 404, 'NOT_FOUND');
         }
 
         if ($cycle->isClosed()) {
-            throw new ApiException('Ye cycle band ho chuki hai.', 409, 'CYCLE_CLOSED');
+            throw new ApiException('This cycle is closed.', 409, 'CYCLE_CLOSED');
         }
 
         if ($cycle->status !== $stage) {
             throw new ApiException(
-                'Abhi cycle ' . $cycle->stageLabel() . ' — ye step abhi nahi hoga.',
+                'The cycle is currently ' . $cycle->stageLabel() . ' — this step cannot run yet.',
                 409,
                 'CYCLE_STAGE_INVALID'
             );
@@ -361,13 +361,13 @@ final class AppraisalService
             return;
         }
 
-        throw new ApiException('Ye appraisal aapki nahi hai.', 403, 'FORBIDDEN');
+        throw new ApiException('This appraisal is not yours.', 403, 'FORBIDDEN');
     }
 
     private function assertManager(Appraisal $appraisal, User $actor): void
     {
         if ((int) $appraisal->employee->user_id === (int) $actor->id && ! $actor->isSuperAdmin()) {
-            throw new ApiException('Apna review khud nahi kar sakte.', 403, 'APPRAISAL_SELF_REVIEW');
+            throw new ApiException('You cannot write your own review.', 403, 'APPRAISAL_SELF_REVIEW');
         }
 
         if ($actor->isSuperAdmin() || $actor->hasPermission(AppraisalCycle::MANAGE_PERMISSION)) {
@@ -378,7 +378,7 @@ final class AppraisalService
             return;
         }
 
-        throw new ApiException('Aap is appraisal ke manager nahi hain.', 403, 'FORBIDDEN');
+        throw new ApiException('You are not the manager for this appraisal.', 403, 'FORBIDDEN');
     }
 
     private function assertPermission(User $actor, string $permission, string $what): void
@@ -387,7 +387,7 @@ final class AppraisalService
             return;
         }
 
-        throw new ApiException('Aapke paas ' . $what . ' ka haq nahi hai.', 403, 'FORBIDDEN');
+        throw new ApiException('Aapke paas ' . $what . ' is not permitted.', 403, 'FORBIDDEN');
     }
 
     private function flush(): void
@@ -409,7 +409,7 @@ final class AppraisalService
         $this->notifications->sendMany($recipients, [
             'type' => NotificationType::APPRAISAL_LAUNCHED,
             'title' => $cycle->name . ' appraisal shuru ho gaya',
-            'body' => 'Self review bharna hai' . ($cycle->self_review_due === null
+            'body' => 'Your self review is due' . ($cycle->self_review_due === null
                 ? '.'
                 : ' — last date ' . $cycle->self_review_due->format('d M Y') . '.'),
             'action_url' => '/appraisals',
@@ -431,7 +431,7 @@ final class AppraisalService
         $this->notifications->send($managerId, [
             'type' => NotificationType::APPRAISAL_MANAGER_PENDING,
             'title' => $this->employeeName($appraisal) . ' ka self review aa gaya',
-            'body' => 'Aapko review karna hai.',
+            'body' => 'A review is waiting on you.',
             'action_url' => '/appraisals/' . $appraisal->uuid,
             'entity_type' => 'appraisal',
             'entity_id' => $appraisal->id,
@@ -454,7 +454,7 @@ final class AppraisalService
         $this->notifications->sendMany($recipients, [
             'type' => NotificationType::APPRAISAL_HR_PENDING,
             'title' => $this->employeeName($appraisal) . ' ki final rating pending',
-            'body' => 'Manager rating ' . $appraisal->manager_rating . ' di hai.',
+            'body' => 'Manager rating ' . $appraisal->manager_rating . ' has been given.',
             'action_url' => '/appraisals/' . $appraisal->uuid,
             'entity_type' => 'appraisal',
             'entity_id' => $appraisal->id,
@@ -473,7 +473,7 @@ final class AppraisalService
 
         $this->notifications->send($userId, [
             'type' => NotificationType::APPRAISAL_FINALISED,
-            'title' => 'Aapka appraisal final ho gaya',
+            'title' => 'Your appraisal has been finalised',
             'body' => 'Final rating ' . $appraisal->final_rating . ' / ' . $appraisal->cycle?->rating_scale,
             'action_url' => '/appraisals/' . $appraisal->uuid,
             'entity_type' => 'appraisal',

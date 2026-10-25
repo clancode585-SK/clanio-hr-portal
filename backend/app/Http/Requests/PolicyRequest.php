@@ -49,9 +49,9 @@ class PolicyRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'title.required' => 'Policy ka title likhna zaroori hai.',
-            'version.unique' => 'Is title ki ye version already hai — version badhao.',
-            'file.max' => 'File 10 MB se badi nahi honi chahiye.',
+            'title.required' => 'A policy title is required.',
+            'version.unique' => 'This version of that title already exists — bump the version.',
+            'file.max' => 'The file must not be larger than 10 MB.',
         ];
     }
 }

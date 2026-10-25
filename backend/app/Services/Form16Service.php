@@ -34,7 +34,7 @@ class Form16Service
 
         if ($runs->isEmpty()) {
             throw new ApiException(
-                'Is financial year ka koi approved payroll nahi mila.',
+                'No approved payroll was found for this financial year.',
                 404,
                 'NO_APPROVED_PAYROLL'
             );
@@ -46,7 +46,7 @@ class Form16Service
             ->get(['id', 'run_id', 'employee_name', 'designation', 'pan_number']);
 
         if ($items->isEmpty()) {
-            throw new ApiException('Is employee ki koi payslip nahi mili.', 404, 'NO_PAYSLIPS');
+            throw new ApiException('No payslip was found for this employee.', 404, 'NO_PAYSLIPS');
         }
 
         // is_taxable payroll line par nahi hota — component master se aata hai
@@ -244,7 +244,7 @@ class Form16Service
             }
 
             if ($onlyWithTds && $data['tds_deducted'] <= 0) {
-                $skipped[] = $employee->employee_code . ' — TDS 0, Form 16 zaroori nahi';
+                $skipped[] = $employee->employee_code . ' — TDS is zero, Form 16 is not required';
 
                 continue;
             }
@@ -264,7 +264,7 @@ class Form16Service
     private function stitch(array $parts): string
     {
         if ($parts === []) {
-            return '<!DOCTYPE html><html><body><p>Is saal ka koi Form 16 nahi bana.</p></body></html>';
+            return '<!DOCTYPE html><html><body><p>No Form 16 was generated for this year.</p></body></html>';
         }
 
         $first = $parts[0];

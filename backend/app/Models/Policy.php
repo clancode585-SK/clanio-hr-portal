@@ -32,7 +32,7 @@ class Policy extends Model
         'code_of_conduct' => 'Code of conduct',
         'leave' => 'Leave policy',
         'attendance' => 'Attendance policy',
-        'it_security' => 'IT aur security',
+        'it_security' => 'IT and security',
         'expense' => 'Expense policy',
         'posh' => 'POSH',
         'safety' => 'Safety',

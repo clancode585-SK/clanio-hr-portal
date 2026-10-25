@@ -26,25 +26,25 @@ class ReportCatalog
         ],
         'payroll-register' => [
             'label' => 'Payroll Register',
-            'hint' => 'Ek mahine ki sabki salary, component ke hisaab se',
+            'hint' => 'Everyone\'s salary for a month, component by component',
             'param' => self::MONTH,
             'group' => 'Payroll',
         ],
         'bank-transfer' => [
             'label' => 'Bank Transfer Sheet',
-            'hint' => 'Account number, IFSC aur amount — bank ko dene ke liye',
+            'hint' => 'Account number, IFSC and amount — to hand to the bank',
             'param' => self::MONTH,
             'group' => 'Payroll',
         ],
         'pf-esi' => [
             'label' => 'PF / ESI Statement',
-            'hint' => 'UAN, ESIC number, wages aur dono taraf ka contribution',
+            'hint' => 'UAN, ESIC number, wages and both sides of the contribution',
             'param' => self::MONTH,
             'group' => 'Payroll',
         ],
         'advance-register' => [
             'label' => 'Advance Register',
-            'hint' => 'Kiska advance chal raha hai, kitna kata, kitna baaki',
+            'hint' => 'Whose advance is running, how much is recovered, how much is left',
             'param' => self::NONE,
             'group' => 'Payroll',
         ],
@@ -56,7 +56,7 @@ class ReportCatalog
         ],
         'leave-balance' => [
             'label' => 'Leave Balance',
-            'hint' => 'Saal ka entitled, used aur available — har leave type par',
+            'hint' => 'Entitled, used and available for the year — per leave type',
             'param' => self::YEAR,
             'group' => 'Leave',
         ],
@@ -68,7 +68,7 @@ class ReportCatalog
         ],
         'expense-payout' => [
             'label' => 'Expense Payout',
-            'hint' => 'Claims — kya verify hua, kya pay hua',
+            'hint' => 'Claims — what was verified, what was paid',
             'param' => self::RANGE,
             'group' => 'Expense',
         ],

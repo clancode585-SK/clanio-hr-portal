@@ -8,6 +8,7 @@ use App\Exceptions\ApiException;
 use App\Models\Designation;
 use App\Models\User;
 use App\Support\TenantCache;
+use Illuminate\Support\Str;
 
 final class DesignationService
 {
@@ -23,6 +24,7 @@ final class DesignationService
 
         $designation = new Designation($data);
         $designation->company_id = $companyId;
+        $designation->code = $this->uniqueCode($data['name'], $companyId);
         $designation->created_by = $actor->id;
         $designation->save();
 
@@ -55,5 +57,21 @@ final class DesignationService
         $designation->deactivate();
 
         TenantCache::flush(TenantCache::DESIGNATIONS);
+    }
+
+    /** Form ab code nahi maangta — naam se hi bana lete hain, takrao ho to number jod dete hain */
+    private function uniqueCode(string $name, int $companyId): string
+    {
+        $base = Str::upper(Str::slug($name, '_'));
+        $base = $base === '' ? 'ROLE' : $base;
+        $code = $base;
+        $suffix = 1;
+
+        while (Designation::query()->where('company_id', $companyId)->where('code', $code)->where('is_active', 1)->exists()) {
+            $suffix++;
+            $code = $base . '_' . $suffix;
+        }
+
+        return $code;
     }
 }

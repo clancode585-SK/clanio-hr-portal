@@ -21,23 +21,23 @@ final class MockBank implements BankGateway
     public function transfer(array $account, array $payee, float $amount, string $reference, string $narration): TransferResult
     {
         if ($amount <= 0) {
-            return TransferResult::failed('Amount zero se zyada hona chahiye.');
+            return TransferResult::failed('The amount must be more than zero.');
         }
 
         if (($payee['account_number'] ?? '') === '' || ($payee['ifsc_code'] ?? '') === '') {
-            return TransferResult::failed('Employee ka account number ya IFSC nahi hai.');
+            return TransferResult::failed('The employee has no account number or IFSC.');
         }
 
         $failOn = (string) config('services.bank.mock_fail_ifsc', '');
 
         if ($failOn !== '' && strcasecmp((string) $payee['ifsc_code'], $failOn) === 0) {
-            return TransferResult::failed('Bank ne reject kiya — account detail match nahi hui.');
+            return TransferResult::failed('The bank rejected it — the account details did not match.');
         }
 
         $balance = $this->balance($account);
 
         if ($balance !== null && $balance < $amount) {
-            return TransferResult::failed('Company account me paisa kam hai.');
+            return TransferResult::failed('The company account is short of funds.');
         }
 
         $utr = 'MOCK' . Str::upper(Str::random(12));

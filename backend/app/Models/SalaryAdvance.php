@@ -157,9 +157,9 @@ class SalaryAdvance extends Model
         return match ($this->status) {
             self::PENDING => 'Approval ka intezaar',
             self::APPROVED => 'Approved — transfer baaki',
-            self::REJECTED => 'Reject ho gaya',
-            self::DISBURSED => 'Chal raha hai',
-            self::CLOSED => 'Pura ho gaya',
+            self::REJECTED => 'Rejected',
+            self::DISBURSED => 'Running',
+            self::CLOSED => 'Fully done',
             self::CANCELLED => 'Cancel',
             default => $this->status,
         };

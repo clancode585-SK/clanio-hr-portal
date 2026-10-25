@@ -55,9 +55,9 @@ class AssetRequestRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'description.required' => 'Issue ya zarurat detail me likho.',
-            'reason.required' => 'Reject karne ki wajah likhni zaroori hai.',
-            'resolution.required' => 'Kya kiya wo likhna zaroori hai.',
+            'description.required' => 'Describe the issue or what you need.',
+            'reason.required' => 'A reason for rejecting is required.',
+            'resolution.required' => 'Say what was done.',
         ];
     }
 }

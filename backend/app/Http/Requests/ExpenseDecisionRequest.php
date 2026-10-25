@@ -24,6 +24,6 @@ class ExpenseDecisionRequest extends FormRequest
 
     public function messages(): array
     {
-        return ['reason.required' => 'Reject karne ki wajah likhni zaroori hai.'];
+        return ['reason.required' => 'A reason for rejecting is required.'];
     }
 }

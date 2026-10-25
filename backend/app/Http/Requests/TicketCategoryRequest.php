@@ -56,8 +56,8 @@ class TicketCategoryRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'code.regex' => 'Code me sirf chhote akshar, number aur underscore chalega.',
-            'routes.required' => 'Kam se kam ek rasta banana zaroori hai.',
+            'code.regex' => 'A code may only contain lowercase letters, numbers and underscores.',
+            'routes.required' => 'At least one route is required.',
             'routes.*.label.required' => 'Har raste ka naam likho.',
         ];
     }

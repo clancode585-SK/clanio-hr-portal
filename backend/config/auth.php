@@ -25,6 +25,7 @@ return [
         'max_login_attempts' => (int) env('AUTH_MAX_LOGIN_ATTEMPTS', 5),
         'lock_minutes' => (int) env('AUTH_LOCK_MINUTES', 15),
         'reset_minutes' => (int) env('AUTH_RESET_MINUTES', 60),
+        'verification_minutes' => (int) env('AUTH_VERIFICATION_MINUTES', 30),
     ],
 
     /*

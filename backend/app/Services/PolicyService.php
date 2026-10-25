@@ -32,12 +32,12 @@ final class PolicyService
         $this->assertPermission($actor, 'policy banane');
 
         if ($companyId === null) {
-            throw new ApiException('Policy company ki hoti hai. X-Company-Id bhejo.', 422, 'TENANT_REQUIRED');
+            throw new ApiException('Policies belong to a company. Send the X-Company-Id header.', 422, 'TENANT_REQUIRED');
         }
 
         if ($file === null && ($data['body'] ?? null) === null) {
             throw new ApiException(
-                'Policy ka content do — ya text likho ya PDF upload karo.',
+                'Give the policy content — either write the text or upload a PDF.',
                 422,
                 'POLICY_CONTENT_REQUIRED'
             );
@@ -65,7 +65,7 @@ final class PolicyService
 
         if (! $policy->isDraft()) {
             throw new ApiException(
-                'Published policy edit nahi hoti — nayi version banao.',
+                'A published policy cannot be edited — create a new version.',
                 409,
                 'POLICY_PUBLISHED'
             );
@@ -145,7 +145,7 @@ final class PolicyService
 
         if (! $policy->isDraft()) {
             throw new ApiException(
-                'Published policy delete nahi hoti — archive karo, record rehna chahiye.',
+                'A published policy cannot be deleted — archive it, the record must stay.',
                 409,
                 'POLICY_PUBLISHED'
             );
@@ -166,7 +166,7 @@ final class PolicyService
             ->first();
 
         if ($ack === null) {
-            throw new ApiException('Ye policy aapko assign nahi hui.', 404, 'NOT_FOUND');
+            throw new ApiException('This policy is not assigned to you.', 404, 'NOT_FOUND');
         }
 
         if (! $ack->isPending()) {
@@ -294,7 +294,7 @@ final class PolicyService
     public function download(Policy $policy): StreamedResponse
     {
         if ($policy->file_path === null || ! Storage::disk(self::DISK)->exists($policy->file_path)) {
-            throw new ApiException('Is policy ki file available nahi hai.', 404, 'FILE_MISSING');
+            throw new ApiException('There is no file for this policy.', 404, 'FILE_MISSING');
         }
 
         return Storage::disk(self::DISK)->download($policy->file_path, $policy->original_name);
@@ -430,7 +430,7 @@ final class PolicyService
 
         if ($employee === null) {
             throw new ApiException(
-                'Policy accept karne ke liye employee record chahiye. HR se baat karo.',
+                'Accepting a policy needs an employee record. Talk to HR.',
                 422,
                 'EMPLOYEE_RECORD_MISSING'
             );
@@ -445,7 +445,7 @@ final class PolicyService
             return;
         }
 
-        throw new ApiException('Aapke paas ' . $what . ' ka haq nahi hai.', 403, 'FORBIDDEN');
+        throw new ApiException('Aapke paas ' . $what . ' is not permitted.', 403, 'FORBIDDEN');
     }
 
     private function flush(): void
@@ -466,7 +466,7 @@ final class PolicyService
 
         $this->notifications->sendMany($recipients, [
             'type' => NotificationType::POLICY_PUBLISHED,
-            'title' => 'Nayi policy — accept karni hai',
+            'title' => 'New policy — please accept it',
             'body' => $policy->title . ' (v' . $policy->version . ') · '
                 . $policy->ack_due_days . ' din me accept kar do.',
             'action_url' => '/my-policies',

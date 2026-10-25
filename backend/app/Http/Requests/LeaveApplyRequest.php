@@ -39,8 +39,8 @@ class LeaveApplyRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'to_date.after_or_equal' => 'To date, from date se pehle nahi ho sakti.',
-            'half_day_session.required_if' => 'Half day ke liye first_half ya second_half chunna padega.',
+            'to_date.after_or_equal' => 'The to date cannot be before the from date.',
+            'half_day_session.required_if' => 'Choose first_half or second_half for a half day.',
         ];
     }
 }

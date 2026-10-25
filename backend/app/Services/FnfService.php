@@ -31,7 +31,7 @@ final class FnfService
     {
         if (! in_array($exit->status, [EmployeeExit::SERVING_NOTICE, EmployeeExit::EXITED], true)) {
             throw new ApiException(
-                'Exit approve hone ke baad hi FnF banega. Abhi status ' . $exit->status . ' hai.',
+                'The full and final is built only after the exit is approved. Current status ' . $exit->status . ' hai.',
                 409,
                 'EXIT_NOT_APPROVED'
             );
@@ -43,7 +43,7 @@ final class FnfService
             ->first();
 
         if ($existing !== null) {
-            throw new ApiException('Is exit ka FnF already bana hua hai.', 409, 'FNF_ALREADY_OPEN');
+            throw new ApiException('A full and final already exists for this exit.', 409, 'FNF_ALREADY_OPEN');
         }
 
         $employee = $this->employeeFor($exit);
@@ -80,7 +80,7 @@ final class FnfService
 
         if ($structure === null) {
             throw new ApiException(
-                $settlement->employee_name . ' ka salary structure set nahi hai — uske bina hisaab nahi ban sakta.',
+                $settlement->employee_name . ' has no salary structure — nothing can be calculated without it.',
                 422,
                 'STRUCTURE_MISSING'
             );
@@ -169,13 +169,13 @@ final class FnfService
         $settlement = $line->settlement;
 
         if ($settlement === null) {
-            throw new ApiException('Settlement nahi mila.', 404, 'NOT_FOUND');
+            throw new ApiException('Settlement not found.', 404, 'NOT_FOUND');
         }
 
         $this->assertEditable($settlement);
 
         if ($amount !== null && $amount < 0) {
-            throw new ApiException('Amount minus me nahi ho sakta.', 422, 'AMOUNT_INVALID');
+            throw new ApiException('The amount cannot be negative.', 422, 'AMOUNT_INVALID');
         }
 
         $line->forceFill([
@@ -214,14 +214,14 @@ final class FnfService
         $settlement = $line->settlement;
 
         if ($settlement === null) {
-            throw new ApiException('Settlement nahi mila.', 404, 'NOT_FOUND');
+            throw new ApiException('Settlement not found.', 404, 'NOT_FOUND');
         }
 
         $this->assertEditable($settlement);
 
         if ($line->source !== FnfLine::MANUAL) {
             throw new ApiException(
-                'Ye line tool ne banayi hai — hata nahi sakte. Amount 0 karna ho to Apply hata do.',
+                'This line was suggested by the tool and cannot be removed. Unapply it to set the amount to zero.',
                 409,
                 'LINE_NOT_MANUAL'
             );
@@ -336,7 +336,7 @@ final class FnfService
     public function hold(FnfSettlement $settlement, ?string $reason, User $actor): FnfSettlement
     {
         if ($settlement->payment_status === FnfSettlement::PAID) {
-            throw new ApiException('Paisa already ja chuka hai.', 409, 'FNF_ALREADY_PAID');
+            throw new ApiException('The money has already gone out.', 409, 'FNF_ALREADY_PAID');
         }
 
         $settlement->forceFill([
@@ -353,7 +353,7 @@ final class FnfService
     public function release(FnfSettlement $settlement, User $actor): FnfSettlement
     {
         if ($settlement->payment_status !== FnfSettlement::ON_HOLD) {
-            throw new ApiException('Ye settlement hold par nahi hai.', 409, 'NOT_ON_HOLD');
+            throw new ApiException('This settlement is not on hold.', 409, 'NOT_ON_HOLD');
         }
 
         $settlement->forceFill([
@@ -375,7 +375,7 @@ final class FnfService
             return [
                 'code' => 'FNF_WRONG_STAGE',
                 'message' => $settlement->status === FnfSettlement::DRAFT
-                    ? 'Pehle calculate karo, phir approve.'
+                    ? 'Calculate first, then approve.'
                     : 'Ye settlement ' . $settlement->statusLabel() . ' hai.',
             ];
         }
@@ -385,14 +385,14 @@ final class FnfService
         if ($exit !== null && $exit->status !== EmployeeExit::EXITED) {
             return [
                 'code' => 'EXIT_NOT_DONE',
-                'message' => 'Employee ka last working day nikalne ke baad hi FnF approve hoga.',
+                'message' => 'The full and final can only be approved after the last working day has passed.',
             ];
         }
 
         if ($settlement->payment_status === FnfSettlement::ON_HOLD) {
             return [
                 'code' => 'FNF_STOPPED',
-                'message' => 'Ye settlement stop par hai'
+                'message' => 'This settlement is on stop'
                     . ($settlement->hold_reason ? ' — ' . $settlement->hold_reason : '') . '.',
             ];
         }
@@ -400,7 +400,7 @@ final class FnfService
         if ($this->isOwn($settlement, $actor) && $this->hasHrDeduction($settlement)) {
             return [
                 'code' => 'SELF_APPROVAL_WITH_DEDUCTION',
-                'message' => 'Apne settlement par deduction lagi hai — isko dusra approver hi approve karega.',
+                'message' => 'Your own settlement has a deduction — another approver must sign it off.',
             ];
         }
 
@@ -438,7 +438,7 @@ final class FnfService
     public function cancel(FnfSettlement $settlement, User $actor): FnfSettlement
     {
         if ($settlement->isSettled() || $settlement->payment_status === FnfSettlement::PAID) {
-            throw new ApiException('Paisa ja chuka hai — cancel nahi hota.', 409, 'FNF_ALREADY_PAID');
+            throw new ApiException('The money has gone out — it cannot be cancelled.', 409, 'FNF_ALREADY_PAID');
         }
 
         $settlement->forceFill([
@@ -454,11 +454,11 @@ final class FnfService
     public function markRecovered(FnfSettlement $settlement, User $actor): FnfSettlement
     {
         if (! $settlement->owesCompany()) {
-            throw new ApiException('Is settlement me employee par kuch baaki nahi hai.', 409, 'NOTHING_TO_RECOVER');
+            throw new ApiException('The employee owes nothing on this settlement.', 409, 'NOTHING_TO_RECOVER');
         }
 
         if (! $settlement->isApproved()) {
-            throw new ApiException('Pehle settlement approve karo.', 409, 'FNF_WRONG_STAGE');
+            throw new ApiException('Approve the settlement first.', 409, 'FNF_WRONG_STAGE');
         }
 
         $settlement->forceFill([
@@ -582,7 +582,7 @@ final class FnfService
                 'kind' => FnfLine::DEDUCTION,
                 'source' => FnfLine::SUGGESTED,
                 'suggested_amount' => $recovery,
-                'basis' => 'Clearance checklist me jo wapas nahi aaya',
+                'basis' => 'Items on the clearance checklist that never came back',
                 'sequence' => 220,
             ];
         }
@@ -597,7 +597,7 @@ final class FnfService
                 'source' => FnfLine::SUGGESTED,
                 'suggested_amount' => round((float) $advance->outstanding, 2),
                 'basis' => 'Rs. ' . number_format((float) $advance->amount, 2) . ' me se Rs. '
-                    . number_format((float) $advance->recovered, 2) . ' EMI se kat chuka hai',
+                    . number_format((float) $advance->recovered, 2) . ' already recovered through EMI',
                 'sequence' => 230,
             ];
         }
@@ -846,7 +846,7 @@ final class FnfService
                 ->find($exit->employee_id);
 
         if ($employee === null) {
-            throw new ApiException('Is exit ka employee record nahi mila.', 422, 'EMPLOYEE_MISSING');
+            throw new ApiException('The employee record for this exit was not found.', 422, 'EMPLOYEE_MISSING');
         }
 
         return $employee;
@@ -856,7 +856,7 @@ final class FnfService
     {
         if (! $settlement->isEditable()) {
             throw new ApiException(
-                'Ye settlement ' . $settlement->statusLabel() . ' hai — ab amount nahi badal sakta.',
+                'Ye settlement ' . $settlement->statusLabel() . ' — the amount can no longer be changed.',
                 409,
                 'FNF_LOCKED'
             );
@@ -878,9 +878,9 @@ final class FnfService
 
         $this->notifications->send((int) $userId, [
             'type' => NotificationType::FNF_APPROVED,
-            'title' => 'Aapka full and final approve ho gaya',
+            'title' => 'Your full and final settlement has been approved',
             'body' => $settlement->owesCompany()
-                ? 'Hisaab ke baad ₹' . number_format(abs($settlement->net_payable), 2) . ' company ko dene hain. HR aapse baat karegi.'
+                ? 'After the calculation ₹' . number_format(abs($settlement->net_payable), 2) . ' is owed to the company. HR will get in touch.'
                 : '₹' . number_format($settlement->net_payable, 2) . ' aapke bank account me bhej diya jaayega.',
             'action_url' => '/my-payslips',
             'entity_type' => 'fnf_settlement',

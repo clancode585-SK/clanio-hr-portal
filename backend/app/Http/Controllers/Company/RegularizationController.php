@@ -55,7 +55,7 @@ class RegularizationController extends ApiController
                 $request->from(),
                 $request->to()
             ),
-            'Regularization ke liye eligible din fetch ho gaye'
+            'Days eligible for regularisation fetched'
         );
     }
 
@@ -76,7 +76,7 @@ class RegularizationController extends ApiController
             new AttendanceRegularizationResource(
                 $this->regularizations->apply($request->user(), $request->validated())
             ),
-            'Regularization request bhej di gayi'
+            'Regularisation request sent'
         );
     }
 
@@ -96,7 +96,7 @@ class RegularizationController extends ApiController
             new AttendanceRegularizationResource(
                 $this->regularizations->approve($regularization, $request->validated(), $request->user())
             ),
-            'Regularization approve ho gayi — attendance update kar di'
+            'Regularisation approved — attendance updated'
         );
     }
 
@@ -106,7 +106,7 @@ class RegularizationController extends ApiController
             new AttendanceRegularizationResource(
                 $this->regularizations->reject($regularization, $request->validated(), $request->user())
             ),
-            'Regularization reject kar di gayi'
+            'Regularisation rejected'
         );
     }
 
@@ -116,7 +116,7 @@ class RegularizationController extends ApiController
             new AttendanceRegularizationResource(
                 $this->regularizations->cancel($regularization, $request->user())
             ),
-            'Regularization request cancel ho gayi'
+            'Regularisation request cancelled'
         );
     }
 

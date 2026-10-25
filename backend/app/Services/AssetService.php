@@ -26,7 +26,7 @@ final class AssetService
 
         if ($companyId === null) {
             throw new ApiException(
-                'Asset company ka hota hai. X-Company-Id header bhejo.',
+                'Assets belong to a company. Send the X-Company-Id header.',
                 422,
                 'TENANT_REQUIRED'
             );
@@ -64,7 +64,7 @@ final class AssetService
 
         if ($asset->isAllocated()) {
             throw new ApiException(
-                'Ye asset abhi allocated hai — pehle wapas lo.',
+                'This asset is currently allocated — take it back first.',
                 409,
                 'ASSET_ALLOCATED'
             );
@@ -86,7 +86,7 @@ final class AssetService
         $this->assertPermission($actor, Asset::MANAGE_PERMISSION, 'asset hataane');
 
         if ($asset->isAllocated()) {
-            throw new ApiException('Allocated asset delete nahi hota — pehle wapas lo.', 409, 'ASSET_ALLOCATED');
+            throw new ApiException('An allocated asset cannot be deleted — take it back first.', 409, 'ASSET_ALLOCATED');
         }
 
         $asset->deactivate();
@@ -98,12 +98,12 @@ final class AssetService
         $this->assertPermission($actor, Asset::MANAGE_PERMISSION, 'asset allocate karne');
 
         if ($asset->isRetired()) {
-            throw new ApiException('Retired ya lost asset allocate nahi hota.', 409, 'ASSET_NOT_AVAILABLE');
+            throw new ApiException('A retired or lost asset cannot be allocated.', 409, 'ASSET_NOT_AVAILABLE');
         }
 
         if (! $asset->isAvailable()) {
             throw new ApiException(
-                'Ye asset abhi ' . $asset->status . ' hai, allocate nahi ho sakta.',
+                'This asset is currently ' . $asset->status . ', so it cannot be allocated.',
                 409,
                 'ASSET_NOT_AVAILABLE'
             );
@@ -112,7 +112,7 @@ final class AssetService
         $employee = $this->employee((int) $data['employee_id'], $actor);
 
         if ($employee->isExited()) {
-            throw new ApiException('Exit ho chuke employee ko asset nahi de sakte.', 409, 'EMPLOYEE_EXITED');
+            throw new ApiException('An asset cannot be issued to someone who has left.', 409, 'EMPLOYEE_EXITED');
         }
 
         $allocation = DB::transaction(function () use ($asset, $employee, $data, $actor): AssetAllocation {
@@ -141,8 +141,8 @@ final class AssetService
             $allocation,
             $actor,
             NotificationType::ASSET_ALLOCATED,
-            'Aapko asset mila hai',
-            $asset->label() . ' — sambhal ke rakhna, exit par wapas karna hoga.'
+            'An asset has been issued to you',
+            $asset->label() . ' — look after it, you must return it when you leave.'
         );
 
         return $allocation;
@@ -150,7 +150,7 @@ final class AssetService
 
     public function returnAsset(Asset $asset, array $data, User $actor): AssetAllocation
     {
-        $this->assertPermission($actor, Asset::MANAGE_PERMISSION, 'asset wapas lene');
+        $this->assertPermission($actor, Asset::MANAGE_PERMISSION, 'taking the asset back');
 
         $allocation = AssetAllocation::query()
             ->where('asset_id', $asset->id)
@@ -158,7 +158,7 @@ final class AssetService
             ->first();
 
         if ($allocation === null) {
-            throw new ApiException('Ye asset kisi ko allocated hi nahi hai.', 409, 'ASSET_NOT_ALLOCATED');
+            throw new ApiException('This asset is not allocated to anyone.', 409, 'ASSET_NOT_ALLOCATED');
         }
 
         $condition = $data['condition'] ?? Asset::GOOD;
@@ -166,7 +166,7 @@ final class AssetService
 
         if ($amount > 0 && ($data['remarks'] ?? null) === null) {
             throw new ApiException(
-                'Recovery amount laga rahe ho to wajah likhni zaroori hai.',
+                'A reason is required when you apply a recovery amount.',
                 422,
                 'ASSET_REMARKS_REQUIRED'
             );
@@ -213,7 +213,7 @@ final class AssetService
             : Employee::query()->visibleTo($actor)->whereKey($employeeId)->first();
 
         if ($employee === null) {
-            throw new ApiException('Employee record nahi mila.', 404, 'NOT_FOUND');
+            throw new ApiException('Employee record not found.', 404, 'NOT_FOUND');
         }
 
         return AssetAllocation::query()
@@ -299,7 +299,7 @@ final class AssetService
 
         $clearance->forceFill([
             'status' => ExitClearance::CLEARED,
-            'remarks' => $remarks ?? 'Asset wapas mil gaya',
+            'remarks' => $remarks ?? 'Asset returned',
             'recoverable_amount' => $amount,
             'cleared_by' => $actor->id,
             'cleared_at' => Carbon::now(),
@@ -340,7 +340,7 @@ final class AssetService
             return;
         }
 
-        throw new ApiException('Aapke paas ' . $what . ' ka haq nahi hai.', 403, 'FORBIDDEN');
+        throw new ApiException('Aapke paas ' . $what . ' is not permitted.', 403, 'FORBIDDEN');
     }
 
     private function flush(): void

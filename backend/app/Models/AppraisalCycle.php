@@ -90,10 +90,10 @@ class AppraisalCycle extends Model
     public function stageLabel(): string
     {
         return match ($this->status) {
-            self::DRAFT => 'Draft — abhi launch nahi hua',
-            self::SELF_REVIEW => 'Employee self review bhar raha hai',
-            self::MANAGER_REVIEW => 'Manager review kar raha hai',
-            self::HR_REVIEW => 'HR final rating de rahi hai',
+            self::DRAFT => 'Draft — not launched yet',
+            self::SELF_REVIEW => 'The employee is filling in their self review',
+            self::MANAGER_REVIEW => 'The manager is reviewing',
+            self::HR_REVIEW => 'HR is giving the final rating',
             self::CLOSED => 'Closed',
             default => $this->status,
         };

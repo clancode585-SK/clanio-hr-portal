@@ -129,10 +129,10 @@ final class EmployeeDocumentService
 
         $this->notifications->send((int) $employee->user_id, [
             'type' => $verified ? NotificationType::DOCUMENT_VERIFIED : NotificationType::DOCUMENT_REJECTED,
-            'title' => $document->title . ' ' . ($verified ? 'verify ho gaya' : 'reject ho gaya'),
+            'title' => $document->title . ' ' . ($verified ? 'verify ho gaya' : 'rejected'),
             'body' => $document->remarks ?? ($verified
-                ? 'HR ne aapka document approve kar diya hai.'
-                : 'HR ne document reject kiya hai, dubara upload karo.'),
+                ? 'HR has approved your document.'
+                : 'HR rejected the document, please upload it again.'),
             'action_url' => '/profile/documents',
             'entity_type' => 'employee_document',
             'entity_id' => $document->id,

@@ -63,7 +63,7 @@ class TicketController extends ApiController
     {
         return ApiResponse::created(
             new TicketResource($this->tickets->raise($request->user(), $request->validated())),
-            'Request bhej di gayi'
+            'Request sent'
         );
     }
 
@@ -82,7 +82,7 @@ class TicketController extends ApiController
     {
         return ApiResponse::success(
             new TicketResource($this->tickets->claim($ticket, $request->user())),
-            'Ticket aapke naam par hai'
+            'A ticket is assigned to you'
         );
     }
 
@@ -90,7 +90,7 @@ class TicketController extends ApiController
     {
         return ApiResponse::success(
             new TicketResource($this->tickets->assign($ticket, $request->user(), (int) $request->validated()['user_id'])),
-            'Ticket assign ho gaya'
+            'Ticket assigned'
         );
     }
 
@@ -98,7 +98,7 @@ class TicketController extends ApiController
     {
         return ApiResponse::created(
             new TicketCommentResource($this->tickets->comment($ticket, $request->user(), $request->validated())),
-            'Reply bhej diya'
+            'Reply sent'
         );
     }
 
@@ -106,7 +106,7 @@ class TicketController extends ApiController
     {
         return ApiResponse::success(
             new TicketResource($this->tickets->askInfo($ticket, $request->user(), $request->validated())),
-            'Information maang li gayi'
+            'Information requested'
         );
     }
 
@@ -114,7 +114,7 @@ class TicketController extends ApiController
     {
         return ApiResponse::success(
             new TicketResource($this->tickets->resolve($ticket, $request->user(), $request->validated())),
-            'Ticket resolve ho gaya'
+            'Ticket resolved'
         );
     }
 
@@ -122,7 +122,7 @@ class TicketController extends ApiController
     {
         return ApiResponse::success(
             new TicketResource($this->tickets->reopen($ticket, $request->user(), $request->validated())),
-            'Ticket dobara khul gaya'
+            'Ticket reopened'
         );
     }
 
@@ -130,7 +130,7 @@ class TicketController extends ApiController
     {
         return ApiResponse::success(
             new TicketResource($this->tickets->close($ticket, $request->user())),
-            'Ticket band ho gaya'
+            'Ticket closed'
         );
     }
 
@@ -138,7 +138,7 @@ class TicketController extends ApiController
     {
         return ApiResponse::success(
             new TicketResource($this->tickets->cancel($ticket, $request->user())),
-            'Request cancel ho gayi'
+            'Request cancelled'
         );
     }
 }

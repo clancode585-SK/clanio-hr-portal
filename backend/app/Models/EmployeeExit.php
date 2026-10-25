@@ -55,7 +55,7 @@ class EmployeeExit extends Model
         self::TYPE_RESIGNATION => 'Resignation — employee ne khud di',
         self::TYPE_TERMINATION => 'Termination — company ne nikala',
         self::TYPE_RETIREMENT => 'Retirement',
-        self::TYPE_ABSCONDING => 'Absconding — bina bataye chala gaya',
+        self::TYPE_ABSCONDING => 'Absconding — left without notice',
     ];
 
     public const STAGE_MANAGER = 'manager';
@@ -186,10 +186,10 @@ class EmployeeExit extends Model
         return match ($this->status) {
             self::PENDING => 'Manager ke paas',
             self::MANAGER_APPROVED => 'HR final approval ke paas',
-            self::SERVING_NOTICE => 'Notice period chal raha hai',
-            self::EXITED => 'Exit ho chuka hai',
+            self::SERVING_NOTICE => 'Serving notice period',
+            self::EXITED => 'Already exited',
             self::REJECTED => 'Rejected',
-            self::WITHDRAWN => 'Employee ne wapas le li',
+            self::WITHDRAWN => 'Withdrawn by the employee',
             default => $this->status,
         };
     }

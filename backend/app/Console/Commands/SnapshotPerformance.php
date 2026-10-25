@@ -17,7 +17,7 @@ class SnapshotPerformance extends Command
         {--month= : YYYY-MM, default pichla mahina}
         {--no-freeze : Sirf calculate karo, freeze mat karo}';
 
-    protected $description = 'Har employee ka monthly performance score save aur freeze karta hai';
+    protected $description = 'Saves and freezes each employee\'s monthly performance score';
 
     public function __construct(private readonly PerformanceService $performance)
     {
@@ -52,7 +52,7 @@ class SnapshotPerformance extends Command
         app(TenantContext::class)->forget();
 
         $this->info($total . ' employee ka ' . implode(', ', array_keys($periods)) . ' score save hua'
-            . ($frozen > 0 ? ' aur ' . $frozen . ' freeze ho gaya.' : ' (freeze nahi kiya).'));
+            . ($frozen > 0 ? ' aur ' . $frozen . ' freeze ho gaya.' : ' (not frozen).'));
 
         return self::SUCCESS;
     }

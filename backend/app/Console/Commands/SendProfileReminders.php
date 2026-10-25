@@ -19,7 +19,7 @@ class SendProfileReminders extends Command
 {
     protected $signature = 'profile:reminders';
 
-    protected $description = 'Adhoore profile wale employees ko complete karne ka reminder bhejta hai';
+    protected $description = 'Reminds employees with incomplete profiles to finish them';
 
     public function __construct(
         private readonly NotificationService $notifications,
@@ -83,7 +83,7 @@ class SendProfileReminders extends Command
 
         app(TenantContext::class)->forget();
 
-        $this->info($sent . ' profile reminder bheje gaye.');
+        $this->info($sent . ' profile reminders sent.');
 
         return self::SUCCESS;
     }

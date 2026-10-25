@@ -68,7 +68,7 @@ class SalaryComponentController extends ApiController
             )],
             $result['created'] === 0
                 ? 'Standard components already set up'
-                : $result['created'] . ' standard components ban gaye'
+                : $result['created'] . ' standard components created'
         );
     }
 

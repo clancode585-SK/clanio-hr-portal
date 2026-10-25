@@ -53,7 +53,7 @@ class ClearanceController extends ApiController
             new ClearanceItemResource(
                 $this->clearance->createItem($request->validated(), $request->user(), $this->tenantId())
             ),
-            'Clearance item ban gaya'
+            'Clearance item created'
         );
     }
 
@@ -66,7 +66,7 @@ class ClearanceController extends ApiController
     {
         return ApiResponse::success(
             new ClearanceItemResource($this->clearance->updateItem($item, $request->validated(), $request->user())),
-            'Clearance item update ho gaya'
+            'Clearance item updated'
         );
     }
 
@@ -74,7 +74,7 @@ class ClearanceController extends ApiController
     {
         $this->clearance->deleteItem($item, $request->user());
 
-        return ApiResponse::success(null, 'Clearance item hata diya gaya');
+        return ApiResponse::success(null, 'Clearance item removed');
     }
 
     public function forExit(EmployeeExit $exit): JsonResponse
@@ -91,7 +91,7 @@ class ClearanceController extends ApiController
     {
         return ApiResponse::success(
             new ExitClearanceResource($this->clearance->sign($clearance, $request->validated(), $request->user())),
-            'Clearance sign ho gaya'
+            'Clearance signed'
         );
     }
 

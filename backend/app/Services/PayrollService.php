@@ -25,6 +25,7 @@ use App\Support\TenantCache;
 use App\Support\WorkCalendar;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Throwable;
 
 final class PayrollService
 {
@@ -58,7 +59,7 @@ final class PayrollService
 
         if ($existing !== null) {
             throw new ApiException(
-                $existing->monthLabel() . ' ka payroll already bana hua hai (' . $existing->statusLabel() . ').',
+                $existing->monthLabel() . ' already has payroll for this month (' . $existing->statusLabel() . ').',
                 409,
                 'PAYROLL_ALREADY_OPEN'
             );
@@ -79,11 +80,14 @@ final class PayrollService
         return $run;
     }
 
-    public function calculate(PayrollRun $run, User $actor): PayrollRun
+    /**
+     * @return array{run: PayrollRun, skipped: array<int, array{employee_code: string, reason: string}>}
+     */
+    public function calculate(PayrollRun $run, User $actor): array
     {
         if (! $run->isEditable()) {
             throw new ApiException(
-                'Ye payroll ' . $run->statusLabel() . ' hai — ab amount nahi badal sakta.',
+                'Ye payroll ' . $run->statusLabel() . ' — the amount can no longer be changed.',
                 409,
                 'PAYROLL_LOCKED'
             );
@@ -94,7 +98,7 @@ final class PayrollService
 
         if ($employees->isEmpty()) {
             throw new ApiException(
-                'Is mahine ke liye koi employee nahi mila jiska structure set ho.',
+                'No employee with a salary structure was found for this month.',
                 422,
                 'NO_PAYABLE_EMPLOYEES'
             );
@@ -105,7 +109,8 @@ final class PayrollService
         $this->prefetchLop($companyId, $run->month, $ids);
         $structures = $this->structures->forMonthMany($ids, $run->month);
 
-        return DB::transaction(function () use ($run, $employees, $structures, $actor, $companyId, $ids): PayrollRun {
+        // Step 1: purana data saaf karo, advance ki state taiyar karo — ye ek hi transaction me
+        $held = DB::transaction(function () use ($run, $companyId, $ids): array {
             $held = $this->keepHeldLop($run);
 
             // Purani EMI rows hata kar dobara likhte hain, warna recalculate par do baar gin jaati
@@ -119,39 +124,65 @@ final class PayrollService
 
             PayrollItem::query()->where('run_id', $run->id)->forceDelete();
 
-            $totals = ['earnings' => 0.0, 'deductions' => 0.0, 'net' => 0.0, 'employer' => 0.0];
-            $monthDays = Carbon::parse($run->month . '-01')->daysInMonth;
+            return $held;
+        });
 
-            foreach ($employees as $employee) {
-                $structure = $structures[(int) $employee->id] ?? null;
+        // Step 2: har employee apne alag transaction me — ek ka data galat ho to sirf wahi skip hota hai,
+        // baaki 999 ka calculation nahi rukta
+        $skipped = [];
 
-                if ($structure === null) {
-                    continue;
-                }
+        foreach ($employees as $employee) {
+            $structure = $structures[(int) $employee->id] ?? null;
 
-                $working = $this->workingDays($employee, $run->month);
-                $lop = $held[$employee->id] ?? $this->suggestLop($employee, $run->month, $working);
-                $paidDays = round(max($working - $lop, 0), 2);
-
-                $item = $this->writeItem($run, $employee, $structure, $working, $lop, $paidDays, $held, $actor);
-
-                $totals['earnings'] += $item->gross_earnings;
-                $totals['deductions'] += $item->total_deductions;
-                $totals['net'] += $item->net_payable;
-                $totals['employer'] += $item->employer_cost;
+            if ($structure === null) {
+                continue;
             }
+
+            try {
+                DB::transaction(function () use ($run, $employee, $structure, $held, $actor): void {
+                    $working = $this->workingDays($employee, $run->month);
+                    $lop = $held[$employee->id] ?? $this->suggestLop($employee, $run->month, $working);
+                    $paidDays = round(max($working - $lop, 0), 2);
+
+                    $this->writeItem($run, $employee, $structure, $working, $lop, $paidDays, $held, $actor);
+                });
+            } catch (Throwable $exception) {
+                $skipped[] = [
+                    'employee_code' => $employee->employee_code,
+                    'reason' => $exception instanceof ApiException ? $exception->getMessage() : 'Could not be calculated.',
+                ];
+            }
+        }
+
+        if (count($skipped) === count($employees)) {
+            throw new ApiException(
+                'Not even one employee could be calculated. Check the salary structures and try again.',
+                422,
+                'PAYROLL_CALCULATE_ALL_FAILED'
+            );
+        }
+
+        // Step 3: jo sach me bana, usi se total nikalo aur run close karo — ek chhota, aakhri transaction
+        $run = DB::transaction(function () use ($run, $actor): PayrollRun {
+            $monthDays = Carbon::parse($run->month . '-01')->daysInMonth;
 
             $this->advances->resync($this->touchedAdvances);
             $this->advanceMemo = [];
 
+            $totals = PayrollItem::query()->where('run_id', $run->id)->selectRaw(
+                'COUNT(*) as headcount, COALESCE(SUM(gross_earnings),0) as earnings, '
+                . 'COALESCE(SUM(total_deductions),0) as deductions, COALESCE(SUM(net_payable),0) as net, '
+                . 'COALESCE(SUM(employer_cost),0) as employer'
+            )->first();
+
             $run->forceFill([
                 'status' => PayrollRun::CALCULATED,
-                'headcount' => PayrollItem::query()->where('run_id', $run->id)->count(),
+                'headcount' => (int) $totals->headcount,
                 'working_days' => $monthDays,
-                'total_earnings' => round($totals['earnings'], 2),
-                'total_deductions' => round($totals['deductions'], 2),
-                'total_net' => round($totals['net'], 2),
-                'total_employer' => round($totals['employer'], 2),
+                'total_earnings' => round((float) $totals->earnings, 2),
+                'total_deductions' => round((float) $totals->deductions, 2),
+                'total_net' => round((float) $totals->net, 2),
+                'total_employer' => round((float) $totals->employer, 2),
                 'calculated_at' => Carbon::now(),
                 'calculated_by' => $actor->id,
                 'updated_by' => $actor->id,
@@ -161,6 +192,8 @@ final class PayrollService
 
             return $run->refresh();
         });
+
+        return ['run' => $run, 'skipped' => $skipped];
     }
 
     public function setLop(PayrollItem $item, float $days, User $actor): PayrollItem
@@ -169,7 +202,7 @@ final class PayrollService
 
         if ($run === null || ! $run->isEditable()) {
             throw new ApiException(
-                'Payroll approve ho chuka hai — LOP ab nahi badal sakta.',
+                'Payroll is approved — loss of pay can no longer be changed.',
                 409,
                 'PAYROLL_LOCKED'
             );
@@ -177,7 +210,7 @@ final class PayrollService
 
         if ($days < 0 || $days > $item->working_days) {
             throw new ApiException(
-                'LOP 0 se ' . $item->working_days . ' din ke beech hona chahiye.',
+                'LOP 0 se ' . $item->working_days . ' days.',
                 422,
                 'LOP_OUT_OF_RANGE'
             );
@@ -187,7 +220,7 @@ final class PayrollService
         $structure = SalaryStructure::query()->with('lines')->find($item->structure_id);
 
         if ($employee === null || $structure === null) {
-            throw new ApiException('Is payslip ka structure nahi mila.', 422, 'STRUCTURE_MISSING');
+            throw new ApiException('The structure for this payslip was not found.', 422, 'STRUCTURE_MISSING');
         }
 
         return DB::transaction(function () use ($item, $run, $employee, $structure, $days, $actor): PayrollItem {
@@ -229,7 +262,7 @@ final class PayrollService
     public function hold(PayrollItem $item, ?string $reason, User $actor): PayrollItem
     {
         if ($item->isPaid()) {
-            throw new ApiException('Ye salary already ja chuki hai.', 409, 'ALREADY_PAID');
+            throw new ApiException('This salary has already gone out.', 409, 'ALREADY_PAID');
         }
 
         $item->forceFill([
@@ -246,7 +279,7 @@ final class PayrollService
     public function release(PayrollItem $item, User $actor): PayrollItem
     {
         if (! $item->isOnHold()) {
-            throw new ApiException('Ye payslip hold par nahi hai.', 409, 'NOT_ON_HOLD');
+            throw new ApiException('This payslip is not on hold.', 409, 'NOT_ON_HOLD');
         }
 
         $item->forceFill([
@@ -266,7 +299,7 @@ final class PayrollService
 
         if ($run === null || ! $run->isEditable()) {
             throw new ApiException(
-                'Ye payroll ' . ($run?->statusLabel() ?? 'band') . ' hai — ab approval nahi badalti.',
+                'Ye payroll ' . ($run?->statusLabel() ?? 'band') . ' — the approval can no longer be changed.',
                 409,
                 'PAYROLL_LOCKED'
             );
@@ -298,7 +331,7 @@ final class PayrollService
 
         if ($run === null || ! $run->isEditable()) {
             throw new ApiException(
-                'Payroll approve ho chuka hai — ab approval wapas nahi hoti.',
+                'Payroll is approved — approval can no longer be withdrawn.',
                 409,
                 'PAYROLL_LOCKED'
             );
@@ -322,7 +355,7 @@ final class PayrollService
     {
         if (! $run->isEditable()) {
             throw new ApiException(
-                'Ye payroll ' . $run->statusLabel() . ' hai — ab approval nahi badalti.',
+                'Ye payroll ' . $run->statusLabel() . ' — the approval can no longer be changed.',
                 409,
                 'PAYROLL_LOCKED'
             );
@@ -504,7 +537,7 @@ final class PayrollService
         if (! $run->isCalculated()) {
             throw new ApiException(
                 $run->isDraft()
-                    ? 'Pehle payroll calculate karo, phir approve.'
+                    ? 'Calculate payroll first, then approve.'
                     : 'Ye payroll ' . $run->statusLabel() . ' hai.',
                 409,
                 'PAYROLL_WRONG_STAGE'
@@ -512,7 +545,7 @@ final class PayrollService
         }
 
         if ($run->headcount === 0) {
-            throw new ApiException('Khaali payroll approve nahi hota.', 422, 'PAYROLL_EMPTY');
+            throw new ApiException('An empty payroll cannot be approved.', 422, 'PAYROLL_EMPTY');
         }
 
         $waiting = PayrollItem::query()
@@ -523,7 +556,7 @@ final class PayrollService
 
         if ($waiting > 0) {
             throw new ApiException(
-                $waiting . ' employee ki salary abhi approve nahi hui. Sabko approve karo ya unko stop karo.',
+                $waiting . ' employees are not approved yet. Approve everyone, or put them on stop.',
                 409,
                 'ITEMS_NOT_APPROVED'
             );
@@ -546,13 +579,13 @@ final class PayrollService
     {
         if ($run->paid_count > 0) {
             throw new ApiException(
-                'Is payroll me ' . $run->paid_count . ' salary already ja chuki hai — cancel nahi hota.',
+                'Is payroll me ' . $run->paid_count . ' salary has already gone out — it cannot be cancelled.',
                 409,
                 'PAYROLL_PARTLY_PAID'
             );
         }
 
-        // Run cancel hui to EMI bhi wapas, warna employee ka advance kam dikhega
+        // Run cancel hui to EMI bhi returned, warna employee ka advance kam dikhega
         $this->advances->resync($this->advances->clearRun((int) $run->id));
 
         $run->forceFill([
@@ -833,27 +866,27 @@ final class PayrollService
         if ($item->isOnHold()) {
             return [
                 'code' => 'ITEM_STOPPED',
-                'message' => 'Salary stop par hai'
+                'message' => 'Salary is on stop'
                     . ($item->hold_reason ? ' — ' . $item->hold_reason : '') . '.',
             ];
         }
 
         if ((float) $item->net_payable <= 0) {
-            return ['code' => 'ITEM_ZERO', 'message' => 'Net amount zero hai.'];
+            return ['code' => 'ITEM_ZERO', 'message' => 'The net amount is zero.'];
         }
 
         if ((float) $item->lop_suggested > 0 && ! (bool) $item->lop_locked_by_hr) {
             return [
                 'code' => 'LOP_UNDECIDED',
                 'message' => 'Attendance ' . rtrim(rtrim(number_format((float) $item->lop_suggested, 1, '.', ''), '0'), '.')
-                    . ' din LOP keh rahi hai. Pehle LOP set karo — 0 rakhna ho to bhi save karo.',
+                    . ' days of loss of pay. Set the LOP first — save it even if you want to keep it at 0.',
             ];
         }
 
         if ($mine !== null && $mine === (int) $item->employee_id && (float) $item->lop_days > 0) {
             return [
                 'code' => 'SELF_APPROVAL_WITH_LOP',
-                'message' => 'Apni salary par LOP lagi hai — isko dusra approver hi approve karega.',
+                'message' => 'Your own salary has loss of pay applied — another approver must sign it off.',
             ];
         }
 
@@ -1038,7 +1071,7 @@ final class PayrollService
         $today = CompanyTime::day($companyId);
 
         if (Carbon::parse($month . '-01')->greaterThan($today->copy()->startOfMonth())) {
-            throw new ApiException('Aane wale mahine ka payroll nahi chalta.', 422, 'MONTH_IN_FUTURE');
+            throw new ApiException('Payroll cannot be run for a future month.', 422, 'MONTH_IN_FUTURE');
         }
 
         return $month;

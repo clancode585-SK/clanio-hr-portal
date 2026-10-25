@@ -20,17 +20,27 @@ class DailyReportItem extends Model
 
     public const SECTIONS = [self::SOD, self::EOD];
 
+    public const NOT_STARTED = 'not_started';
+
+    public const PENDING = 'pending';
+
+    public const WIP = 'wip';
+
+    public const COMPLETED = 'completed';
+
+    public const STATUSES = [self::NOT_STARTED, self::PENDING, self::WIP, self::COMPLETED];
+
     protected $fillable = [
         'section',
         'task_id',
         'title',
         'hours',
-        'is_completed',
+        'status',
         'sort_order',
     ];
 
     protected $attributes = [
-        'is_completed' => false,
+        'status' => self::NOT_STARTED,
         'sort_order' => 0,
     ];
 
@@ -38,7 +48,6 @@ class DailyReportItem extends Model
     {
         return [
             'hours' => 'float',
-            'is_completed' => 'boolean',
             'sort_order' => 'integer',
         ];
     }

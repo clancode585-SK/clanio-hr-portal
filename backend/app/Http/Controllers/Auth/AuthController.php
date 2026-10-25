@@ -8,7 +8,9 @@ use App\Http\Controllers\ApiController;
 use App\Http\Requests\ChangePasswordRequest;
 use App\Http\Requests\ForgotPasswordRequest;
 use App\Http\Requests\LoginRequest;
+use App\Http\Requests\ResendVerificationRequest;
 use App\Http\Requests\ResetPasswordRequest;
+use App\Http\Requests\VerifyAccountRequest;
 use App\Services\AuthService;
 use App\Support\ApiResponse;
 use Illuminate\Http\JsonResponse;
@@ -37,7 +39,7 @@ class AuthController extends ApiController
     {
         return ApiResponse::success(
             $this->auth->refresh($request->user(), $request),
-            'Session aage badha diya gaya'
+            'Session extended'
         );
     }
 
@@ -51,9 +53,9 @@ class AuthController extends ApiController
         return ApiResponse::success(
             ['revoked' => $count],
             $count === 0
-                ? 'Koi aur device signed in nahi tha'
-                : $count . ' device se sign out kar diya'
-                    . ($keep ? ' — ye wala chalu hai' : '')
+                ? 'No other device was signed in'
+                : $count . ' devices signed out'
+                    . ($keep ? ' — this one is active' : '')
         );
     }
 
@@ -63,6 +65,20 @@ class AuthController extends ApiController
             ['sessions' => $this->auth->sessions($request->user(), $request)],
             'Sessions fetched successfully'
         );
+    }
+
+    public function verifyAccount(VerifyAccountRequest $request): JsonResponse
+    {
+        $this->auth->verifyAccount($request->validated());
+
+        return ApiResponse::success(null, 'Account verified. You can sign in now.');
+    }
+
+    public function resendVerification(ResendVerificationRequest $request): JsonResponse
+    {
+        $this->auth->resendVerification($request->validated());
+
+        return ApiResponse::success(null, 'If that account needs verification, a new code has been emailed.');
     }
 
     public function forgotPassword(ForgotPasswordRequest $request): JsonResponse

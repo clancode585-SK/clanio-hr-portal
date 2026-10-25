@@ -44,8 +44,8 @@ class RecognitionRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'title.required' => 'Kis cheez ke liye de rahe ho, wo likho.',
-            'reason.required' => 'Reject karne ki wajah likhni zaroori hai.',
+            'title.required' => 'Say what this is being given for.',
+            'reason.required' => 'A reason for rejecting is required.',
         ];
     }
 }

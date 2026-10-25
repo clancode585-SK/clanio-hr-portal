@@ -74,7 +74,7 @@ final class ExpenseService
 
         if (! $claim->isPending()) {
             throw new ApiException(
-                'Manager ke paas jaane ke baad claim edit nahi hoti. Cancel karke nayi banao.',
+                'A claim cannot be edited once it has gone to the manager. Cancel it and raise a new one.',
                 409,
                 'EXPENSE_NOT_EDITABLE'
             );
@@ -112,7 +112,7 @@ final class ExpenseService
 
         if (! $claim->isPending()) {
             throw new ApiException(
-                'Ye claim ab manager stage par nahi hai — abhi ' . $claim->stageLabel() . '.',
+                'This claim is no longer at the manager stage — currently ' . $claim->stageLabel() . '.',
                 409,
                 'EXPENSE_WRONG_STAGE'
             );
@@ -143,8 +143,8 @@ final class ExpenseService
         if (! $claim->isManagerApproved()) {
             throw new ApiException(
                 $claim->isPending()
-                    ? 'Pehle manager approve karega, tab HR verify karegi.'
-                    : 'Ye claim ab verification stage par nahi hai — abhi ' . $claim->stageLabel() . '.',
+                    ? 'A manager approves first, then HR verifies it.'
+                    : 'This claim is no longer at the verification stage — currently ' . $claim->stageLabel() . '.',
                 409,
                 'EXPENSE_WRONG_STAGE'
             );
@@ -158,7 +158,7 @@ final class ExpenseService
 
         if ($approved > (float) $claim->amount) {
             throw new ApiException(
-                'Approved amount claim se zyada nahi ho sakta (claim ' . $claim->amount . ').',
+                'The approved amount cannot exceed the claim (claim ' . $claim->amount . ').',
                 422,
                 'EXPENSE_AMOUNT_EXCEEDS_CLAIM'
             );
@@ -166,7 +166,7 @@ final class ExpenseService
 
         if ($approved < (float) $claim->amount && ($data['remarks'] ?? null) === null) {
             throw new ApiException(
-                'Amount kam kar rahe ho to wajah likhni zaroori hai.',
+                'A reason is required when you reduce the amount.',
                 422,
                 'EXPENSE_REMARKS_REQUIRED'
             );
@@ -198,8 +198,8 @@ final class ExpenseService
         if (! $claim->isVerified()) {
             throw new ApiException(
                 $claim->status === ExpenseClaim::PAID
-                    ? 'Ye claim already paid hai.'
-                    : 'HR verification ke bina payment nahi ho sakta — abhi ' . $claim->stageLabel() . '.',
+                    ? 'This claim has already been paid.'
+                    : 'Payment cannot go out without HR verification — currently ' . $claim->stageLabel() . '.',
                 409,
                 'EXPENSE_NOT_PAYABLE'
             );
@@ -208,7 +208,7 @@ final class ExpenseService
         $paidOn = isset($data['paid_on']) ? Carbon::parse($data['paid_on'])->startOfDay() : CompanyTime::day();
 
         if ($paidOn->greaterThan(CompanyTime::day())) {
-            throw new ApiException('Payment ki date aane wale din ki nahi ho sakti.', 422, 'EXPENSE_DATE_INVALID');
+            throw new ApiException('The payment date cannot be in the future.', 422, 'EXPENSE_DATE_INVALID');
         }
 
         $claim->forceFill([
@@ -242,7 +242,7 @@ final class ExpenseService
             $claim = ExpenseClaim::query()->where('uuid', $uuid)->first();
 
             if ($claim === null) {
-                $skipped[] = ['uuid' => $uuid, 'reason' => 'Claim nahi mila'];
+                $skipped[] = ['uuid' => $uuid, 'reason' => 'Claim not found'];
 
                 continue;
             }
@@ -304,7 +304,7 @@ final class ExpenseService
 
         if (! $claim->isPending()) {
             throw new ApiException(
-                'Manager ke paas jaane ke baad cancel nahi hoti — ' . $claim->stageLabel() . '.',
+                'It cannot be cancelled once it has gone to the manager — ' . $claim->stageLabel() . '.',
                 409,
                 'EXPENSE_NOT_CANCELLABLE'
             );
@@ -326,7 +326,7 @@ final class ExpenseService
         $this->assertOwner($claim, $actor);
 
         if ($claim->isClosed()) {
-            throw new ApiException('Band claim mein bill nahi jud sakta.', 409, 'EXPENSE_ALREADY_CLOSED');
+            throw new ApiException('A bill cannot be added to a closed claim.', 409, 'EXPENSE_ALREADY_CLOSED');
         }
 
         return DB::transaction(function () use ($claim, $file, $actor): ExpenseBill {
@@ -343,7 +343,7 @@ final class ExpenseService
 
         if ($claim === null || ! $claim->isPending()) {
             throw new ApiException(
-                'Manager ke paas jaane ke baad bill nahi hata sakte.',
+                'Bills cannot be removed once it has gone to the manager.',
                 409,
                 'EXPENSE_NOT_EDITABLE'
             );
@@ -364,7 +364,7 @@ final class ExpenseService
     public function downloadBill(ExpenseBill $bill): StreamedResponse
     {
         if (! Storage::disk(self::DISK)->exists($bill->file_path)) {
-            throw new ApiException('Ye bill ab available nahi hai.', 404, 'FILE_MISSING');
+            throw new ApiException('This bill is no longer available.', 404, 'FILE_MISSING');
         }
 
         return Storage::disk(self::DISK)->download($bill->file_path, $bill->original_name);
@@ -501,7 +501,7 @@ final class ExpenseService
 
         if ($purpose === null || trim((string) $purpose) === '') {
             throw new ApiException(
-                'Other chuna hai to batao kis liye — jaise "Laptop repair karaya".',
+                'You picked Other, so say what it was for — such as "Laptop repair".',
                 422,
                 'EXPENSE_PURPOSE_REQUIRED'
             );
@@ -513,21 +513,21 @@ final class ExpenseService
     private function assertAmount(float $amount): void
     {
         if ($amount <= 0) {
-            throw new ApiException('Amount 0 se zyada hona chahiye.', 422, 'EXPENSE_AMOUNT_INVALID');
+            throw new ApiException('The amount must be more than zero.', 422, 'EXPENSE_AMOUNT_INVALID');
         }
     }
 
     private function assertDate(Employee $employee, Carbon $date): void
     {
         if ($date->greaterThan(CompanyTime::day())) {
-            throw new ApiException('Aane wale din ka kharcha claim nahi hota.', 422, 'EXPENSE_FUTURE_DATE');
+            throw new ApiException('Expenses cannot be claimed for a future date.', 422, 'EXPENSE_FUTURE_DATE');
         }
 
         $days = $this->windowDays($employee);
 
         if ($date->lessThan(CompanyTime::day()->subDays($days))) {
             throw new ApiException(
-                'Sirf pichle ' . $days . ' din ka kharcha claim ho sakta hai.',
+                'Only the last ' . $days . ' days of expenses can be claimed.',
                 422,
                 'EXPENSE_WINDOW_CLOSED'
             );
@@ -548,7 +548,7 @@ final class ExpenseService
 
             if ($employee === null) {
                 throw new ApiException(
-                    'Reimbursement ke liye employee record chahiye. HR se onboarding karwao.',
+                    'Reimbursement needs an employee record. Ask HR to complete onboarding.',
                     422,
                     'EMPLOYEE_RECORD_MISSING'
                 );
@@ -558,7 +558,7 @@ final class ExpenseService
         }
 
         if (! $actor->isSuperAdmin() && ! $actor->hasPermission(ExpenseClaim::VERIFY_PERMISSION)) {
-            throw new ApiException('Kisi aur ki claim daalne ki permission nahi hai.', 403, 'FORBIDDEN');
+            throw new ApiException('You are not allowed to raise a claim for someone else.', 403, 'FORBIDDEN');
         }
 
         $employee = Employee::query()->with('user')->visibleTo($actor)->whereKey($employeeId)->first();
@@ -576,13 +576,13 @@ final class ExpenseService
             return;
         }
 
-        throw new ApiException('Ye claim aapki nahi hai.', 403, 'FORBIDDEN');
+        throw new ApiException('This claim is not yours.', 403, 'FORBIDDEN');
     }
 
     private function assertCanApprove(ExpenseClaim $claim, User $actor): void
     {
         if ((int) $claim->employee->user_id === (int) $actor->id && ! $actor->isSuperAdmin()) {
-            throw new ApiException('Apni claim khud approve nahi kar sakte.', 403, 'EXPENSE_SELF_APPROVAL');
+            throw new ApiException('You cannot approve your own claim.', 403, 'EXPENSE_SELF_APPROVAL');
         }
 
         if ($actor->isSuperAdmin() || $actor->hasPermission(ExpenseClaim::VERIFY_PERMISSION)) {
@@ -593,7 +593,7 @@ final class ExpenseService
             return;
         }
 
-        throw new ApiException('Aap is claim par decision nahi le sakte.', 403, 'FORBIDDEN');
+        throw new ApiException('You cannot decide on this claim.', 403, 'FORBIDDEN');
     }
 
     private function assertPermission(User $actor, string $permission, string $what): void
@@ -602,7 +602,7 @@ final class ExpenseService
             return;
         }
 
-        throw new ApiException('Aapke paas ' . $what . ' ka haq nahi hai.', 403, 'FORBIDDEN');
+        throw new ApiException('Aapke paas ' . $what . ' is not permitted.', 403, 'FORBIDDEN');
     }
 
     private function notifyManager(ExpenseClaim $claim, User $actor): void
@@ -681,24 +681,24 @@ final class ExpenseService
     private function notifyEmployee(ExpenseClaim $claim, User $actor, string $type): void
     {
         $body = match ($type) {
-            NotificationType::EXPENSE_APPROVED => 'Manager ne approve kar diya — ab HR verify karegi.',
-            NotificationType::EXPENSE_VERIFIED => 'HR ne verify kar diya — ' . $claim->payable()
-                . ' payment ka intezaar hai.'
+            NotificationType::EXPENSE_APPROVED => 'The manager approved it — HR will verify it next.',
+            NotificationType::EXPENSE_VERIFIED => 'HR has verified it — ' . $claim->payable()
+                . ' awaiting payment.'
                 . ($claim->payable() < (float) $claim->amount && $claim->verify_remarks !== null
                     ? ' (' . $claim->verify_remarks . ')'
                     : ''),
             NotificationType::EXPENSE_PAID => $claim->payable() . ' ' . $claim->payment_mode
-                . ' se ' . $claim->paid_on?->format('d M Y') . ' ko de di gayi.',
+                . ' se ' . $claim->paid_on?->format('d M Y') . ' has been given.',
             NotificationType::EXPENSE_REJECTED => ($claim->rejected_stage === ExpenseClaim::STAGE_MANAGER ? 'Manager' : 'HR')
                 . ' ne reject kiya — ' . $claim->reject_reason,
             default => '',
         };
 
         $title = match ($type) {
-            NotificationType::EXPENSE_APPROVED => 'Reimbursement approve ho gayi',
-            NotificationType::EXPENSE_VERIFIED => 'Reimbursement verify ho gayi',
-            NotificationType::EXPENSE_PAID => 'Reimbursement mil gayi',
-            NotificationType::EXPENSE_REJECTED => 'Reimbursement reject ho gayi',
+            NotificationType::EXPENSE_APPROVED => 'Reimbursement approved',
+            NotificationType::EXPENSE_VERIFIED => 'Reimbursement verified',
+            NotificationType::EXPENSE_PAID => 'Reimbursement received',
+            NotificationType::EXPENSE_REJECTED => 'Reimbursement rejected',
             default => 'Reimbursement update',
         };
 

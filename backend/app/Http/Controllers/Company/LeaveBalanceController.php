@@ -49,7 +49,7 @@ class LeaveBalanceController extends ApiController
 
         if ($companyId === null) {
             throw new ApiException(
-                'Balance allocate karne ke liye company chunni padegi. X-Company-Id header bhejo.',
+                'Pick a company to allocate balance. Send the X-Company-Id header.',
                 422,
                 'TENANT_REQUIRED'
             );

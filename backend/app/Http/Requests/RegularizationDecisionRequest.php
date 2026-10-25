@@ -23,7 +23,7 @@ class RegularizationDecisionRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'remarks.required' => 'Reject karne ki wajah likhni zaroori hai.',
+            'remarks.required' => 'A reason for rejecting is required.',
         ];
     }
 }

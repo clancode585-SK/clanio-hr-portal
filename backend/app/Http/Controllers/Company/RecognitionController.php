@@ -57,7 +57,7 @@ class RecognitionController extends ApiController
     {
         return ApiResponse::created(
             new RecognitionResource($this->recognitions->give($request->validated(), $request->user())),
-            'Recognition de di gayi'
+            'Recognition given'
         );
     }
 
@@ -73,6 +73,6 @@ class RecognitionController extends ApiController
     {
         $this->recognitions->delete($recognition, $request->user());
 
-        return ApiResponse::success(null, 'Recognition hata di gayi');
+        return ApiResponse::success(null, 'Recognition removed');
     }
 }

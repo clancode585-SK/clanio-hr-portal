@@ -92,7 +92,7 @@ class ExpenseClaimController extends ApiController
             new ExpenseClaimResource(
                 $this->expenses->apply($request->user(), $request->validated(), $request->file('bills') ?? [])
             ),
-            'Reimbursement request bhej di gayi'
+            'Reimbursement request sent'
         );
     }
 
@@ -112,7 +112,7 @@ class ExpenseClaimController extends ApiController
             new ExpenseClaimResource(
                 $this->expenses->update($claim, $request->validated(), $request->user())
             ),
-            'Claim update ho gayi'
+            'Claim updated'
         );
     }
 
@@ -122,7 +122,7 @@ class ExpenseClaimController extends ApiController
             new ExpenseClaimResource(
                 $this->expenses->approve($claim, $request->validated(), $request->user())
             ),
-            'Claim approve ho gayi — ab HR verify karegi'
+            'Claim approved — HR will verify it next'
         );
     }
 
@@ -132,7 +132,7 @@ class ExpenseClaimController extends ApiController
             new ExpenseClaimResource(
                 $this->expenses->verify($claim, $request->validated(), $request->user())
             ),
-            'Claim verify ho gayi — payment pending'
+            'Claim verified — payment pending'
         );
     }
 
@@ -142,7 +142,7 @@ class ExpenseClaimController extends ApiController
             new ExpenseClaimResource(
                 $this->expenses->pay($claim, $request->validated(), $request->user())
             ),
-            'Payment record ho gaya'
+            'Payment recorded'
         );
     }
 
@@ -152,7 +152,7 @@ class ExpenseClaimController extends ApiController
 
         return ApiResponse::success(
             $this->expenses->payMany($data['claims'], $data, $request->user()),
-            'Bulk payment process ho gaya'
+            'Bulk payment processed'
         );
     }
 
@@ -162,7 +162,7 @@ class ExpenseClaimController extends ApiController
             new ExpenseClaimResource(
                 $this->expenses->reject($claim, $request->validated(), $request->user())
             ),
-            'Claim reject kar di gayi'
+            'Claim rejected'
         );
     }
 
@@ -170,7 +170,7 @@ class ExpenseClaimController extends ApiController
     {
         return ApiResponse::success(
             new ExpenseClaimResource($this->expenses->cancel($claim, $request->user())),
-            'Claim cancel ho gayi'
+            'Claim cancelled'
         );
     }
 

@@ -23,7 +23,7 @@ class LeaveRejectRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'remarks.required' => 'Employee ko batao leave kyun reject hui.',
+            'remarks.required' => 'Tell the employee why the leave was rejected.',
         ];
     }
 }

@@ -23,6 +23,6 @@ class AppraisalReviewRequest extends FormRequest
 
     public function messages(): array
     {
-        return ['rating.required' => 'Rating dena zaroori hai.'];
+        return ['rating.required' => 'A rating is required.'];
     }
 }

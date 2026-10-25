@@ -12,7 +12,7 @@ class EscalateOverdueTickets extends Command
 {
     protected $signature = 'tickets:escalate';
 
-    protected $description = 'SLA cross kar chuke tickets ko breach mark karke escalate karta hai';
+    protected $description = 'Marks tickets past their SLA as breached and escalates them';
 
     public function __construct(private readonly TicketService $tickets)
     {

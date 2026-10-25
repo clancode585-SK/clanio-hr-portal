@@ -24,8 +24,8 @@ class LeaveBalanceAdjustRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'days.not_in' => 'Adjustment 0 din ka nahi ho sakta.',
-            'remarks.required' => 'Adjustment ki wajah likhna zaroori hai.',
+            'days.not_in' => 'An adjustment cannot be zero days.',
+            'remarks.required' => 'A reason for the adjustment is required.',
         ];
     }
 }

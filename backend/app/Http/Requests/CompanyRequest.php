@@ -52,7 +52,8 @@ class CompanyRequest extends FormRequest
             'admin.name' => [$required, 'string', 'max:150'],
             'admin.email' => [$required, 'email', 'max:255'],
             'admin.phone' => ['nullable', 'string', 'max:20'],
-            'admin.password' => [$required, 'string', Password::min(8)->letters()->numbers()],
+            // Khaali chhod sakte hain — system ek password bana ke verification mail me bhej deta hai
+            'admin.password' => ['nullable', 'string', Password::min(8)->letters()->numbers()],
         ];
     }
 

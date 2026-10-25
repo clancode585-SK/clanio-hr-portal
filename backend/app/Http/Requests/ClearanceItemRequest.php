@@ -41,8 +41,8 @@ class ClearanceItemRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'title.unique' => 'Is department me ye item already hai.',
-            'department.required' => 'Department chunna zaroori hai — it / finance / hr / manager.',
+            'title.unique' => 'This department already has that item.',
+            'department.required' => 'A department is required — it / finance / hr / manager.',
         ];
     }
 }

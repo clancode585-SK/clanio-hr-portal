@@ -64,11 +64,17 @@ class PayrollController extends ApiController
 
     public function calculate(Request $request, PayrollRun $payrollRun): JsonResponse
     {
+        $result = $this->payroll->calculate($payrollRun, $request->user());
+        $skipped = $result['skipped'];
+
         return ApiResponse::success(
-            new PayrollRunResource(
-                $this->payroll->calculate($payrollRun, $request->user())->load('items.lines', 'items.run')
-            ),
-            'Payroll calculated successfully'
+            [
+                'run' => new PayrollRunResource($result['run']->load('items.lines', 'items.run')),
+                'skipped' => $skipped,
+            ],
+            $skipped === []
+                ? 'Payroll calculated successfully'
+                : 'Payroll calculated — ' . count($skipped) . ' employee(s) could not be calculated'
         );
     }
 
@@ -84,7 +90,7 @@ class PayrollController extends ApiController
     {
         return ApiResponse::success(
             new PayrollItemResource($this->payroll->approveItem($payrollItem, $request->user())),
-            $payrollItem->employee_name . ' ki salary approve ho gayi'
+            $payrollItem->employee_name . ' salary approved'
         );
     }
 
@@ -92,7 +98,7 @@ class PayrollController extends ApiController
     {
         return ApiResponse::success(
             new PayrollItemResource($this->payroll->unapproveItem($payrollItem, $request->user())),
-            'Approval wapas le li'
+            'Approval withdrawn'
         );
     }
 
@@ -112,7 +118,7 @@ class PayrollController extends ApiController
             'already_approved' => $result['already_approved'],
             'approved_amount' => $result['approved_amount'],
             'skipped' => $result['skipped'],
-        ], $result['approved'] . ' salary approve ho gayi'
+        ], $result['approved'] . ' salaries approved'
             . (count($result['skipped']) > 0 ? ', ' . count($result['skipped']) . ' chhod di' : ''));
     }
 
@@ -120,7 +126,7 @@ class PayrollController extends ApiController
     {
         return ApiResponse::success(
             new PayrollRunResource($this->payroll->approve($payrollRun, $request->user())),
-            'Payroll approved — ab salary bheji ja sakti hai'
+            'Payroll approved — salary can now be paid'
         );
     }
 

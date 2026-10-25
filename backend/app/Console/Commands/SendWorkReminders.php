@@ -22,7 +22,7 @@ class SendWorkReminders extends Command
 {
     protected $signature = 'work:reminders {--type=all : tasks | sod | eod | all}';
 
-    protected $description = 'Task due/overdue aur SOD/EOD ke reminders bhejta hai';
+    protected $description = 'Sends reminders for due and overdue tasks and for daily reports';
 
     public function __construct(private readonly NotificationService $notifications)
     {
@@ -53,7 +53,7 @@ class SendWorkReminders extends Command
 
         app(TenantContext::class)->forget();
 
-        $this->info($sent . ' reminders bheje gaye.');
+        $this->info($sent . ' reminders sent.');
 
         return self::SUCCESS;
     }
@@ -72,7 +72,7 @@ class SendWorkReminders extends Command
         foreach ($tasks as $task) {
             $this->notifications->send((int) $task->assignee_id, [
                 'type' => NotificationType::TASK_DUE_SOON,
-                'title' => 'Kal due hai: ' . $task->title,
+                'title' => 'Due tomorrow: ' . $task->title,
                 'body' => ucfirst($task->priority) . ' priority · ' . $task->due_date->format('d M Y'),
                 'action_url' => '/tasks/' . $task->uuid,
                 'entity_type' => 'task',
@@ -152,10 +152,10 @@ class SendWorkReminders extends Command
 
             $this->notifications->send((int) $employee->user_id, [
                 'type' => $section === 'sod' ? NotificationType::SOD_PENDING : NotificationType::EOD_PENDING,
-                'title' => 'Aaj ka ' . $label . ' pending hai',
+                'title' => 'Aaj ka ' . $label . ' pending',
                 'body' => $section === 'sod'
-                    ? 'Aaj kya karna hai wo likh do — 2 minute ka kaam hai.'
-                    : 'Aaj kya kiya wo likh do, tabhi ghante task par judenge.',
+                    ? 'Write down what you plan to do today — it takes two minutes.'
+                    : 'Write down what you did today so the hours are credited to your tasks.',
                 'action_url' => '/daily-reports/today',
                 'entity_type' => 'daily_report',
                 'entity_id' => null,

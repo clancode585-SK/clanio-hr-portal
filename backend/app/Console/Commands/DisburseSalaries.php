@@ -22,7 +22,7 @@ class DisburseSalaries extends Command
     protected $signature = 'salary:disburse
         {--dry-run : Sirf batao kiski jaayegi, bhejo mat}';
 
-    protected $description = 'Salary date par approved payroll ki salary employees ke account me bhejta hai';
+    protected $description = 'Pays approved payroll into employee accounts on the salary date';
 
     public function __construct(
         private readonly SalaryDisbursementService $transfers,
@@ -56,7 +56,7 @@ class DisburseSalaries extends Command
                 $actor = $this->systemActor((int) $company->id);
 
                 if ($actor === null) {
-                    $this->warn($company->name . ' — koi admin nahi mila, skip.');
+                    $this->warn($company->name . ' — no admin found, skipped.');
 
                     continue;
                 }
@@ -114,12 +114,12 @@ class DisburseSalaries extends Command
         app(TenantContext::class)->forget();
 
         if ($dryRun) {
-            $this->info('Dry run — kuch bheja nahi gaya.');
+            $this->info('Dry run — nothing was sent.');
 
             return self::SUCCESS;
         }
 
-        $this->info($totalSent . ' salary bheji gayi, ' . $totalFailed . ' fail hui.');
+        $this->info($totalSent . ' salaries paid, ' . $totalFailed . ' failed.');
 
         return self::SUCCESS;
     }
