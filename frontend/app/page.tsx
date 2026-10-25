@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import HomeContent from "@/components/home/HomeContent";
@@ -11,5 +12,10 @@ export default async function Home() {
     redirect("/login");
   }
 
-  return <HomeContent />;
+  return (
+    <Suspense fallback={null}>
+      <HomeContent />
+    </Suspense>
+  );
 }
+
